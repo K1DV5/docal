@@ -12,6 +12,7 @@ class document:
 		self.content = ''
 		self.file = 'tex'
 		self.folder = 'RnD'
+		self.dir = 'here'
 	def __enter__(self):
 		return self
 	def append(self, content, whitespace = 2):
@@ -62,7 +63,8 @@ class document:
 			self.equation (variable_lx + '\t= ' + expr_1_lx, _tabs_*'\t' + '\t= ' + expr_2_lx, _tabs_*'\t' + '\t= ' + expr_3_lx)
 	def __exit__(self, *args):
 		self.content = '\\documentclass[' + self.options + ']{' + self.type + '}\n\\usepackage{amsmath}' + self.preamble + '\n\\begin{document}' + self.content + '\n\n\\end{document}'
-		directory = 'C:/Users/Kidus III/Documents/LaTeX/' + self.folder + '/'
+		if self.dir == 'here': directory = '.'
+		else: directory = 'C:/Users/Kidus III/Documents/LaTeX/' + self.folder + '/'
 		with open(directory + self.name + '.tex', 'w') as file:
 			file.write(self.content)
 		rmtree('__pycache__', ignore_errors = True)
