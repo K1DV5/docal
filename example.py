@@ -4,7 +4,6 @@ import numpy as np
 from sympy import eye, Matrix
 ur = UnitRegistry()
 with document() as a:
-	a.type = 'report'
 	a.options = '12pt'
 	a.chapter('''First Chapter''')
 
