@@ -1,0 +1,10 @@
+
+todo:
+1.	get a better unitless quantity vs quantity with unit differentiating way
+2.	add figure capability
+3.	add a plot capability (matplotlib)
+4.	add a table capability
+
+not working:
+1.	beta is mestaken, use beta_ instead
+2.	the unit psi is mistaken for the greek letter
