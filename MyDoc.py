@@ -1,6 +1,5 @@
 from shutil import rmtree
 import sympy as sp
-from sympy import Symbol
 from sympy.physics.units import meter, second, kilogram, convert_to
 from decimal import Decimal
 import __main__
@@ -44,18 +43,18 @@ class document:
 		def format_quantity(qty, unit_m = [meter, kilogram, second]):
 			'''returns a nicely latex formatted string of the quantity including the units (if any)'''
 			try:
-				return(str(round(Decimal(qty), 3)))
+				return(str(round(Decimal(float(qty)), 2)))
 			except:
-				number = round(Decimal(float(list(convert_to(qty, unit).evalf().as_coefficients_dict().values())[0])), 3)
-				un = '\\mathrm{' + sp.latex(list(convert_to(qty.evalf(), unit_m).as_coefficients_dict().keys())[0]) + '}'
-				abb = {'meter': 'm', 'second': 's', 'inch': 'in', 'kilogram': 'kg', 'pascal': 'Pa'}
+				number = round(Decimal(float(list(convert_to(qty, unit_m).evalf().as_coefficients_dict().values())[0])), 2)
+				un = '\\mathrm{' + sp.latex(list(convert_to(qty.evalf(), unit_m).as_coefficients_dict().keys())[0], mul_symbol = 'dot').replace('\\cdot', '\\,') + '}'
+				abb = {'meter': 'm', 'second': 's', 'inch': 'in', 'kilogram': 'kg', 'pascal': 'Pa', 'newton': 'N'}
 				fmtd = str(number) + '\\,' + un.replace('\\frac', '').replace('}{', '}\\slash{')
 				for full_form, short_form in abb.items(): fmtd = fmtd.replace(full_form, short_form)
 				return fmtd
 		lhand = eqn.split('=')[0].strip()
 		simplified = sp.simplify(eqn.split('=')[1].strip())
 		variable_main = '__main__.' + lhand
-		free_symbols = list(simplified.atoms(Symbol))
+		free_symbols = list(simplified.atoms(sp.Symbol))
 		variables_list = [sp.latex(var) for var in free_symbols]
 		values_list = [eval('__main__.' + str(var)) for var in free_symbols]
 		values_dict = dict(zip(variables_list, values_list))
