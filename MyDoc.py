@@ -2,18 +2,19 @@ from shutil import rmtree
 import sympy as sp
 from sympy import Symbol
 from sympy.physics.units import meter, second, kilogram, convert_to
+from decimal import Decimal
 import __main__
 class document:
 	'''contains (almost) all of the functionality for a LaTeX document'''
 	def __init__(self):
+		'''begins writing a document with a default documentclass: article, 11pt
+		Note: chapter cannot be used with article'''
 		self.name = __main__.__file__.replace('.py', '')
 		self.type = 'article'
 		self.options = '11pt'
 		self.preamble = ''
 		self.content = ''
 		self.file = 'tex'
-		self.folder = 'RnD'
-		self.dir = 'here'
 	def __enter__(self):
 		return self
 	def append(self, content, whitespace = 2):
@@ -37,16 +38,18 @@ class document:
 			for eq in eqns:
 				self.append(eq.replace('=', '&=') +'\\\\', 1)
 			self.append('\\end{split}\n\\end{align}', 1)
-	def aserar(self, eqn, intent = 'full', unit = [meter, second, kilogram]):
-		def format_quantity(qty):
+	def aserar(self, eqn, intent = 'full', unit = [meter, kilogram, second]):
+		'''
+		evaluates all the calculations and assignment needed in the eqn and writes all the procedures in the document'''
+		def format_quantity(qty, unit_m = [meter, kilogram, second]):
 			'''returns a nicely latex formatted string of the quantity including the units (if any)'''
 			try:
-				return(str(round(float(qty), 3)))
+				return(str(round(Decimal(qty), 3)))
 			except:
-				number = list(convert_to(qty, unit).evalf(5).as_coefficients_dict().values())[0]
-				un = '\\mathrm{' + sp.latex(list(convert_to(qty.evalf(), unit).as_coefficients_dict().keys())[0]) + '}'
-				abb = {'meter': 'm', 'second': 's'}
-				fmtd = str(number) + '\\,' + un
+				number = round(Decimal(float(list(convert_to(qty, unit).evalf().as_coefficients_dict().values())[0])), 3)
+				un = '\\mathrm{' + sp.latex(list(convert_to(qty.evalf(), unit_m).as_coefficients_dict().keys())[0]) + '}'
+				abb = {'meter': 'm', 'second': 's', 'inch': 'in', 'kilogram': 'kg', 'pascal': 'Pa'}
+				fmtd = str(number) + '\\,' + un.replace('\\frac', '').replace('}{', '}\\slash{')
 				for full_form, short_form in abb.items(): fmtd = fmtd.replace(full_form, short_form)
 				return fmtd
 		lhand = eqn.split('=')[0].strip()
@@ -63,7 +66,7 @@ class document:
 		expr_1_lx = sp.latex(simplified, mul_symbol = 'dot')
 		expr_2_lx = sp.latex(simplified, mul_symbol = 'times')
 		for var, val in values_dict.items(): expr_2_lx = expr_2_lx.replace(var, format_quantity(val))
-		expr_3_lx = format_quantity(simplified.subs(dict(zip(free_symbols, values_list))))
+		expr_3_lx = format_quantity(simplified.subs(dict(zip(free_symbols, values_list))), unit)
 		_tabs_ = len(variable_lx)//4
 		if intent == 'define':
 			self.equation (variable_lx + ' = ' + expr_3_lx, inline = True)
@@ -72,12 +75,11 @@ class document:
 		else:
 			self.equation (variable_lx + '\t= ' + expr_1_lx, _tabs_*'\t' + '\t= ' + expr_2_lx, _tabs_*'\t' + '\t= ' + expr_3_lx)
 	def __exit__(self, *args):
-		self.content = '\\documentclass[' + self.options + ']{' + self.type + '}\n\\usepackage{amsmath}' + self.preamble + '\n\\begin{document}' + self.content.replace('_{}', '') + '\n\n\\end{document}'
-		if self.dir == 'here': directory = ''
-		else: directory = 'C:/Users/Kidus III/Documents/LaTeX/' + self.folder + '/'
-		with open(directory + self.name + '.tex', 'w') as file:
+		if '\\begin{align}' in self.content: self.preamble = self.preamble + '\n\\usepackage{amsmath}'
+		self.content = '\\documentclass[' + self.options + ']{' + self.type + '}' + self.preamble + '\n\\begin{document}' + self.content.replace('_{}', '') + '\n\n\\end{document}'
+		with open(self.name + '.tex', 'w') as file:
 			file.write(self.content)
 		rmtree('__pycache__', ignore_errors = True)
 		if self.file != 'tex':
 			from subprocess import run
-			run(['pandoc', directory + self.name + '.tex', '-o', directory + self.name + '.' + self.file])
+			run(['pandoc', self.name + '.tex', '-o', self.name + '.' + self.file])

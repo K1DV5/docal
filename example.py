@@ -1,5 +1,5 @@
 from MyDoc import document
-from sympy.physics.units import meter, second, inch
+from sympy.physics.units import meter, second, inch, newton, pascal
 with document() as a:
 	a.options = '12pt'
 	a.chapter('''First Chapter''')
@@ -14,9 +14,9 @@ with document() as a:
 	a.append('''Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is  generally higher in cost and power.''')
 	a.equation('''L_M = \\pi\\times \\frac{\\theta}{56}''', inline=True)
 
-	a.append('''Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is  generally higher in cost and power.\\\\''', 0)
-	a.aserar('beta_ = 3*meter', 'define')
-	a.aserar('Theta_ = 98*inch', 'define')
-	a.aserar('''B = (beta_+Theta_)''', unit=inch)
+	a.append('''Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is  generally higher in cost and power.\\\\''')
+	a.aserar('beta_ = 3*newton', 'define')
+	a.aserar('Theta_ = 98*meter**2', 'define')
+	a.aserar('''B = (beta_/Theta_)''', unit = pascal)
 
 	a.append('''Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is generally higher in cost and power.''')
