@@ -43,9 +43,9 @@ class document:
 		def format_quantity(qty, unit_m = [meter, kilogram, second]):
 			'''returns a nicely latex formatted string of the quantity including the units (if any)'''
 			try:
-				return(str(round(Decimal(float(qty)), 2)))
+				return str(Decimal(str(qty)).quantize(Decimal('0.001')).normalize())
 			except:
-				number = round(Decimal(float(list(convert_to(qty, unit_m).evalf().as_coefficients_dict().values())[0])), 2)
+				number = Decimal(str(list(convert_to(qty, unit_m).evalf().as_coefficients_dict().values())[0])).quantize(Decimal('0.001')).normalize()
 				un = '\\mathrm{' + sp.latex(list(convert_to(qty.evalf(), unit_m).as_coefficients_dict().keys())[0], mul_symbol = 'dot').replace('\\cdot', '\\,') + '}'
 				abb = {'meter': 'm', 'second': 's', 'inch': 'in', 'kilogram': 'kg', 'pascal': 'Pa', 'newton': 'N'}
 				fmtd = str(number) + '\\,' + un.replace('\\frac', '').replace('}{', '}\\slash{')
