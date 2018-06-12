@@ -67,8 +67,10 @@ class document:
 				for eqt in eqns:
 					if '=' in eqt:
 						eq = eqt.split('=')
-						eqn = sp.latex(sp.sympify(eq[0])) + '&=' + sp.latex(sp.sympify(eq[1]))
-						self.append(eqn + '\\\\', 1)
+						try: lhand = sp.latex(sp.sympify(eq[0]))
+						except: lhand = ''
+						rhand = sp.latex(sp.sympify(eq[1]))
+						self.append(lhand + '&=' + rhand + '\\\\', 1)
 					else:
 						self.append(sp.latex(eqt) + '\\\\', 1)
 				self.append('\\end{split}\n\\end{align}', 1)
@@ -187,8 +189,15 @@ class document:
 			raw = True)
 
 	def __exit__(self, *args):
-		if '\\begin{align}' in self.content: self.preamble = self.preamble + '\n\\usepackage{amsmath}'
-		self.content = '\\documentclass[' + self.options + ']{' + self.type + '}' + self.preamble + '\n\\begin{document}' + self.content.replace('_{}', '') + '\n\n\\end{document}'
+		if '\\begin{align}' in self.content:
+			self.preamble = self.preamble + '\n\\usepackage{amsmath}'
+		self.content = ('\\documentclass['
+		+ self.options + ']{'
+		+ self.type + '}'
+		+ self.preamble
+		+ '\n\\begin{document}'
+		+ self.content.replace('_{}', '')
+		+ '\n\n\\end{document}')
 		with open(self.name + '.tex', 'w') as file:
 			file.write(self.content)
 		rmtree('__pycache__', ignore_errors = True)

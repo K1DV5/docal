@@ -15,7 +15,7 @@ with document() as a:
 
 	a.append('''Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is  generally higher in cost and power.''')
 	a.equation('L_M = \\pi\\times \\frac{\\theta}{56}', inline=True, raw = True)
-	a.equation('alpha = beta_/psi', '=k_b + f_9')
+	a.equation('alpha = beta_/psi', '=f_9')
 
 	a.append('''Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is  generally higher in cost and power.\\\\''')
 	a.aserar('beta_ = 5*second', 'define')
