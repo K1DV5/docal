@@ -1,4 +1,4 @@
-from MyDoc import document
+from scirep import document
 from sympy.physics.units import meter, second, inch, newton, pascal, Quantity,psi
 # from sympy.physics.dimension import pressure
 import numpy as np
