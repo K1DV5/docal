@@ -35,17 +35,43 @@ class document:
 	def subsubsection(self, title):
 		self.append('\n\\subsubsection{' + title + '}', 1)
 
-	def equation(self, *eqns, inline: bool = False):
-		if len(eqns) == 1:
-			if inline == True:
-				self.append(' $' + eqns[0] + '$ ', 1)
+	def equation(self, *eqns, inline: bool = False, raw: bool = False):
+		if raw == True:
+			if len(eqns) == 1:
+				if inline == True:
+					self.append(' $' + eqns[0] + '$ ', 1)
+				else:
+					self.append('\n\\begin{equation}\n' + eqns[0] + '\n\\end{equation}', 1)
 			else:
-				self.append('\n\\begin{equation}\n' + eqns[0] + '\n\\end{equation}', 1)
+				self.append('\n\\begin{align}\n\\begin{split}', 1)
+				for eq in eqns:
+					self.append(eq.replace('=', '&=') +'\\\\', 1)
+				self.append('\\end{split}\n\\end{align}', 1)
+		
 		else:
-			self.append('\n\\begin{align}\n\\begin{split}', 1)
-			for eq in eqns:
-				self.append(eq.replace('=', '&=') +'\\\\', 1)
-			self.append('\\end{split}\n\\end{align}', 1)
+			if len(eqns) == 1:
+				if '=' in eqns[0]:
+					eq = eqns[0].split('=')
+					eqn = sp.latex(sp.simplify(eq[0])) + '=' + sp.latex(sp.simplify(eq[1]))
+					if inline == True:
+						self.append('$' + eqn + '$', 1)
+					else:
+						self.append('\n\\begin{equation}\n' + eqn + '\n\\end{equation}', 1)
+				else:
+					if inline == True:
+						self.append('$' + eqns[0] + '$', 1)
+					else:
+						self.append('\n\\begin{equation}\n' + eqns[0] + '\n\\end{equation}', 1)
+			else:
+				self.append('\n\\begin{align}\n\\begin{split}', 1)
+				for eqt in eqns:
+					if '=' in eqt:
+						eq = eqt.split('=')
+						eqn = sp.latex(sp.sympify(eq[0])) + '&=' + sp.latex(sp.sympify(eq[1]))
+						self.append(eqn + '\\\\', 1)
+					else:
+						self.append(sp.latex(eqt) + '\\\\', 1)
+				self.append('\\end{split}\n\\end{align}', 1)
 
 	def aserar(self, eqn, intent = 'full', unit = [meter, kilogram, second]):
 		'''
@@ -55,20 +81,11 @@ class document:
 			'''returns a nicely latex formatted string of the quantity including the units (if any)'''
 
 			qty_type = str(type(qty))
-			try:
-				if 'array' in qty_type or 'Array' in qty_type:
-					return sp.latex(sp.Matrix(qty)
-					.applyfunc(lambda Ray:
-					str(Decimal(str(Ray))
-					.quantize(Decimal('0.001'))
-					.normalize())))
-				else:
-					return str(Decimal(str(qty))
-					.quantize(Decimal('0.001'))
-					.normalize())
+			if 'array' in qty_type or 'Array' in qty_type:
+				qty_type = str(type(qty[0]))
 
-			except:
-				if 'array' in qty_type or 'Array' in qty_type:
+				if 'Mul' in qty_type or 'Quantity' in qty_type or 'Pow' in qty_type:
+					# array + unit
 					number = sp.latex(sp.Matrix(qty)
 					.applyfunc(lambda Ray: 
 					Decimal(str(list(convert_to(Ray, unit_m)
@@ -81,7 +98,26 @@ class document:
 					.replace('\\cdot', '\\,') \
 					+ '}'
 
+					abb = {'meter': 'm', 'second': 's', 'inch': 'in', 'kilogram': 'kg', 'pascal': 'Pa', 'newton': 'N'}
+					fmtd = str(number) \
+					+ '\\,' \
+					+ un.replace('\\frac', '') \
+					.replace('}{', '}\\slash{')
+					for full_form, short_form in abb.items():
+						fmtd = fmtd.replace(full_form, short_form)
+					return fmtd
+
 				else:
+					# array + num
+					return sp.latex(sp.Matrix(qty)
+					.applyfunc(lambda Ray:
+					str(Decimal(str(Ray))
+					.quantize(Decimal('0.001'))
+					.normalize())))
+
+			else:
+				if 'Mul' in qty_type or 'Quantity' in qty_type or 'Pow' in qty_type:
+					# single + unit
 					number = Decimal(str(list(convert_to(qty, unit_m).evalf()
 					.as_coefficients_dict().values())[0])).quantize(Decimal('0.001')) \
 					.normalize()
@@ -90,14 +126,21 @@ class document:
 					.as_coefficients_dict().keys())[0], mul_symbol = 'dot') \
 					.replace('\\cdot', '\\,') + '}'
 
-				abb = {'meter': 'm', 'second': 's', 'inch': 'in', 'kilogram': 'kg', 'pascal': 'Pa', 'newton': 'N'}
-				fmtd = str(number) \
-				+ '\\,' \
-				+ un.replace('\\frac', '') \
-				.replace('}{', '}\\slash{')
-				for full_form, short_form in abb.items():
-					fmtd = fmtd.replace(full_form, short_form)
-				return fmtd
+					abb = {'meter': 'm', 'second': 's', 'inch': 'in', 'kilogram': 'kg', 'pascal': 'Pa', 'newton': 'N'}
+					fmtd = str(number) \
+					+ '\\,' \
+					+ un.replace('\\frac', '') \
+					.replace('}{', '}\\slash{')
+					for full_form, short_form in abb.items():
+						fmtd = fmtd.replace(full_form, short_form)
+					return fmtd
+
+				else:
+					# single + num
+					return str(Decimal(str(qty))
+					.quantize(Decimal('0.001'))
+					.normalize())
+
 		# main variable:
 		lhand = eqn.split('=')[0].strip()
 		variable_main = '__main__.' + lhand
@@ -112,37 +155,36 @@ class document:
 		variables_list = [sp.latex(var) for var in free_symbols]
 		values_list = [eval('__main__.' + str(var)) for var in free_symbols]
 		values_dict = dict(zip(variables_list, values_list))
-		print(values_dict)
-		expr_2_str = str(simplified)
-		for var in free_symbols:
-			expr_2_str = expr_2_str.replace(str(var), '__main__.'+str(var))
 		expr_2_lx = sp.latex(simplified, mul_symbol = 'times')
 		for var, val in values_dict.items():
 			expr_2_lx = expr_2_lx.replace(var, str(format_quantity(val)))
 
-		# expression 3:
-		expr_3_lx = format_quantity(simplified.subs(
-		dict(zip(free_symbols, values_list))
-		), unit_m = unit)
-
 		# variable assignment:
+		expr_2_str = str(simplified)
+		for var in free_symbols:
+			expr_2_str = expr_2_str.replace(str(var), '__main__.'+str(var))
 		exec(variable_main + '=' + expr_2_str)
 
-		# output:
+		# expression 3:
+		expr_3_lx = format_quantity(eval(expr_2_str), unit_m = unit)
+
+		# write equations:
 		_tabs_ = len(variable_lx)//4
 		if intent == 'define':
 			self.equation (
 			variable_lx + ' = ' + expr_3_lx,
-			inline = True)
+			inline = True, raw = True)
 		elif intent == '2steps' or intent == '2step':
 			self.equation (
 			variable_lx + '\t= ' + expr_1_lx,
-			_tabs_*'\t' + '\t= ' + expr_3_lx)
+			_tabs_*'\t' + '\t= ' + expr_3_lx,
+			raw = True)
 		else:
 			self.equation (
 			variable_lx + '\t= ' + expr_1_lx,
 			_tabs_*'\t' + '\t= ' + expr_2_lx,
-			_tabs_*'\t' + '\t= ' + expr_3_lx)
+			_tabs_*'\t' + '\t= ' + expr_3_lx,
+			raw = True)
 
 	def __exit__(self, *args):
 		if '\\begin{align}' in self.content: self.preamble = self.preamble + '\n\\usepackage{amsmath}'
