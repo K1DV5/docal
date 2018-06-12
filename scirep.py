@@ -77,30 +77,44 @@ class document:
 
 	def aserar(self, eqn, intent = 'full', unit = [meter, kilogram, second]):
 		'''
-		evaluates all the calculations and assignment needed in the eqn and writes all the procedures in the document'''
+		evaluates all the calculations and assignment needed in the eqn
+		and writes all the procedures in the document'''
 
 		def format_quantity(qty, unit_m = [meter, kilogram, second]):
-			'''returns a nicely latex formatted string of the quantity including the units (if any)'''
+			'''returns a nicely latex formatted string of the quantity
+			including the units (if any)'''
 
 			qty_type = str(type(qty))
 			abb = {'meter': 'm', 'second': 's', 'inch': 'in', 'kilogram': 'kg', 'pascal': 'Pa', 'newton': 'N'}
 			
+			fmt_un_num = lambda Qty: float(Decimal(str(list(convert_to(Qty, unit_m)
+			.evalf().as_coefficients_dict().values())[0])) \
+			.quantize(Decimal('0.001')).normalize())
+
+			fmt_un_un = lambda Qty:  '\\mathrm{' + sp.latex(list(convert_to(Qty.evalf(), unit_m)
+			.as_coefficients_dict().keys())[0], mul_symbol = 'dot') \
+			.replace('\\cdot', '\\,') + '}'
+
+			fmt_ul = lambda Qty: Decimal(str(Qty)) \
+			.quantize(Decimal('0.001')).normalize()
+			
 			if 'array' in qty_type or 'Array' in qty_type:
 				qty_type = str(type(qty[0]))
 
+				shorten_array = lambda fpart, Ffunc: fpart.replace(
+				'\\end{matrix}',
+				'\\\\\\vdots\\\\' + 
+				str(Ffunc(qty[-1])) + '\\end{matrix}')
+
 				if 'Mul' in qty_type or 'Quantity' in qty_type or 'Pow' in qty_type:
 					# array + unit
-					number = sp.latex(sp.Matrix(qty)
-					.applyfunc(lambda Ray: 
-					Decimal(str(list(convert_to(Ray, unit_m)
-					.evalf().as_coefficients_dict().values())[0]))
-					.quantize(Decimal('0.001')).normalize()))
+					if len(qty) < 4:
+						number = sp.latex(sp.Matrix(qty).applyfunc(fmt_un_num))
+					else:
+						number = shorten_array(sp.latex(sp.Matrix(qty[0:2])
+						.applyfunc(fmt_un_num)), fmt_un_num)
 
-					un = '\\mathrm{' \
-					+ sp.latex(list(convert_to(qty[0].evalf(), unit_m)
-					.as_coefficients_dict().keys())[0], mul_symbol = 'dot') \
-					.replace('\\cdot', '\\,') \
-					+ '}'
+					un = fmt_un_un(qty[0])
 
 					fmtd = str(number) \
 					+ '\\,' \
@@ -112,22 +126,18 @@ class document:
 
 				else:
 					# array + num
-					return sp.latex(sp.Matrix(qty)
-					.applyfunc(lambda Ray:
-					str(Decimal(str(Ray))
-					.quantize(Decimal('0.001'))
-					.normalize())))
+					if len(qty) < 4:
+						return sp.latex(sp.Matrix(qty).applyfunc(fmt_ul))
+					else:
+						return shorten_array(sp.latex(sp.Matrix(qty[0:2])
+						.applyfunc(fmt_ul)), fmt_ul)
 
 			else:
 				if 'Mul' in qty_type or 'Quantity' in qty_type or 'Pow' in qty_type:
 					# single + unit
-					number = Decimal(str(list(convert_to(qty, unit_m).evalf()
-					.as_coefficients_dict().values())[0])).quantize(Decimal('0.001')) \
-					.normalize()
+					number = fmt_un_num(qty)
 
-					un = '\\mathrm{' + sp.latex(list(convert_to(qty.evalf(), unit_m)
-					.as_coefficients_dict().keys())[0], mul_symbol = 'dot') \
-					.replace('\\cdot', '\\,') + '}'
+					un = fmt_un_un(qty)
 
 					fmtd = str(number) \
 					+ '\\,' \
@@ -139,9 +149,7 @@ class document:
 
 				else:
 					# single + num
-					return str(Decimal(str(qty))
-					.quantize(Decimal('0.001'))
-					.normalize())
+					return fmt_ul(qty)
 
 		# main variable:
 		lhand = eqn.split('=')[0].strip()
@@ -189,7 +197,7 @@ class document:
 			raw = True)
 
 	def __exit__(self, *args):
-		if '\\begin{align}' in self.content:
+		if '\\begin{align}' in self.content or '\\begin{matrix}' in self.content:
 			self.preamble = self.preamble + '\n\\usepackage{amsmath}'
 		self.content = ('\\documentclass['
 		+ self.options + ']{'

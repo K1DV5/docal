@@ -6,6 +6,7 @@ todo:
 4.	add a table capability
 5.	add documentation
 
-not working:
+problems:
 1.	beta is mestaken, use beta_ instead
-2.	the unit psi is mistaken for the greek letter
+2.	the unit psi is mistaken for the greek letter, assign it to another variable and work with it
+3.	can't use modules imported as "import ... as ..." directly, use above method
