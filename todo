@@ -4,6 +4,7 @@ todo:
 2.	add figure capability
 3.	add a plot capability (matplotlib)
 4.	add a table capability
+5.	add documentation
 
 not working:
 1.	beta is mestaken, use beta_ instead
