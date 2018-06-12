@@ -16,4 +16,4 @@ This library aims to combine the strengths of the above tools and make it easy t
 * Clear calculation procedure output
 
 ### Note:
-The project is currently under development.
+The project is currently under development and since I am not experienced, any suggestion or contribution is very welcome.

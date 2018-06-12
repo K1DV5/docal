@@ -81,6 +81,8 @@ class document:
 			'''returns a nicely latex formatted string of the quantity including the units (if any)'''
 
 			qty_type = str(type(qty))
+			abb = {'meter': 'm', 'second': 's', 'inch': 'in', 'kilogram': 'kg', 'pascal': 'Pa', 'newton': 'N'}
+			
 			if 'array' in qty_type or 'Array' in qty_type:
 				qty_type = str(type(qty[0]))
 
@@ -98,7 +100,6 @@ class document:
 					.replace('\\cdot', '\\,') \
 					+ '}'
 
-					abb = {'meter': 'm', 'second': 's', 'inch': 'in', 'kilogram': 'kg', 'pascal': 'Pa', 'newton': 'N'}
 					fmtd = str(number) \
 					+ '\\,' \
 					+ un.replace('\\frac', '') \
@@ -126,7 +127,6 @@ class document:
 					.as_coefficients_dict().keys())[0], mul_symbol = 'dot') \
 					.replace('\\cdot', '\\,') + '}'
 
-					abb = {'meter': 'm', 'second': 's', 'inch': 'in', 'kilogram': 'kg', 'pascal': 'Pa', 'newton': 'N'}
 					fmtd = str(number) \
 					+ '\\,' \
 					+ un.replace('\\frac', '') \
