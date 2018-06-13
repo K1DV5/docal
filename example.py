@@ -21,7 +21,7 @@ with document() as a:
 	a.append('''Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is  generally higher in cost and power.\\\\''')
 	a.aserar('beta_ = 5*second', 'define')
 	# a.aserar('Theta_ = 98.5366666*meter**2', 'define')
-	arra = sp.Matrix(np.matrix('1 2 3 4 5 6; 1 2 3 4 5 6; 1 2 3 4 5 6; 1 2 3 4 5 6; 4 5 6 7 8 9; 4 5 6 1 2 3'))*meter
+	arra = sp.Matrix(np.matrix('1 2 3 4 5 6; 2 3 4 5 6 7; 3 4 5 6 7 8; 4 5 6 7 8 9'))*meter
 	a.aserar('g_v = arra', 'define')
 	a.aserar('B = g_v/beta_', intent = '2step')
 

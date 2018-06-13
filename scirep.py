@@ -149,10 +149,15 @@ class document:
 				)
 
 				narrow_matrix = lambda fpart, Ffunc: fpart.replace(
-					'\\\\', ' & \\cdots & ' + str(Ffunc(qty[0, -1])) + '\\\\'
+					'\\\\', ' & \\cdots & ' + str(Ffunc(qty[0, -1])) + '\\temp', 1
 					).replace(
-					'\\end{matrix}',
-					' & \\cdots & ' + str(Ffunc(qty[1, -1]))
+					'\\\\', ' & \\cdots & ' + str(Ffunc(qty[1, -1])) + '\\temp', 1
+					).replace(
+					'\\\\', ' & \\cdots & ' + str(Ffunc(qty[2, -1])) + '\\temp', 1
+					).replace(
+					'\\temp', '\\\\'
+					).replace(
+					'\\end{matrix}', ' & \\cdots & ' + str(Ffunc(qty[3, -1]))
 					+ '\\end{matrix}'
 				)
 
