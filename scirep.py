@@ -109,9 +109,11 @@ class document:
 				if 'Mul' in qty_type or 'Quantity' in qty_type or 'Pow' in qty_type:
 					# array + unit
 					if len(qty) < 4:
+						# very long array
 						number = sp.latex(sp.Matrix(qty).applyfunc(fmt_un_num))
 					else:
-						number = shorten_array(sp.latex(sp.Matrix(qty[0:2])
+						# normal length array
+						number = shorten_array(sp.latex(sp.Matrix(qty)
 						.applyfunc(fmt_un_num)), fmt_un_num)
 
 					un = fmt_un_un(qty[0])
@@ -131,6 +133,84 @@ class document:
 					else:
 						return shorten_array(sp.latex(sp.Matrix(qty[0:2])
 						.applyfunc(fmt_ul)), fmt_ul)
+
+			elif 'matrix' in qty_type or 'Matrix' in qty_type:
+				qty_type = str(type(qty[0]))
+
+				shrink_matrix = lambda fpart, Ffunc: fpart.replace(
+					'\\\\', ' & \\cdots & ' + str(Ffunc(qty[0, -1])) + '\\\\'
+					).replace(
+					'\\end{matrix}',
+					' & \\cdots & ' + str(Ffunc(qty[1, -1]))
+					+ '\\\\\\vdots & \\vdots & \\ddots & \\vdots\\\\'
+					+ str(Ffunc(qty[-1, 0])) + ' & ' + str(Ffunc(qty[-1, 1]))
+					+ ' & \\cdots & ' + str(Ffunc(qty[-1, -1]))
+					+ '\\end{matrix}'
+				)
+
+				narrow_matrix = lambda fpart, Ffunc: fpart.replace(
+					'\\\\', ' & \\cdots & ' + str(Ffunc(qty[0, -1])) + '\\\\'
+					).replace(
+					'\\end{matrix}',
+					' & \\cdots & ' + str(Ffunc(qty[1, -1]))
+					+ '\\end{matrix}'
+				)
+
+				shorten_matrix = lambda fpart, Ffunc: fpart.replace(
+					'\\end{matrix}',
+					'\\\\\\vdots & \\vdots & \\vdots & \\vdots\\\\'
+					+ str(Ffunc(qty[-1, 0])) + ' & ' + str(Ffunc(qty[-1, 1])) + ' & '
+					+ str(Ffunc(qty[-1, 2])) + ' & ' + str(Ffunc(qty[-1, 3]))
+					+ '\\end{matrix}'
+				)
+
+				if 'Mul' in qty_type or 'Quantity' in qty_type or 'Pow' in qty_type:
+					# matrix + unit
+					if sp.Matrix(qty).rows > 4 and sp.Matrix(qty).cols > 4:
+						# very big matrix
+						number = shrink_matrix(sp.latex(sp.Matrix(qty[0:2, 0:2])
+						.applyfunc(fmt_un_num)), fmt_un_num)
+					elif sp.Matrix(qty).rows > 4 and sp.Matrix(qty).cols < 5:
+						# very long matrix
+						number = shorten_matrix(sp.latex(sp.Matrix(qty[0:2, :])
+						.applyfunc(fmt_un_num)), fmt_un_num)
+					elif sp.Matrix(qty).rows < 5 and sp.Matrix(qty).cols > 4:
+						# very wide matrix
+						number = narrow_matrix(sp.latex(sp.Matrix(qty[:, 0:2])
+						.applyfunc(fmt_un_num)), fmt_un_num)
+					else:
+						# normal size matrix
+						number = shorten_array(sp.latex(sp.Matrix(qty)
+						.applyfunc(fmt_un_num)), fmt_un_num)
+
+					un = fmt_un_un(qty[0, 0])
+
+					fmtd = str(number) \
+					+ '\\,' \
+					+ un.replace('\\frac', '') \
+					.replace('}{', '}\\slash{')
+					for full_form, short_form in abb.items():
+						fmtd = fmtd.replace(full_form, short_form)
+					return fmtd
+
+				else:
+					# matrix + num
+					if sp.Matrix(qty).rows > 4 and sp.Matrix(qty).cols > 4:
+						# very big matrix
+						return shrink_matrix(sp.latex(sp.Matrix(qty[0:2, 0:2])
+						.applyfunc(fmt_un_num)), fmt_un_num)
+					elif sp.Matrix(qty).rows > 4 and sp.Matrix(qty).cols < 5:
+						# very long matrix
+						return shorten_matrix(sp.latex(sp.Matrix(qty[0:2, :])
+						.applyfunc(fmt_un_num)), fmt_un_num)
+					elif sp.Matrix(qty).rows < 5 and sp.Matrix(qty).cols > 4:
+						# very wide matrix
+						return narrow_matrix(sp.latex(sp.Matrix(qty[:, 0:2])
+						.applyfunc(fmt_un_num)), fmt_un_num)
+					else:
+						# normal size matrix
+						return shorten_array(sp.latex(sp.Matrix(qty)
+						.applyfunc(fmt_un_num)), fmt_un_num)
 
 			else:
 				if 'Mul' in qty_type or 'Quantity' in qty_type or 'Pow' in qty_type:
