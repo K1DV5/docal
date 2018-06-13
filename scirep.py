@@ -20,8 +20,8 @@ class document:
 	def __enter__(self):
 		return self
 
-	def append(self, content, whitespace = 2):
-		self.content = self.content + '\n' * whitespace + content
+	def append(self, content, ws = 2):
+		self.content = self.content + '\n' * ws + content
 
 	def chapter(self, title):
 		self.append('\n\\chapter{' + title + '}', 1)
@@ -95,8 +95,10 @@ class document:
 			.as_coefficients_dict().keys())[0], mul_symbol = 'dot') \
 			.replace('\\cdot', '\\,') + '}'
 
-			fmt_ul = lambda Qty: Decimal(str(Qty)) \
-			.quantize(Decimal('0.001')).normalize()
+			def fmt_ul(Qty):
+				try: return Decimal(str(Qty)) \
+				.quantize(Decimal('0.001')).normalize()
+				except: return Qty
 			
 			if 'array' in qty_type or 'Array' in qty_type:
 				qty_type = str(type(qty[0]))
@@ -185,8 +187,8 @@ class document:
 						.applyfunc(fmt_un_num)), fmt_un_num)
 					else:
 						# normal size matrix
-						number = shorten_array(sp.latex(sp.Matrix(qty)
-						.applyfunc(fmt_un_num)), fmt_un_num)
+						number = sp.latex(sp.Matrix(qty)
+						.applyfunc(fmt_un_num))
 
 					un = fmt_un_un(qty[0, 0])
 
@@ -214,8 +216,8 @@ class document:
 						.applyfunc(fmt_un_num)), fmt_un_num)
 					else:
 						# normal size matrix
-						return shorten_array(sp.latex(sp.Matrix(qty)
-						.applyfunc(fmt_un_num)), fmt_un_num)
+						return sp.latex(sp.Matrix(qty)
+						.applyfunc(fmt_un_num))
 
 			else:
 				if 'Mul' in qty_type or 'Quantity' in qty_type or 'Pow' in qty_type:
@@ -234,7 +236,7 @@ class document:
 
 				else:
 					# single + num
-					return fmt_ul(qty)
+					return str(fmt_ul(qty))
 
 		# main variable:
 		lhand = eqn.split('=')[0].strip()
@@ -274,6 +276,10 @@ class document:
 			variable_lx + '\t= ' + expr_1_lx,
 			_tabs_*'\t' + '\t= ' + expr_3_lx,
 			raw = True)
+		elif intent == 'final':
+			self.equation (
+			variable_lx + '\t= ' + expr_3_lx,
+			raw = True)
 		else:
 			self.equation (
 			variable_lx + '\t= ' + expr_1_lx,
@@ -281,12 +287,31 @@ class document:
 			_tabs_*'\t' + '\t= ' + expr_3_lx,
 			raw = True)
 
+	def figure(self, fig, label = '', caption = ''):
+		if label == '': label = fig.split('.')[0]
+		if caption != '':
+			self.append(
+				'\\begin{figure}\n\\includegraphics{'
+				+ fig
+				+ '}\n\\caption{'
+				+ caption
+				+ '}\n\\label{'
+				+ label
+				+ '}\n\\end{figure}'
+			)
+		else:
+			self.append('\\includegraphics{' + fig + '}')
+
 	def __exit__(self, *args):
+		# equation handling package
 		if '\\begin{align}' in self.content or '\\begin{matrix}' in self.content:
 			self.preamble = self.preamble + '\n\\usepackage{amsmath}'
+		# figures handling package
+		if '\\includegraphics{' in self.content:
+			self.preamble = self.preamble + '\n\\usepackage{graphicx}'
 		self.content = ('\\documentclass['
 		+ self.options + ']{'
-		+ self.type + '}'
+		+ self.type + '}\n'
 		+ self.preamble
 		+ '\n\\begin{document}'
 		+ self.content.replace('_{}', '')
