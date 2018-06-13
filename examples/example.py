@@ -1,9 +1,10 @@
-from scirep import document
+# from scirep import document
+from .. import scirep as sr
 from sympy.physics.units import meter, second, inch, newton, pascal, Quantity,psi
 # from sympy.physics.dimension import pressure
 import numpy as np
 import sympy as sp
-with document() as a:
+with sr.document() as a:
 	a.options = '12pt'
 	a.chapter('''First Chapter''')
 	a.preamble = '\\usepackage{graphicx}'
@@ -26,6 +27,6 @@ with document() as a:
 	a.aserar('g_v = arra', 'define')
 	a.aserar('B = g_v/beta_')
 
-	a.figure('T')
+	a.figure('T.png', caption = 'This Figure')
 
 	a.append('''Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is generally higher in cost and power.''')

@@ -291,7 +291,8 @@ class document:
 		if label == '': label = fig.split('.')[0]
 		if caption != '':
 			self.append(
-				'\\begin{figure}\n\\includegraphics{'
+				'''\\begin{figure}
+				\\centering\n\\includegraphics{'''
 				+ fig
 				+ '}\n\\caption{'
 				+ caption
