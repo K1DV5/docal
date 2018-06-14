@@ -1,6 +1,7 @@
 from shutil import rmtree
 import sympy as sp
-from sympy.physics.units import meter, second, kilogram, convert_to
+from sympy import latex, sympify, Symbol, sqrt, solve, Matrix
+from sympy.physics.units import meter, second, kilogram, convert_to, Quantity
 from decimal import Decimal
 import __main__
 
@@ -49,30 +50,35 @@ class document:
 				self.append('\\end{split}\n\\end{align}', 1)
 		
 		else:
+			lxify = lambda eq: latex(eq, mul_symbol = 'dot')
 			if len(eqns) == 1:
 				if '=' in eqns[0]:
 					eq = eqns[0].split('=')
-					eqn = sp.latex(sp.simplify(eq[0])) + '=' + sp.latex(sp.simplify(eq[1]))
+					eqn = (lxify(sympify(eq[0])).replace('\\cdot', '\\,')
+						+ '='
+						+ lxify(sympify(eq[1])).replace('\\cdot', '\\,')
+					)
 					if inline == True:
 						self.append(f'${eqn}$', 1)
 					else:
 						self.append(f'\n\\begin{{equation}}\n{eqn}\n\\end{{equation}}', 1)
 				else:
+					expr = sympify(eqns[0])
 					if inline == True:
-						self.append(f'${eqns[0]}$', 1)
+						self.append(f'${lxify(expr)}$', 1)
 					else:
-						self.append(f'\n\\begin{{equation}}\n{eqns[0]}\n\\end{{equation}}', 1)
+						self.append(f'\n\\begin{{equation}}\n{lxify(expr)}\n\\end{{equation}}', 1)
 			else:
 				self.append('\n\\begin{align}\n\\begin{split}', 1)
 				for eqt in eqns:
 					if '=' in eqt:
 						eq = eqt.split('=')
-						try: lhand = sp.latex(sp.sympify(eq[0]))
+						try: lhand = lxify(sympify(eq[0]))
 						except: lhand = ''
-						rhand = sp.latex(sp.sympify(eq[1]))
+						rhand = lxify(sympify(eq[1]))
 						self.append(f'{lhand} &= {rhand}\\\\', 1)
 					else:
-						self.append(f'{sp.latex(eqt)}\\\\', 1)
+						self.append(f'{lxify(eqt)}\\\\', 1)
 				self.append('\\end{split}\n\\end{align}', 1)
 
 	def aserar(self, eqn, intent = 'full', unit = [meter, kilogram, second]):
@@ -80,18 +86,20 @@ class document:
 		evaluates all the calculations and assignment needed in the eqn
 		and writes all the procedures in the document'''
 
-		def format_quantity(qty, unit_m = [meter, kilogram, second]):
+		abb = {'meter': 'm', 'second': 's', 'inch': 'in', 'kilogram': 'kg', 'pascal': 'Pa', 'newton': 'N'}
+		def format_quantity(qty, unit_internal = [meter, kilogram, second]):
 			'''returns a nicely latex formatted string of the quantity
 			including the units (if any)'''
 
 			qty_type = str(type(qty))
-			abb = {'meter': 'm', 'second': 's', 'inch': 'in', 'kilogram': 'kg', 'pascal': 'Pa', 'newton': 'N'}
 			
-			fmt_un_num = lambda Qty: float(Decimal(str(list(convert_to(Qty, unit_m)
-			.evalf().as_coefficients_dict().values())[0])) \
-			.quantize(Decimal('0.001')).normalize())
+			fmt_un_num = lambda Qty: float(Decimal(str(list(
+				convert_to(Qty, unit_internal)
+				.evalf().as_coefficients_dict().values())[0])) \
+				.quantize(Decimal('0.001')).normalize())
 
-			fmt_un_un = lambda Qty:  '\\mathrm{' + sp.latex(list(convert_to(Qty.evalf(), unit_m)
+			fmt_un_un = lambda Qty:  '\\mathrm{' \
+			+ latex(list(convert_to(Qty.evalf(), unit_internal)
 			.as_coefficients_dict().keys())[0], mul_symbol = 'dot') \
 			.replace('\\cdot', '\\,') + '}'
 
@@ -105,17 +113,16 @@ class document:
 
 				shorten_array = lambda fpart, Ffunc: fpart.replace(
 				'\\end{matrix}',
-				'\\\\\\vdots\\\\' + 
-				str(Ffunc(qty[-1])) + '\\end{matrix}')
+				f'\\\\\\vdots\\\\{Ffunc(qty[-1])}\\end{{matrix}}')
 
 				if 'Mul' in qty_type or 'Quantity' in qty_type or 'Pow' in qty_type:
 					# array + unit
 					if len(qty) < 4:
 						# very long array
-						number = sp.latex(sp.Matrix(qty).applyfunc(fmt_un_num))
+						number = latex(Matrix(qty).applyfunc(fmt_un_num))
 					else:
 						# normal length array
-						number = shorten_array(sp.latex(sp.Matrix(qty)
+						number = shorten_array(latex(Matrix(qty)
 						.applyfunc(fmt_un_num)), fmt_un_num)
 
 					un = fmt_un_un(qty[0])
@@ -131,9 +138,9 @@ class document:
 				else:
 					# array + num
 					if len(qty) < 4:
-						return sp.latex(sp.Matrix(qty).applyfunc(fmt_ul))
+						return latex(Matrix(qty).applyfunc(fmt_ul))
 					else:
-						return shorten_array(sp.latex(sp.Matrix(qty[0:2])
+						return shorten_array(latex(Matrix(qty[0:2])
 						.applyfunc(fmt_ul)), fmt_ul)
 
 			elif 'matrix' in qty_type or 'Matrix' in qty_type:
@@ -173,21 +180,21 @@ class document:
 
 				if 'Mul' in qty_type or 'Quantity' in qty_type or 'Pow' in qty_type:
 					# matrix + unit
-					if sp.Matrix(qty).rows > 4 and sp.Matrix(qty).cols > 4:
+					if Matrix(qty).rows > 4 and Matrix(qty).cols > 4:
 						# very big matrix
-						number = shrink_matrix(sp.latex(sp.Matrix(qty[0:2, 0:2])
+						number = shrink_matrix(latex(Matrix(qty[0:2, 0:2])
 						.applyfunc(fmt_un_num)), fmt_un_num)
-					elif sp.Matrix(qty).rows > 4 and sp.Matrix(qty).cols < 5:
+					elif Matrix(qty).rows > 4 and Matrix(qty).cols < 5:
 						# very long matrix
-						number = shorten_matrix(sp.latex(sp.Matrix(qty[0:2, :])
+						number = shorten_matrix(latex(Matrix(qty[0:2, :])
 						.applyfunc(fmt_un_num)), fmt_un_num)
-					elif sp.Matrix(qty).rows < 5 and sp.Matrix(qty).cols > 4:
+					elif Matrix(qty).rows < 5 and Matrix(qty).cols > 4:
 						# very wide matrix
-						number = narrow_matrix(sp.latex(sp.Matrix(qty[:, 0:2])
+						number = narrow_matrix(latex(Matrix(qty[:, 0:2])
 						.applyfunc(fmt_un_num)), fmt_un_num)
 					else:
 						# normal size matrix
-						number = sp.latex(sp.Matrix(qty)
+						number = latex(Matrix(qty)
 						.applyfunc(fmt_un_num))
 
 					un = fmt_un_un(qty[0, 0])
@@ -202,28 +209,27 @@ class document:
 
 				else:
 					# matrix + num
-					if sp.Matrix(qty).rows > 4 and sp.Matrix(qty).cols > 4:
+					if Matrix(qty).rows > 4 and Matrix(qty).cols > 4:
 						# very big matrix
-						return shrink_matrix(sp.latex(sp.Matrix(qty[0:2, 0:2])
+						return shrink_matrix(latex(Matrix(qty[0:2, 0:2])
 						.applyfunc(fmt_un_num)), fmt_un_num)
-					elif sp.Matrix(qty).rows > 4 and sp.Matrix(qty).cols < 5:
+					elif Matrix(qty).rows > 4 and Matrix(qty).cols < 5:
 						# very long matrix
-						return shorten_matrix(sp.latex(sp.Matrix(qty[0:2, :])
+						return shorten_matrix(latex(Matrix(qty[0:2, :])
 						.applyfunc(fmt_un_num)), fmt_un_num)
-					elif sp.Matrix(qty).rows < 5 and sp.Matrix(qty).cols > 4:
+					elif Matrix(qty).rows < 5 and Matrix(qty).cols > 4:
 						# very wide matrix
-						return narrow_matrix(sp.latex(sp.Matrix(qty[:, 0:2])
+						return narrow_matrix(latex(Matrix(qty[:, 0:2])
 						.applyfunc(fmt_un_num)), fmt_un_num)
 					else:
 						# normal size matrix
-						return sp.latex(sp.Matrix(qty)
+						return latex(Matrix(qty)
 						.applyfunc(fmt_un_num))
 
 			else:
 				if 'Mul' in qty_type or 'Quantity' in qty_type or 'Pow' in qty_type:
 					# single + unit
 					number = fmt_un_num(qty)
-
 					un = fmt_un_un(qty)
 
 					fmtd = str(number) \
@@ -239,31 +245,33 @@ class document:
 					return str(fmt_ul(qty))
 
 		# main variable:
-		lhand = eqn.split('=')[0].strip()
-		variable_main = '__main__.' + lhand
-		variable_lx = sp.latex(sp.simplify(lhand))
+		variable_main = eqn.split('=')[0].strip()
+		variable_lx = latex(sympify(variable_main))
 
 		# expression 1:
-		simplified = sp.simplify(eqn.split('=')[1].strip())
-		expr_1_lx = sp.latex(simplified, mul_symbol = 'dot')
+		sympified = sympify(eqn.split('=')[1].strip())
+		expr_1_lx = latex(sympified, mul_symbol = 'dot')
+		for un in list(abb.keys()):
+			if un in expr_1_lx:
+				expr_1_lx = expr_1_lx.replace(un,
+					format_quantity(eval(un, __main__.__dict__)))
 
 		# expression 2:
-		free_symbols = list(simplified.atoms(sp.Symbol))
-		variables_list = [sp.latex(var) for var in free_symbols]
-		values_list = [eval('__main__.' + str(var)) for var in free_symbols]
+		free_symbols = list(sympified.atoms(Symbol))
+		variables_list = [latex(var) for var in free_symbols]
+		values_list = [eval(str(var), __main__.__dict__) for var in free_symbols]
 		values_dict = dict(zip(variables_list, values_list))
-		expr_2_lx = sp.latex(simplified, mul_symbol = 'times')
+		expr_2_lx = latex(sympified, mul_symbol = 'times')
 		for var, val in values_dict.items():
 			expr_2_lx = expr_2_lx.replace(var, str(format_quantity(val)))
 
 		# variable assignment:
-		expr_2_str = str(simplified)
-		for var in free_symbols:
-			expr_2_str = expr_2_str.replace(str(var), '__main__.'+str(var))
-		exec(variable_main + '=' + expr_2_str)
+		expr_2_str = str(sympified)
+		exec(variable_main + '=' + expr_2_str, __main__.__dict__)
 
 		# expression 3:
-		expr_3_lx = format_quantity(eval(expr_2_str), unit_m = unit)
+		expr_3_lx = format_quantity(eval(expr_2_str, __main__.__dict__),
+			unit_internal = unit)
 
 		# write equations:
 		_tabs_ = len(variable_lx)//4
@@ -286,6 +294,11 @@ class document:
 			_tabs_*'\t' + '\t= ' + expr_2_lx,
 			_tabs_*'\t' + '\t= ' + expr_3_lx,
 			raw = True)
+
+	def solve(self, strg, var):
+		eqn = sympify(strg)
+		var = sympify(var)
+		return solve(eqn, var)
 
 	def figure(self, fig, label = '', caption = ''):
 		if label == '': label = fig.split('.')[0]
@@ -310,12 +323,15 @@ class document:
 		# figures handling package
 		if '\\includegraphics{' in self.content:
 			self.preamble = self.preamble + '\n\\usepackage{graphicx}'
+		post_fixes = {'_{}': '', '\\mathrm{m \\, N}': '\\mathrm{N \\, m}', '^{1.0}': ''}
+		for wrng, rght in post_fixes.items():
+			self.content = self.content.replace(wrng, rght)
 		self.content = ('\\documentclass['
 		f'{self.options}]{{'
 		f'{self.type}}}\n'
 		f'{self.preamble}'
 		'\n\\begin{document}'
-		f"{self.content.replace('_{}', '')}"
+		f"{self.content}"
 		'\n\n\\end{document}')
 		with open(self.name + '.tex', 'w') as file:
 			file.write(self.content)
