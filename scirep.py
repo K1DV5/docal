@@ -21,31 +21,31 @@ class document:
 		return self
 
 	def append(self, content, ws = 2):
-		self.content = self.content + '\n' * ws + content
+		self.content +=  '\n' * ws + content
 
 	def chapter(self, title):
-		self.append('\n\\chapter{' + title + '}', 1)
+		self.append(f'\n\\chapter{{{title}}}', 1)
 
 	def section(self, title):
-		self.append('\n\\section{' + title + '}', 1)
+		self.append(f'\n\\section{{{title}}}', 1)
 
 	def subsection(self, title):
-		self.append('\n\\subsection{' + title + '}', 1)
+		self.append(f'\n\\subsection{{{title}}}', 1)
 
 	def subsubsection(self, title):
-		self.append('\n\\subsubsection{' + title + '}', 1)
+		self.append(f'\n\\subsubsection{{{title}}}', 1)
 
 	def equation(self, *eqns, inline: bool = False, raw: bool = False):
 		if raw == True:
 			if len(eqns) == 1:
 				if inline == True:
-					self.append(' $' + eqns[0] + '$ ', 1)
+					self.append(f' ${eqns[0]}$ ', 1)
 				else:
-					self.append('\n\\begin{equation}\n' + eqns[0] + '\n\\end{equation}', 1)
+					self.append(f'\n\\begin{{equation}}\n{eqns[0]}\n\\end{{equation}}', 1)
 			else:
 				self.append('\n\\begin{align}\n\\begin{split}', 1)
 				for eq in eqns:
-					self.append(eq.replace('=', '&=') +'\\\\', 1)
+					self.append(f"{eq.replace('=', '&=')}\\\\", 1)
 				self.append('\\end{split}\n\\end{align}', 1)
 		
 		else:
@@ -54,14 +54,14 @@ class document:
 					eq = eqns[0].split('=')
 					eqn = sp.latex(sp.simplify(eq[0])) + '=' + sp.latex(sp.simplify(eq[1]))
 					if inline == True:
-						self.append('$' + eqn + '$', 1)
+						self.append(f'${eqn}$', 1)
 					else:
-						self.append('\n\\begin{equation}\n' + eqn + '\n\\end{equation}', 1)
+						self.append(f'\n\\begin{{equation}}\n{eqn}\n\\end{{equation}}', 1)
 				else:
 					if inline == True:
-						self.append('$' + eqns[0] + '$', 1)
+						self.append(f'${eqns[0]}$', 1)
 					else:
-						self.append('\n\\begin{equation}\n' + eqns[0] + '\n\\end{equation}', 1)
+						self.append(f'\n\\begin{{equation}}\n{eqns[0]}\n\\end{{equation}}', 1)
 			else:
 				self.append('\n\\begin{align}\n\\begin{split}', 1)
 				for eqt in eqns:
@@ -70,9 +70,9 @@ class document:
 						try: lhand = sp.latex(sp.sympify(eq[0]))
 						except: lhand = ''
 						rhand = sp.latex(sp.sympify(eq[1]))
-						self.append(lhand + '&=' + rhand + '\\\\', 1)
+						self.append(f'{lhand} &= {rhand}\\\\', 1)
 					else:
-						self.append(sp.latex(eqt) + '\\\\', 1)
+						self.append(f'{sp.latex(eqt)}\\\\', 1)
 				self.append('\\end{split}\n\\end{align}', 1)
 
 	def aserar(self, eqn, intent = 'full', unit = [meter, kilogram, second]):
@@ -143,32 +143,32 @@ class document:
 					'\\\\', ' & \\cdots & ' + str(Ffunc(qty[0, -1])) + '\\\\'
 					).replace(
 					'\\end{matrix}',
-					' & \\cdots & ' + str(Ffunc(qty[1, -1]))
-					+ '\\\\\\vdots & \\vdots & \\ddots & \\vdots\\\\'
-					+ str(Ffunc(qty[-1, 0])) + ' & ' + str(Ffunc(qty[-1, 1]))
-					+ ' & \\cdots & ' + str(Ffunc(qty[-1, -1]))
-					+ '\\end{matrix}'
+					(f' & \\cdots & {Ffunc(qty[1, -1])}'
+					'\\\\\\vdots & \\vdots & \\ddots & \\vdots\\\\'
+					f'{Ffunc(qty[-1, 0])} & {Ffunc(qty[-1, 1])}'
+					f' & \\cdots & {Ffunc(qty[-1, -1])}'
+					'\\end{matrix}')
 				)
 
 				narrow_matrix = lambda fpart, Ffunc: fpart.replace(
-					'\\\\', ' & \\cdots & ' + str(Ffunc(qty[0, -1])) + '\\temp', 1
+					'\\\\', f' & \\cdots & {Ffunc(qty[0, -1])}\\temp', 1
 					).replace(
-					'\\\\', ' & \\cdots & ' + str(Ffunc(qty[1, -1])) + '\\temp', 1
+					'\\\\', f' & \\cdots & {Ffunc(qty[1, -1])}\\temp', 1
 					).replace(
-					'\\\\', ' & \\cdots & ' + str(Ffunc(qty[2, -1])) + '\\temp', 1
+					'\\\\', f' & \\cdots & {Ffunc(qty[2, -1])}\\temp', 1
 					).replace(
 					'\\temp', '\\\\'
 					).replace(
-					'\\end{matrix}', ' & \\cdots & ' + str(Ffunc(qty[3, -1]))
-					+ '\\end{matrix}'
+					'\\end{matrix}',
+					f' & \\cdots & {Ffunc(qty[3, -1])}\\end{{matrix}}'
 				)
 
 				shorten_matrix = lambda fpart, Ffunc: fpart.replace(
 					'\\end{matrix}',
-					'\\\\\\vdots & \\vdots & \\vdots & \\vdots\\\\'
-					+ str(Ffunc(qty[-1, 0])) + ' & ' + str(Ffunc(qty[-1, 1])) + ' & '
-					+ str(Ffunc(qty[-1, 2])) + ' & ' + str(Ffunc(qty[-1, 3]))
-					+ '\\end{matrix}'
+					('\\\\\\vdots & \\vdots & \\vdots & \\vdots\\\\'
+					f'{Ffunc(qty[-1, 0])} & {Ffunc(qty[-1, 1])} & '
+					f'{Ffunc(qty[-1, 2])} & {Ffunc(qty[-1, 3])}'
+					'\\end{matrix}')
 				)
 
 				if 'Mul' in qty_type or 'Quantity' in qty_type or 'Pow' in qty_type:
@@ -291,14 +291,14 @@ class document:
 		if label == '': label = fig.split('.')[0]
 		if caption != '':
 			self.append(
-				'''\\begin{figure}
-				\\centering\n\\includegraphics{'''
-				+ fig
-				+ '}\n\\caption{'
-				+ caption
-				+ '}\n\\label{'
-				+ label
-				+ '}\n\\end{figure}'
+				'\\begin{figure}'
+				'\n\\centering\n\\includegraphics{'
+				f'{fig}'
+				'}\n\\caption{'
+				f'{caption}'
+				'}\n\\label{'
+				f'{label}'
+				'}\n\\end{figure}'
 			)
 		else:
 			self.append('\\includegraphics{' + fig + '}')
@@ -311,12 +311,12 @@ class document:
 		if '\\includegraphics{' in self.content:
 			self.preamble = self.preamble + '\n\\usepackage{graphicx}'
 		self.content = ('\\documentclass['
-		+ self.options + ']{'
-		+ self.type + '}\n'
-		+ self.preamble
-		+ '\n\\begin{document}'
-		+ self.content.replace('_{}', '')
-		+ '\n\n\\end{document}')
+		f'{self.options}]{{'
+		f'{self.type}}}\n'
+		f'{self.preamble}'
+		'\n\\begin{document}'
+		f"{self.content.replace('_{}', '')}"
+		'\n\n\\end{document}')
 		with open(self.name + '.tex', 'w') as file:
 			file.write(self.content)
 		rmtree('__pycache__', ignore_errors = True)

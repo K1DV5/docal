@@ -1,10 +1,13 @@
-# from scirep import document
-from .. import scirep as sr
+from sys import path
+path.append('..')
+# pylint: disable=E0611
+from scirep import document
+# pylint: enable=E0611
+
 from sympy.physics.units import meter, second, inch, newton, pascal, Quantity,psi
-# from sympy.physics.dimension import pressure
 import numpy as np
 import sympy as sp
-with sr.document() as a:
+with document() as a:
 	a.options = '12pt'
 	a.chapter('''First Chapter''')
 	a.preamble = '\\usepackage{graphicx}'
@@ -23,7 +26,7 @@ with sr.document() as a:
 	a.append('''Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is  generally higher in cost and power.\\\\''')
 	a.aserar('beta_ = 5*second', 'define')
 	# a.aserar('Theta_ = 98.5366666*meter**2', 'define')
-	arra = sp.Matrix(np.matrix('1 2 3 4 5 6; 2 3 4 5 6 7; 3 4 5 6 7 8; 4 5 6 7 8 9 ; 4 5 6 7 8 9; 4 5 6 7 8 9'))*meter
+	arra = sp.Matrix(np.matrix('1 2 3 4; 2 3 4 5; 3 4 5 8; 4 5 8 9 ; 4 5 8 9; 4 5 8 9'))*meter
 	a.aserar('g_v = arra', 'define')
 	a.aserar('B = g_v/beta_')
 
