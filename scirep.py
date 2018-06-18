@@ -2,7 +2,7 @@ from shutil import rmtree
 import sympy as sp
 from sympy import latex, sympify, Symbol, sqrt, solve, Matrix
 from sympy.physics.units import meter, second, kilogram, convert_to, Quantity
-from decimal import Decimal
+import re
 import __main__
 
 class document:
@@ -48,7 +48,7 @@ class document:
 				for eq in eqns:
 					self.append(f"{eq.replace('=', '&=')}\\\\", 1)
 				self.append('\\end{split}\n\\end{align}', 1)
-		
+
 		else:
 			lxify = lambda eq: latex(eq, mul_symbol = 'dot')
 			if len(eqns) == 1:
@@ -86,53 +86,79 @@ class document:
 		evaluates all the calculations and assignment needed in the eqn
 		and writes all the procedures in the document'''
 
-		abb = {'meter': 'm', 'second': 's', 'inch': 'in', 'kilogram': 'kg', 'pascal': 'Pa', 'newton': 'N'}
+		abb = {'meter': 'm', 'millimeter': 'mm', 'second': 's', 'inch': 'in', 'kilogram': 'kg', 'pascal': 'Pa', 'newton': 'N'}
 		def format_quantity(qty, unit_internal = [meter, kilogram, second]):
 			'''returns a nicely latex formatted string of the quantity
 			including the units (if any)'''
 
 			qty_type = str(type(qty))
-			
-			fmt_un_num = lambda Qty: float(Decimal(str(list(
-				convert_to(Qty, unit_internal)
-				.evalf().as_coefficients_dict().values())[0])) \
-				.quantize(Decimal('0.001')).normalize())
 
-			fmt_un_un = lambda Qty:  '\\mathrm{' \
-			+ latex(list(convert_to(Qty.evalf(), unit_internal)
-			.as_coefficients_dict().keys())[0], mul_symbol = 'dot') \
-			.replace('\\cdot', '\\,') + '}'
+			def units_count(Qty):
+				try: return len(Qty.atoms(Quantity))
+				except: return 0
+			
+			# re.sub(r'([0-9]*)e([-+][0-9]*)', r'\1\\times 10^{\2}', vb)
+			def fmt_un_num(Qty):
+				Num = float(list(
+				convert_to(Qty, unit_internal)
+				.evalf().as_coefficients_dict().values())[0])
+				if Num > 1000 or Num < 0.1:
+					return re.sub(r'([0-9]*)E([+-][0-9]*)'
+					, r'\1(10^{\2})', f'{Num:.2E}')\
+					.replace('+', '')
+				else:
+					if Num == int(Num):
+						return str(int(Num))
+					else:
+						return str(round(Num, 3))
+
+			def fmt_un_un(Qty):
+				return '\\mathrm{' \
+					+ latex(list(convert_to(Qty.evalf(), unit_internal)
+					.as_coefficients_dict().keys())[0], mul_symbol = 'dot') \
+					.replace('\\cdot', '\\,') + '}'
 
 			def fmt_ul(Qty):
-				try: return Decimal(str(Qty)) \
-				.quantize(Decimal('0.001')).normalize()
-				except: return Qty
-			
+				if Qty > 1000 or Qty < 0.1:
+					return re.sub(r'([0-9]*)E([-+][0-9]*)'
+					, r'\1(10^{\2})', f'{Qty:.2E}')\
+					.replace('+', '')
+				else:
+					if Qty == int(Qty):
+						return str(int(Qty))
+					else:
+						return str(round(Qty, 3))
+
 			if 'array' in qty_type or 'Array' in qty_type:
-				qty_type = str(type(qty[0]))
 
 				shorten_array = lambda fpart, Ffunc: fpart.replace(
 				'\\end{matrix}',
 				f'\\\\\\vdots\\\\{Ffunc(qty[-1])}\\end{{matrix}}')
 
-				if 'Mul' in qty_type or 'Quantity' in qty_type or 'Pow' in qty_type:
+				def format_array(Qty, Ffunc):
+					Arr_lx = latex(Qty)
+					for ele in Qty: Arr_lx = Arr_lx.replace(str(ele), Ffunc(ele))
+					return Arr_lx
+
+				qty_mat = Matrix(qty)
+				if units_count(qty[0]) != 0:
 					# array + unit
 					if len(qty) < 4:
 						# very long array
-						number = latex(Matrix(qty).applyfunc(fmt_un_num))
+						number = format_array(qty_mat, fmt_un_num)
 					else:
 						# normal length array
-						number = shorten_array(latex(Matrix(qty)
-						.applyfunc(fmt_un_num)), fmt_un_num)
+						number = shorten_array(format_array(qty_mat
+						, fmt_un_num), fmt_un_num)
 
 					un = fmt_un_un(qty[0])
+					for full_form, short_form in abb.items():
+						un = re.sub(fr'(?<=[^a-zA-Z_]){full_form}(?=[^a-zA-Z_])', short_form, un)
 
-					fmtd = str(number) \
+					fmtd = number \
 					+ '\\,' \
 					+ un.replace('\\frac', '') \
 					.replace('}{', '}\\slash{')
-					for full_form, short_form in abb.items():
-						fmtd = fmtd.replace(full_form, short_form)
 					return fmtd
 
 				else:
@@ -144,7 +170,6 @@ class document:
 						.applyfunc(fmt_ul)), fmt_ul)
 
 			elif 'matrix' in qty_type or 'Matrix' in qty_type:
-				qty_type = str(type(qty[0]))
 
 				shrink_matrix = lambda fpart, Ffunc: fpart.replace(
 					'\\\\', ' & \\cdots & ' + str(Ffunc(qty[0, -1])) + '\\\\'
@@ -178,71 +203,77 @@ class document:
 					'\\end{matrix}')
 				)
 
-				if 'Mul' in qty_type or 'Quantity' in qty_type or 'Pow' in qty_type:
+				def format_matrix(Mat, Ffunc):
+					Mat_lx = latex(Mat)
+					for ele in Mat: Mat_lx = Mat_lx.replace(str(ele), f'{Ffunc(ele)}')
+					return Mat_lx
+
+				qty_mat = Matrix(qty)
+				if units_count(qty[0]) != 0:
 					# matrix + unit
-					if Matrix(qty).rows > 4 and Matrix(qty).cols > 4:
+					if qty_mat.rows > 4 and qty_mat.cols > 4:
 						# very big matrix
-						number = shrink_matrix(latex(Matrix(qty[0:2, 0:2])
-						.applyfunc(fmt_un_num)), fmt_un_num)
-					elif Matrix(qty).rows > 4 and Matrix(qty).cols < 5:
+						number = shrink_matrix(format_matrix(qty_mat[0:2, 0:2]
+						, fmt_un_num), fmt_un_num)
+					elif qty_mat.rows > 4 and qty_mat.cols < 5:
 						# very long matrix
-						number = shorten_matrix(latex(Matrix(qty[0:2, :])
-						.applyfunc(fmt_un_num)), fmt_un_num)
-					elif Matrix(qty).rows < 5 and Matrix(qty).cols > 4:
+						number = shorten_matrix(format_matrix(qty_mat[0:2, :]
+						, fmt_un_num), fmt_un_num)
+					elif qty_mat.rows < 5 and qty_mat.cols > 4:
 						# very wide matrix
-						number = narrow_matrix(latex(Matrix(qty[:, 0:2])
-						.applyfunc(fmt_un_num)), fmt_un_num)
+						number = narrow_matrix(format_matrix(qty_mat[:, 0:2]
+						, fmt_un_num), fmt_un_num)
 					else:
 						# normal size matrix
-						number = latex(Matrix(qty)
-						.applyfunc(fmt_un_num))
+						number = format_matrix(qty_mat
+						, fmt_un_num)
 
 					un = fmt_un_un(qty[0, 0])
+					for full_form, short_form in abb.items():
+						un = re.sub(fr'(?<=[^a-zA-Z_]){full_form}(?=[^a-zA-Z_])', short_form, un)
 
 					fmtd = str(number) \
 					+ '\\,' \
 					+ un.replace('\\frac', '') \
 					.replace('}{', '}\\slash{')
-					for full_form, short_form in abb.items():
-						fmtd = fmtd.replace(full_form, short_form)
 					return fmtd
 
 				else:
 					# matrix + num
-					if Matrix(qty).rows > 4 and Matrix(qty).cols > 4:
+					if qty_mat.rows > 4 and qty_mat.cols > 4:
 						# very big matrix
-						return shrink_matrix(latex(Matrix(qty[0:2, 0:2])
-						.applyfunc(fmt_un_num)), fmt_un_num)
-					elif Matrix(qty).rows > 4 and Matrix(qty).cols < 5:
+						return shrink_matrix(format_matrix(qty_mat[0:2, 0:2]
+						, fmt_ul), fmt_ul)
+					elif qty_mat.rows > 4 and qty_mat.cols < 5:
 						# very long matrix
-						return shorten_matrix(latex(Matrix(qty[0:2, :])
-						.applyfunc(fmt_un_num)), fmt_un_num)
-					elif Matrix(qty).rows < 5 and Matrix(qty).cols > 4:
+						return shrink_matrix(format_matrix(qty_mat[0:2, :]
+						, fmt_ul), fmt_ul)
+					elif qty_mat.rows < 5 and qty_mat.cols > 4:
 						# very wide matrix
-						return narrow_matrix(latex(Matrix(qty[:, 0:2])
-						.applyfunc(fmt_un_num)), fmt_un_num)
+						return shrink_matrix(format_matrix(qty_mat[:, 0:2]
+						, fmt_ul), fmt_ul)
 					else:
 						# normal size matrix
-						return latex(Matrix(qty)
-						.applyfunc(fmt_un_num))
+						return format_matrix(qty_mat, fmt_ul)
 
 			else:
-				if 'Mul' in qty_type or 'Quantity' in qty_type or 'Pow' in qty_type:
+				if units_count(qty) != 0:
 					# single + unit
 					number = fmt_un_num(qty)
 					un = fmt_un_un(qty)
+					for full_form, short_form in abb.items():
+						un = re.sub(fr'(?<=[^a-zA-Z_]){full_form}(?=[^a-zA-Z_])'
+						, short_form, un)
 
-					fmtd = str(number) \
+					fmtd = number \
 					+ '\\,' \
 					+ un.replace('\\frac', '') \
 					.replace('}{', '}\\slash{')
-					for full_form, short_form in abb.items():
-						fmtd = fmtd.replace(full_form, short_form)
 					return fmtd
 
 				else:
 					# single + num
-					return str(fmt_ul(qty))
+					return fmt_ul(qty)
 
 		# main variable:
 		variable_main = eqn.split('=')[0].strip()
@@ -251,10 +282,11 @@ class document:
 		# expression 1:
 		sympified = sympify(eqn.split('=')[1].strip())
 		expr_1_lx = latex(sympified, mul_symbol = 'dot')
-		for un in list(abb.keys()):
-			if un in expr_1_lx:
-				expr_1_lx = expr_1_lx.replace(un,
-					format_quantity(eval(un, __main__.__dict__)))
+		for full_form, short_form in abb.items():
+			if full_form in expr_1_lx:
+				expr_1_lx = re.sub(fr'(?<=[^a-zA-Z_]){full_form}(?=[^a-zA-Z_])'
+				, f'\\mathrm{{{short_form}}}'
+				, expr_1_lx)
 
 		# expression 2:
 		free_symbols = list(sympified.atoms(Symbol))
@@ -263,7 +295,9 @@ class document:
 		values_dict = dict(zip(variables_list, values_list))
 		expr_2_lx = latex(sympified, mul_symbol = 'times')
 		for var, val in values_dict.items():
-			expr_2_lx = expr_2_lx.replace(var, str(format_quantity(val)))
+			expr_2_lx = re.sub(fr'(?<=[^a-zA-Z_]){var}(?=[^a-zA-Z_])',
+				format_quantity(val),
+				expr_2_lx)
 
 		# variable assignment:
 		expr_2_str = str(sympified)
