@@ -22,14 +22,14 @@ Then the cement will react with the same force distributed evenly along the blad
 
 \begin{align}
 \begin{split}
-R_{c}	&= \frac{F_{B}}{\mathrm{m}}\\
-		&= \frac{196\,\mathrm{{kg}\slash{s^{2}} \, m}}{1\,\mathrm{m}}\\
+R_{c}	&= \frac{F_{B}}{1\,\mathrm{m}}\\
+		&= \frac{196\,\mathrm{N}}{1\,\mathrm{m}}\\
 		&= 196\,\mathrm{{N}\slash{m}}\\
 \end{split}
 \end{align}
 
 Since the blade will be supported on both ends, from \cite[Table A-9]{shigley}, it can be assumed as number 7, simple supports, uniform load system. then taking the dimension 
- $b = 0.1\,\mathrm{m}$ , the stress equations will be solved for h. The Area moment of inertia for the blade is:
+ $b = 10\,\mathrm{cm}$ , the stress equations will be solved for h. The Area moment of inertia for the blade is:
 
 \begin{equation}
 i=\frac{b}{12} \, h^{3}
@@ -58,7 +58,7 @@ x	&= \frac{l}{2}\\
 \begin{align}
 \begin{split}
 M_{B}	&= \frac{R_{c}}{2} \cdot x \cdot \left(l - x\right)\\
-		&= \frac{196\,\mathrm{{kg}\slash{s^{2}}}}{2} \times 0.5\,\mathrm{m} \times \left(1\,\mathrm{m} - 0.5\,\mathrm{m}\right)\\
+		&= \frac{196\,\mathrm{{N}\slash{m}}}{2} \times 0.5\,\mathrm{m} \times \left(1\,\mathrm{m} - 0.5\,\mathrm{m}\right)\\
 		&= 24.5\,\mathrm{N \, m}\\
 \end{split}
 \end{align}
@@ -94,7 +94,7 @@ c=\frac{h}{2}
 \begin{align}
 \begin{split}
 t_{b}	&= \sqrt{6} \cdot \sqrt{\frac{M_{B} \cdot n}{S_{B} \cdot b}}\\
-		&= \sqrt{6} \times \sqrt{\frac{24.5\,\mathrm{{m^{2}}\slash{s^{2}} \, kg} \times 2}{7.79(10^{08})\,\mathrm{{kg}\slash{m \, s^{2}}} \times 0.1\,\mathrm{m}}}\\
+		&= \sqrt{6} \times \sqrt{\frac{24.5\,\mathrm{N \, m} \times 2}{779\,\mathrm{MPa} \times 10\,\mathrm{cm}}}\\
 		&= 1.943\,\mathrm{mm}\\
 \end{split}
 \end{align}
@@ -103,8 +103,8 @@ Therefore the selected thickness of the blade is:
 
 \begin{align}
 \begin{split}
-t_{b}	&= 2.5 \cdot millimeter\\
-		&= 2.5 \times millimeter\\
+t_{b}	&= 2.5 \cdot 1\,\mathrm{mm}\\
+		&= 2.5 \times 1\,\mathrm{mm}\\
 		&= 2.5\,\mathrm{mm}\\
 \end{split}
 \end{align}
@@ -122,25 +122,25 @@ The profile of the rails can be approximated as
 \includegraphics{profile.png}
 
 where 
- $b = 50\,\mathrm{mm}$ and 
- $h = 110\,\mathrm{mm}$ Then the thickness t must be found. The initial guess for the thickness is
+ $b = 5\,\mathrm{cm}$ and 
+ $h = 11\,\mathrm{cm}$ Then the thickness t must be found. The initial guess for the thickness is
  $t = 1\,\mathrm{mm}$ 
 
 The center of mass is:
 
 \begin{align}
 \begin{split}
-IR	&= \frac{b}{12} \cdot h^{3} - \frac{1}{12} \cdot \left(b - 2 \cdot t\right) \cdot \left(h - 2 \cdot t\right)^{3}\\
-	&= \frac{5.00(10^{-02})\,\mathrm{m}}{12} \times 0.11\,\mathrm{m}^{3} - \frac{1}{12} \times \left(5.00(10^{-02})\,\mathrm{m} - 2 \times 1.00(10^{-03})\,\mathrm{m}\right) \times \left(0.11\,\mathrm{m} - 2 \times 1.00(10^{-03})\,\mathrm{m}\right)^{3}\\
-	&= 5.07(10^{-07})\,\mathrm{m^{4}}\\
+I_{R}	&= \frac{b}{12} \cdot h^{3} - \frac{1}{12} \cdot \left(b - 2 \cdot t\right) \cdot \left(h - 2 \cdot t\right)^{3}\\
+		&= \frac{5\,\mathrm{cm}}{12} \times 11\,\mathrm{cm}^{3} - \frac{1}{12} \times \left(5\,\mathrm{cm} - 2 \times 1\,\mathrm{mm}\right) \times \left(11\,\mathrm{cm} - 2 \times 1\,\mathrm{mm}\right)^{3}\\
+		&= 5.07(10^{-07})\,\mathrm{m^{4}}\\
 \end{split}
 \end{align}
 
 \begin{align}
 \begin{split}
-S	&= l + t\\
-	&= l + t\\
-	&= 1.001\,\mathrm{m}\\
+S	&= 5 \cdot 1\,\mathrm{m} + t_{b}\\
+	&= 5 \times 1\,\mathrm{m} + 2.5\,\mathrm{mm}\\
+	&= 5.003\,\mathrm{m}\\
 \end{split}
 \end{align}
 
