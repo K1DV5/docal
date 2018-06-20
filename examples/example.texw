@@ -2,74 +2,47 @@
 \usepackage{amsmath, graphicx}
 \begin{document}
 
-
+<%
+from sys import path
+path.append('..')
+from scpycalc import aserar, equation, sqrt, solve
+from sympy.physics.units import second, meter, inch
+import numpy as np
+import sympy as sp
+%>
 
 \chapter{Normal Equations}
 
 It should be emphasized that for systems in which the inputs are known ahead of time and in which there are no disturbances it is advisable to use open-loop control.  Closed-loop control systems have advantages only when unpredictable disturbanc and/or unpredictable variations in system components are present. Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is  generally higher in cost and power.To decrease the required power of a system,open-  loop control may be used where applicable.A proper combination of open-loop and  closed-loop controls is usually less expensive and will give satisfactory overall system  performance
 
-\begin{equation}
-\alpha=R_{C} + \frac{\beta_{}}{\theta} \, \psi
-\end{equation}
-
-\begin{align}
-\begin{split}
-\alpha &= R_{C} + \frac{\beta_{}}{\theta} \cdot \psi\\
- &= 5 \cdot R_{c}\\
- &= 69\\
-\end{split}
-\end{align}
+<%
+equation('alpha = beta_/theta*psi+R_C')
+equation('alpha = beta_/theta*psi+R_C', '=5*R_c', '=69')
+%>
 
 It should be emphasized that for systems in which the inputs are known ahead of time and in which there are no disturbances it is advisable to use open-loop control.  Closed-loop control systems have advantages only when unpredictable disturbanc and/or unpredictable variations in system components are present. Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is  generally higher in cost and power.To decrease the required power of a system,open-  loop control may be used where applicable.A proper combination of open-loop and  closed-loop controls is usually less expensive and will give satisfactory overall system  performance.
 
-\begin{equation}
-\alpha = \frac{\beta}{\theta}\times\psi+R_C
-\end{equation}
-
-\begin{align}
-\begin{split}
-\alpha &= \frac{\beta}{\theta}\times\psi+R_C\\
-&=\sin{\left(5\times x_R\right)} + 6\mathrm{m}\\
-&=56\mathrm{m}\\
-\end{split}
-\end{align}
+<%
+equation('\\alpha = \\frac{\\beta}{\\theta}\\times\\psi+R_C', raw = True)
+equation('\\alpha = \\frac{\\beta}{\\theta}\\times\\psi+R_C', '=\\sin{\\left(5\\times x_R\\right)} + 6\\mathrm{m}', '=56\\mathrm{m}', raw = True)
+%>
 
 \section{Normal Aserar}
 
 $F = ma$ It should be emphasized that for systems in which the inputs are known ahead of time and in which there are no disturbances it is advisable to use open-loop control.  Closed-loop control systems have advantages only when unpredictable disturbanc  and/or unpredictable variations in system components are present. Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is generally higher in cost and power.To decrease the required power of a system,open-  loop control may be used where applicable.A proper combination of open-loop and  closed-loop controls is usually less expensive and will give satisfactory overall system  performance.
 
-$\beta_{} = 58\,\mathrm{in}$ 
-
-\begin{align}
-\begin{split}
-\zeta	&= \beta_{} + 69 \cdot \mathrm{m}\\
-	&= \beta_{} + 69 \times 1\,\mathrm{m}\\
-	&= 70.473\,\mathrm{m}\\
-\end{split}
-\end{align}
+<%
+aserar('beta_ = 58*inch', 'define')
+aserar('zeta = beta_+69*meter')
+%>
 
 \section{Aserar with arrays}
 
 $F = ma$ It should be emphasized that for systems in which the inputs are known ahead of time and in which there are no disturbances it is advisable to use open-loop control.  Closed-loop control systems have advantages only when unpredictable disturbanc  and/or unpredictable variations in system components are present. Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is generally higher in cost and power.To decrease the required power of a system,open-  loop control may be used where applicable.A proper combination of open-loop and  closed-loop controls is usually less expensive and will give satisfactory overall system  performance.
 
-\left[\begin{matrix}1\\1.182\\\vdots\\5\end{matrix}\right]
-\left[\begin{matrix}1\\1.182\\\vdots\\5\end{matrix}\right]
-
-\begin{align}
-\begin{split}
-R_{D}	&= rd\\
-	&= \left[egin{matrix}1\1.182\dots\5\end{matrix}ight]\,\mathrm{m}\\
-	&= \left[\begin{matrix}1\\1.182\\\vdots\\5\end{matrix}\right]\,\mathrm{m}\\
-\end{split}
-\end{align}
- $T_{m} = 56\,\mathrm{s}$ 
-\left[\begin{matrix}1\\1.182\\\vdots\\5\end{matrix}\right]
-\left[\begin{matrix}1.79(10^{-02})\\2.11(10^{-02})\\\vdots\\8.93(10^{-02})\end{matrix}\right]
-
-\begin{align}
-\begin{split}
-V^{D}_{f}	&= \frac{R_{D}}{T_{m}}\\
-		&= \frac{\left[egin{matrix}1\1.182\dots\5\end{matrix}ight]\,\mathrm{m}}{56\,\mathrm{s}}\\
-		&= \left[\begin{matrix}1.79(10^{-02})\\2.11(10^{-02})\\\vdots\\8.93(10^{-02})\end{matrix}\right]\,\mathrm{{m}\slash{s}}\\
-\end{split}
-\end{align}
+<%
+rd = np.linspace(1,5,23)*meter
+aserar('R_D = rd')
+aserar('T_m = 56*second', 'define')
+aserar('V__D_f = R_D/T_m')
+%>

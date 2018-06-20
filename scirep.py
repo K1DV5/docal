@@ -1,5 +1,5 @@
 from shutil import rmtree
-from sympy import latex, sympify, Symbol, sqrt, solve, Matrix
+from sympy import latex, sympify, Symbol, sqrt, solve, Matrix, N
 from sympy.physics.units import meter, second, kilogram, convert_to, Quantity
 import re
 import __main__
@@ -17,6 +17,8 @@ class document:
         self.preamble = ''
         self.content = ''
         self.file = 'tex'
+        exec('from sympy.physics.units import meter, second, kilogram',
+             __main__.__dict__)
 
     def __enter__(self):
         return self
@@ -127,8 +129,10 @@ class document:
                         .evalf().as_coefficients_dict().values())[0])
 
                 if Num > 1000 or Num < 0.1:
-                    return re.sub(r'([0-9]*)E([+-][0-9]*)', r'\1(10^{\2})', f'{Num:.2E}')\
-                        .replace('+', '')
+                    return re.sub(r'([0-9]*)E([+-][0-9]*)',
+                                  r'\1(10^{\2})',
+                                  f'{Num:.2E}').replace('+', '')
+
                 else:
                     if Num == int(Num):
                         return str(int(Num))
@@ -140,23 +144,27 @@ class document:
                     if 'Add' in str(type(Qty)):
                         return '\\mathrm{' \
                             + latex(list(convert_to(Qty.evalf(), default_units)
-                                         .as_coefficients_dict().keys())[0], mul_symbol='dot') \
+                                         .as_coefficients_dict().keys())[0],
+                                    mul_symbol='dot') \
                             .replace('\\cdot', '\\,') + '}'
                     else:
                         return '\\mathrm{' \
                             + latex(list(Qty.evalf()
-                                         .as_coefficients_dict().keys())[0], mul_symbol='dot') \
+                                         .as_coefficients_dict().keys())[0],
+                                    mul_symbol='dot') \
                             .replace('\\cdot', '\\,') + '}'
                 else:
                     return '\\mathrm{' \
                         + latex(list(convert_to(Qty.evalf(), default_units)
-                                     .as_coefficients_dict().keys())[0], mul_symbol='dot') \
+                                     .as_coefficients_dict().keys())[0],
+                                mul_symbol='dot') \
                         .replace('\\cdot', '\\,') + '}'
 
             def fmt_ul(Qty):
                 if Qty > 1000 or Qty < 0.1:
-                    return re.sub(r'([0-9]*)E([-+][0-9]*)', r'\1(10^{\2})', f'{Qty:.2E}')\
-                        .replace('+', '')
+                    return re.sub(r'([0-9]*)E([-+][0-9]*)',
+                                  r'\1(10^{\2})',
+                                  f'{Qty:.2E}').replace('+', '')
                 else:
                     if Qty == int(Qty):
                         return str(int(Qty))
@@ -165,37 +173,38 @@ class document:
 
             if 'array' in qty_type or 'Array' in qty_type:
 
-                def shorten_array(fpart, Ffunc): return fpart.replace(
-                    '\\end{matrix}',
-                    f'\\\\\\vdots\\\\{Ffunc(qty[-1])}\\end{{matrix}}')
+                def shorten_array(fpart, Ffunc):
+                    print(fpart.replace(
+                        '\\end{matrix}',
+                        f'\\\\\\vdots\\\\{Ffunc(qty[-1])}\\end{{matrix}}'))
+                    return fpart.replace(
+                        '\\end{matrix}',
+                        f'\\\\\\vdots\\\\{Ffunc(qty[-1])}\\end{{matrix}}')
 
                 def format_array(Qty, Ffunc):
-                    Arr_lx = latex(Qty)
+                    Arr_lx = latex(Matrix(Qty))
                     for ele in Qty:
-                        Arr_lx = Arr_lx.replace(str(ele), Ffunc(ele))
+                        Arr_lx = Arr_lx.replace(latex(ele), Ffunc(ele))
                     return Arr_lx
 
-                qty_mat = Matrix(qty)
                 if units_count(qty[0]) != 0:
                     # array + unit
                     if len(qty) < 4:
                         # very long array
-                        number = format_array(qty_mat, fmt_un_num)
+                        number = format_array(qty, fmt_un_num)
                     else:
                         # normal length array
                         number = shorten_array(format_array(
-                            qty_mat, fmt_un_num), fmt_un_num)
+                            qty[0:2], fmt_un_num), fmt_un_num)
 
-                    un = fmt_un_un(qty[0])
+                    un = fmt_un_un(qty[0]).replace('\\frac', '')\
+                        .replace('}{', '}\\slash{')
                     for full_form, short_form in abb.items():
                         un = re.sub(
-                            fr'(?<!_{{|[a-zA-Z_]{{2}}){full_form}(?![a-zA-Z_]+)', short_form, un)
+                            fr'(?<!_{{|[a-zA-Z_]{{2}}){full_form}(?![a-zA-Z_]+)',
+                            short_form, un)
 
-                    fmtd = number \
-                        + '\\,' \
-                        + un.replace('\\frac', '') \
-                        .replace('}{', '}\\slash{')
-                    return fmtd
+                    return f'{number}\\,{un}'
 
                 else:
                     # array + num
@@ -207,42 +216,36 @@ class document:
 
             elif 'matrix' in qty_type or 'Matrix' in qty_type:
 
-                def shrink_matrix(fpart, Ffunc): return fpart.replace(
-                    '\\\\', ' & \\cdots & ' + str(Ffunc(qty[0, -1])) + '\\\\'
-                ).replace(
-                    '\\end{matrix}',
-                    (f' & \\cdots & {Ffunc(qty[1, -1])}'
-                     '\\\\\\vdots & \\vdots & \\ddots & \\vdots\\\\'
-                     f'{Ffunc(qty[-1, 0])} & {Ffunc(qty[-1, 1])}'
-                     f' & \\cdots & {Ffunc(qty[-1, -1])}'
-                     '\\end{matrix}')
-                )
+                def shrink_matrix(fpart, Ffunc):
+                    return fpart.replace('\\\\',
+                                         f' & \\cdots & {str(Ffunc(qty[0, -1]))}\\\\')\
+                        .replace('\\end{matrix}',
+                                 (f' & \\cdots & {Ffunc(qty[1, -1])}'
+                                  '\\\\\\vdots & \\vdots & \\ddots & \\vdots\\\\'
+                                  f'{Ffunc(qty[-1, 0])} & {Ffunc(qty[-1, 1])}'
+                                  f' & \\cdots & {Ffunc(qty[-1, -1])}'
+                                  '\\end{matrix}'))
 
-                def narrow_matrix(fpart, Ffunc): return fpart.replace(
-                    '\\\\', f' & \\cdots & {Ffunc(qty[0, -1])}\\temp', 1
-                ).replace(
-                    '\\\\', f' & \\cdots & {Ffunc(qty[1, -1])}\\temp', 1
-                ).replace(
-                    '\\\\', f' & \\cdots & {Ffunc(qty[2, -1])}\\temp', 1
-                ).replace(
-                    '\\temp', '\\\\'
-                ).replace(
-                    '\\end{matrix}',
-                    f' & \\cdots & {Ffunc(qty[3, -1])}\\end{{matrix}}'
-                )
+                def narrow_matrix(fpart, Ffunc):
+                    return fpart.replace('\\\\',
+                                         f' & \\cdots & {Ffunc(qty[0, -1])}\\temp', 1)\
+                        .replace('\\\\', f' & \\cdots & {Ffunc(qty[1, -1])}\\temp', 1)\
+                        .replace('\\\\', f' & \\cdots & {Ffunc(qty[2, -1])}\\temp', 1)\
+                        .replace('\\temp', '\\\\')\
+                        .replace('\\end{matrix}',
+                                 f' & \\cdots & {Ffunc(qty[3, -1])}\\end{{matrix}}')
 
-                def shorten_matrix(fpart, Ffunc): return fpart.replace(
-                    '\\end{matrix}',
-                    ('\\\\\\vdots & \\vdots & \\vdots & \\vdots\\\\'
-                     f'{Ffunc(qty[-1, 0])} & {Ffunc(qty[-1, 1])} & '
-                     f'{Ffunc(qty[-1, 2])} & {Ffunc(qty[-1, 3])}'
-                     '\\end{matrix}')
-                )
+                def shorten_matrix(fpart, Ffunc):
+                    return fpart.replace('\\end{matrix}',
+                                         ('\\\\\\vdots & \\vdots & \\vdots & \\vdots\\\\'
+                                          f'{Ffunc(qty[-1, 0])} & {Ffunc(qty[-1, 1])} & '
+                                          f'{Ffunc(qty[-1, 2])} & {Ffunc(qty[-1, 3])}'
+                                          '\\end{matrix}'))
 
                 def format_matrix(Mat, Ffunc):
                     Mat_lx = latex(Mat)
                     for ele in Mat:
-                        Mat_lx = Mat_lx.replace(str(ele), f'{Ffunc(ele)}')
+                        Mat_lx = Mat_lx.replace(str(ele), Ffunc(ele))
                     return Mat_lx
 
                 qty_mat = Matrix(qty)
@@ -264,16 +267,14 @@ class document:
                         # normal size matrix
                         number = format_matrix(qty_mat, fmt_un_num)
 
-                    un = fmt_un_un(qty[0, 0])
-                    for full_form, short_form in abb.items():
-                        un = re.sub(
-                            fr'(?<!_{{|[a-zA-Z_]{{2}}){full_form}(?![a-zA-Z_]+)', short_form, un)
-
-                    fmtd = str(number) \
-                        + '\\,' \
-                        + un.replace('\\frac', '') \
+                    un = fmt_un_un(qty[0, 0]).replace('\\frac', '')\
                         .replace('}{', '}\\slash{')
-                    return fmtd
+                    for full_form, short_form in abb.items():
+                        un = re.sub(fr'(?<!_{{|[a-zA-Z_]{{2}}){full_form}(?![a-zA-Z_]+)',
+                                    short_form,
+                                    un)
+
+                    return f'{number}\\,{un}'
 
                 else:
                     # matrix + num
@@ -294,33 +295,33 @@ class document:
                 if units_count(qty) != 0:
                     # single + unit
                     number = fmt_un_num(qty)
-                    un = fmt_un_un(qty)
-                    for full_form, short_form in abb.items():
-                        un = re.sub(
-                            fr'(?<!_{{|[a-zA-Z_]{{2}}){full_form}(?![a-zA-Z_]+)', short_form, un)
-
-                    fmtd = number \
-                        + '\\,' \
-                        + un.replace('\\frac', '') \
+                    un = fmt_un_un(qty).replace('\\frac', '')\
                         .replace('}{', '}\\slash{')
-                    return fmtd
+                    for full_form, short_form in abb.items():
+                        un = re.sub(fr'(?<!_{{|[a-zA-Z_]{{2}}){full_form}(?![a-zA-Z_]+)',
+                                    short_form,
+                                    un)
+
+                    return f'{number}\\,{un}'
 
                 else:
                     # single + num
-                    return fmt_ul(qty)
+                    return fmt_ul(N(qty))
 
         # main variable:
         variable_main = eqn.split('=')[0].strip()
         variable_lx = latex(sympify(variable_main))
 
         # expression 1:
-        sympified = sympify(eqn.split('=')[1].strip())
+        expr_0_str = eqn.split('=')[1].strip()
+        str_exp = re.sub(r'(?<![a-zA-Z_])[a-zA-Z]+\.(?=[a-zA-Z_]+)',
+                         '', expr_0_str)
+        sympified = sympify(str_exp)
         expr_1_lx = latex(sympified, mul_symbol='dot')
-        for full_form in abb.keys():
+        for full_form, short_form in abb.items():
             if full_form in expr_1_lx:
                 expr_1_lx = re.sub(fr'(?<!_{{|[a-zA-Z_]{{2}}){full_form}(?![a-zA-Z_]+)',
-                                   format_quantity(
-                                       eval(full_form, __main__.__dict__)),
+                                   f'\\mathrm{{{short_form}}}',
                                    expr_1_lx)
 
         # expression 2:
@@ -336,11 +337,15 @@ class document:
                                expr_2_lx)
 
         # variable assignment:
-        expr_2_str = str(sympified)
-        exec(variable_main + '=' + expr_2_str, __main__.__dict__)
+        if unit == None:
+            result = expr_0_str
+        else:
+            result = convert_to(eval(expr_0_str, __main__.__dict__),
+                                [meter, kilogram, second])
+        exec(f'{variable_main} = {result}', __main__.__dict__)
 
         # expression 3:
-        expr_3_lx = format_quantity(eval(expr_2_str, __main__.__dict__),
+        expr_3_lx = format_quantity(eval(expr_0_str, __main__.__dict__),
                                     unit_internal=unit)
 
         # write equations:
@@ -350,20 +355,17 @@ class document:
                 variable_lx + ' = ' + expr_3_lx,
                 inline=True, raw=True)
         elif intent == '2steps' or intent == '2step':
-            self.equation(
-                variable_lx + '\t= ' + expr_1_lx,
-                _tabs_*'\t' + '\t= ' + expr_3_lx,
-                raw=True)
+            self.equation(variable_lx + '\t= ' + expr_1_lx,
+                          _tabs_*'\t' + '\t= ' + expr_3_lx,
+                          raw=True)
         elif intent == 'final':
-            self.equation(
-                variable_lx + '\t= ' + expr_3_lx,
-                raw=True)
+            self.equation(variable_lx + '\t= ' + expr_3_lx,
+                          raw=True)
         else:
-            self.equation(
-                variable_lx + '\t= ' + expr_1_lx,
-                _tabs_*'\t' + '\t= ' + expr_2_lx,
-                _tabs_*'\t' + '\t= ' + expr_3_lx,
-                raw=True)
+            self.equation(variable_lx + '\t= ' + expr_1_lx,
+                          _tabs_*'\t' + '\t= ' + expr_2_lx,
+                          _tabs_*'\t' + '\t= ' + expr_3_lx,
+                          raw=True)
 
     def solve(self, strg, var):
         eqn = sympify(strg)
@@ -374,28 +376,27 @@ class document:
         if label == '':
             label = fig.split('.')[0]
         if caption != '':
-            self.append(
-                '\\begin{figure}'
-                '\n\\centering\n\\includegraphics{'
-                f'{fig}'
-                '}\n\\caption{'
-                f'{caption}'
-                '}\n\\label{'
-                f'{label}'
-                '}\n\\end{figure}'
-            )
+            self.append('\\begin{figure}'
+                        '\n\\centering\n\\includegraphics{'
+                        f'{fig}'
+                        '}\n\\caption{'
+                        f'{caption}'
+                        '}\n\\label{'
+                        f'{label}'
+                        '}\n\\end{figure}')
         else:
             self.append('\\includegraphics{' + fig + '}')
 
     def __exit__(self, *args):
         # equation handling package
         if '\\begin{align}' in self.content or '\\begin{matrix}' in self.content:
-            self.preamble = self.preamble + '\n\\usepackage{amsmath}'
+            self.preamble += '\n\\usepackage{amsmath}'
         # figures handling package
         if '\\includegraphics{' in self.content:
-            self.preamble = self.preamble + '\n\\usepackage{graphicx}'
+            self.preamble += '\n\\usepackage{graphicx}'
         post_fixes = {'_{}': '',
-                      '\\mathrm{m \\, N}': '\\mathrm{N \\, m}', '^{1.0}': ''}
+                      '\\mathrm{m \\, N}': '\\mathrm{N \\, m}',
+                      '^{1.0}': ''}
         for wrng, rght in post_fixes.items():
             self.content = self.content.replace(wrng, rght)
         self.content = ('\\documentclass['
@@ -411,3 +412,4 @@ class document:
         if self.file != 'tex':
             from subprocess import run
             run(['pandoc', self.name + '.tex', '-o', self.name + '.' + self.file])
+        print('Document Written Successfully!')
