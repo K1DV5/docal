@@ -1,3 +1,4 @@
+% -pd(docx)
 \documentclass{article}
 \usepackage{amsmath, graphicx}
 \begin{document}
@@ -21,8 +22,8 @@ Then the cement will react with the same force distributed evenly along the blad
 \begin{align}
 \begin{split}
 R_{c}	&= \frac{F_{B}}{\mathrm{m}}\\
-	&= \frac{196\,\mathrm{N}}{1\,\mathrm{m}}\\
-	&= 196\,\mathrm{{N}\slash{m}}\\
+		&= \frac{196\,\mathrm{N}}{1\,\mathrm{m}}\\
+		&= 196\,\mathrm{{N}\slash{m}}\\
 \end{split}
 \end{align}
 
@@ -59,8 +60,8 @@ x	&= \frac{l}{2}\\
 \begin{align}
 \begin{split}
 M_{B}	&= \frac{R_{c}}{2} \cdot x \cdot \left(l - x\right)\\
-	&= \frac{196\,\mathrm{{N}\slash{m}}}{2} \times 0.5\,\mathrm{m} \times \left(1\,\mathrm{m} - 0.5\,\mathrm{m}\right)\\
-	&= 24.5\,\mathrm{m \, N}\\
+		&= \frac{196\,\mathrm{{N}\slash{m}}}{2} \times 0.5\,\mathrm{m} \times \left(1\,\mathrm{m} - 0.5\,\mathrm{m}\right)\\
+		&= 24.5\,\mathrm{N \, m}\\
 \end{split}
 \end{align}
 
@@ -93,8 +94,8 @@ c=\frac{h}{2}
 \begin{align}
 \begin{split}
 t_{b}	&= \sqrt{6} \cdot \sqrt{\frac{M_{B} \cdot n}{S_{B} \cdot b}}\\
-	&= \sqrt{6} \times \sqrt{\frac{24.5\,\mathrm{m \, N} \times 2}{779\,\mathrm{MPa} \times 10\,\mathrm{cm}}}\\
-	&= 1.943\,\mathrm{mm^{1.0}}\\
+		&= \sqrt{6} \times \sqrt{\frac{24.5\,\mathrm{N \, m} \times 2}{779\,\mathrm{MPa} \times 10\,\mathrm{cm}}}\\
+		&= 1.943\,\mathrm{mm}\\
 \end{split}
 \end{align}
 Therefore the selected thickness of the blade is:
@@ -102,8 +103,8 @@ Therefore the selected thickness of the blade is:
 \begin{align}
 \begin{split}
 t_{b}	&= 2.5 \cdot \mathrm{mm}\\
-	&= 2.5 \times 1\,\mathrm{mm}\\
-	&= 2.5\,\mathrm{mm}\\
+		&= 2.5 \times 1\,\mathrm{mm}\\
+		&= 2.5\,\mathrm{mm}\\
 \end{split}
 \end{align}
 
@@ -117,7 +118,12 @@ S_{Al}	= 482\,\mathrm{MPa}
 
 The profile of the rails can be approximated as
 
-\includegraphics{profile.png}
+\begin{figure}
+	\centering
+	\includegraphics{profile.png}
+	\caption{Rails Profile}
+	\label{first}
+\end{figure}
 where $b = 5\,\mathrm{cm}$ and $h = 11\,\mathrm{cm}$
 
 Then the thickness t must be found. The initial guess for the thickness is
@@ -129,29 +135,146 @@ The center of mass is:
 \begin{align}
 \begin{split}
 I_{R}	&= \frac{b}{12} \cdot h^{3} - \frac{1}{12} \cdot \left(b - 2 \cdot t\right) \cdot \left(h - 2 \cdot t\right)^{3}\\
-	&= \frac{5\,\mathrm{cm}}{12} \times 11\,\mathrm{cm}^{3} - \frac{1}{12} \times \left(5\,\mathrm{cm} - 2 \times 1\,\mathrm{mm}\right) \times \left(11\,\mathrm{cm} - 2 \times 1\,\mathrm{mm}\right)^{3}\\
-	&= 5.07(10^{-07})\,\mathrm{m^{4}}\\
+		&= \frac{5\,\mathrm{cm}}{12} \times \left(11\,\mathrm{cm}\right)^{3} - \frac{1}{12} \times \left(5\,\mathrm{cm} - 2 \times 1\,\mathrm{mm}\right) \times \left(11\,\mathrm{cm} - 2 \times 1\,\mathrm{mm}\right)^{3}\\
+		&= 5.07(10^{-07})\,\mathrm{m^{4}}\\
 \end{split}
 \end{align}
 
 The center of gravity is
 
-\left[\begin{matrix}1\\2\\\vdots\\5\end{matrix}\right]
-
-\begin{equation}
-c_{R}	= \left[\begin{matrix}1\\2\\\vdots\\5\end{matrix}\right]\,\mathrm{m}
-\end{equation}
-
-Now the maximum force that can be exerted is when the blade is midway down, half the height of the frame, where it can exert a horizontal force at the mid points of the rails, while the rails are held in place by the connector at the top and bottom. Then the rails can be assumed to be simply supported beams with forces applied at their midpoints. Since they are identical, one will be analyzed.
-
-The force applied can be found as the horizontal force in figure 2 (because there is an angle).
-
 \begin{align}
 \begin{split}
-\beta	&= 5 \cdot \mathrm{s}\\
-	&= 5 \times 1\,\mathrm{s}\\
-	&= 5\,\mathrm{s}\\
+c_{R}	&= \frac{h}{2}\\
+		&= \frac{11\,\mathrm{cm}}{2}\\
+		&= 5.5\,\mathrm{cm}\\
 \end{split}
 \end{align}
 
+Now the maximum force that can be exerted is when the blade is midway down, half the height of the frame, where it can exert a horizontal force at the mid points of the rails, while the rails are held in place by the connector at the top and bottom. Then the rails can be assumed to be simply supported beams with forces applied at their midpoints. Since they are identical, one will be analyzed.
+
+The force applied can be found as the horizontal force in \ref{first} (because there is an angle).
+
+\begin{align}
+\begin{split}
+\theta	&= \frac{\pi}{6}\\
+		&= 0.524\\
+\end{split}
+\end{align}
+
+\begin{align}
+\begin{split}
+F_{R}	&= \operatorname{abs}{\left (F_{B} \cdot \tan{\left (\theta \right )} \right )}\\
+		&= \operatorname{abs}{\left (196\,\mathrm{N} \times \tan{\left (0.524 \right )} \right )}\\
+		&= 113.161\,\mathrm{N}\\
+\end{split}
+\end{align}
+
+The length of the rails is $l_{R} = 2.4\,\mathrm{m}$
+
+Now the bending moment is
+
+\begin{align}
+\begin{split}
+M_{R}	&= \frac{F_{R}}{4} \cdot l\\
+		&= \frac{113.161\,\mathrm{N}}{4} \times 1\,\mathrm{m}\\
+		&= 28.29\,\mathrm{N \, m}\\
+\end{split}
+\end{align}
+
+Then the safety factor can be found from the stress as:
+
+\begin{align}
+\begin{split}
+\sigma_{R}	&= \frac{M_{R}}{I_{R}} \cdot c_{R}\\
+			&= \frac{28.29\,\mathrm{N \, m}}{5.07(10^{-07})\,\mathrm{m^{4}}} \times 5.5\,\mathrm{cm}\\
+			&= 3.069\,\mathrm{MPa}\\
+\end{split}
+\end{align}
+
+\begin{align}
+\begin{split}
+n_{R}	&= \frac{S_{Al}}{\sigma_{R}}\\
+		&= \frac{482\,\mathrm{MPa}}{3.069\,\mathrm{MPa}}\\
+		&= 157.052\\
+\end{split}
+\end{align}
+
+Then it is safe, maybe too safe.
+
+\section{Top and bottom frame bars}
+
+The maximum force that can be exerted on these bars is when the blade is near them and is
+moving. Considering one of the bars because they are identical, the side rails exert equal forces on each end and the connector exerts a reaction at the midpoint. Thus the same
+configuration as the side rails can be considered.
+
+The forces of the side rails is found from the force of the cenemt as:
+
+\begin{align}
+\begin{split}
+F_{B}	&= \frac{F_{R}}{2}\\
+		&= \frac{113.161\,\mathrm{N}}{2}\\
+		&= 56.58\,\mathrm{N}\\
+\end{split}
+\end{align}
+
+And the reaction of the connector is equal to the force of the cement.
+
+\begin{align}
+\begin{split}
+R_{C}	&= F_{R}\\
+		&= 113.161\,\mathrm{N}\\
+\end{split}
+\end{align}
+
+The bars are made of aluminum, the same as the side rails because welding two different
+materials is not recommended. The profile for the bars is a rectangular with the dimensions as $b = 5\,\mathrm{cm}$ and $h = 2.5\,\mathrm{cm}$ with a thickness $t = 1\,\mathrm{mm}$
+
+Then the center of gravity and the area moment of inertia are:
+
+\begin{align}
+\begin{split}
+c_{B}	&= \frac{h}{2}\\
+		&= \frac{2.5\,\mathrm{cm}}{2}\\
+		&= 1.25\,\mathrm{cm}\\
+\end{split}
+\end{align}
+
+\begin{align}
+\begin{split}
+I_{B}	&= \frac{b}{12} \cdot h^{3} - \frac{1}{12} \cdot \left(b - 2 \cdot t\right) \cdot \left(h - 2 \cdot t\right)^{3}\\
+		&= \frac{5\,\mathrm{cm}}{12} \times \left(2.5\,\mathrm{cm}\right)^{3} - \frac{1}{12} \times \left(5\,\mathrm{cm} - 2 \times 1\,\mathrm{mm}\right) \times \left(2.5\,\mathrm{cm} - 2 \times 1\,\mathrm{mm}\right)^{3}\\
+		&= 1.64(10^{-08})\,\mathrm{m^{4}}\\
+\end{split}
+\end{align}
+
+Now the bending moment, noting that the bar has a length of $l = 1\,\mathrm{m}$
+
+\begin{align}
+\begin{split}
+M_{B}	&= \frac{R_{C}}{4} \cdot l\\
+		&= \frac{113.161\,\mathrm{N}}{4} \times 1\,\mathrm{m}\\
+		&= 28.29\,\mathrm{N \, m}\\
+\end{split}
+\end{align}
+
+Now remembering that the material is the same aluminum as that of the side rails, the
+strength is the same. The bending stress and safety factor can be found as:
+
+\begin{align}
+\begin{split}
+\sigma_{B}	&= \frac{M_{B}}{I_{B}} \cdot c_{B}\\
+			&= \frac{28.29\,\mathrm{N \, m}}{1.64(10^{-08})\,\mathrm{m^{4}}} \times 1.25\,\mathrm{cm}\\
+			&= 21.515\,\mathrm{MPa}\\
+\end{split}
+\end{align}
+
+\begin{align}
+\begin{split}
+n_{B}	&= \frac{S_{Al}}{\sigma_{B}}\\
+		&= \frac{482\,\mathrm{MPa}}{21.515\,\mathrm{MPa}}\\
+		&= 22.403\\
+\end{split}
+\end{align}
+
+It can be said that the bars are safe.
 \end{document}

@@ -1,4 +1,5 @@
-\documentclass{article}
+% -pd(docx) -pdf
+\documentclass{report}
 \usepackage{amsmath, graphicx}
 \begin{document}
 
@@ -9,12 +10,12 @@
 It should be emphasized that for systems in which the inputs are known ahead of time and in which there are no disturbances it is advisable to use open-loop control.  Closed-loop control systems have advantages only when unpredictable disturbanc and/or unpredictable variations in system components are present. Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is  generally higher in cost and power.To decrease the required power of a system,open-  loop control may be used where applicable.A proper combination of open-loop and  closed-loop controls is usually less expensive and will give satisfactory overall system  performance
 
 \begin{equation}
-\alpha=R_{C} + \frac{\beta_{}}{\theta} \, \psi
+\alpha=R_{C} + \frac{\beta}{\theta} \, \psi
 \end{equation}
 
 \begin{align}
 \begin{split}
-\alpha &= R_{C} + \frac{\beta_{}}{\theta} \cdot \psi\\
+\alpha &= R_{C} + \frac{\beta}{\theta} \cdot \psi\\
  &= 5 \cdot R_{c}\\
  &= 69\\
 \end{split}
@@ -34,42 +35,113 @@ It should be emphasized that for systems in which the inputs are known ahead of 
 \end{split}
 \end{align}
 
-\section{Normal Aserar}
+\chapter{Normal Aserar}
+\section{Without Units}
+$F = ma$ It should be emphasized that for systems in which the inputs are known ahead of time and in which there are no disturbances it is advisable to use open-loop control.  Closed-loop control systems have advantages only when unpredictable disturbanc  and/or unpredictable variations in system components are present. Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is generally higher in cost and power.To decrease the required power of a system,open-  loop control may be used where applicable.A proper combination of open-loop and  closed-loop controls is usually less expensive and will give satisfactory overall system  performance.
+
+$x = 5$ 
+
+\begin{align}
+\begin{split}
+y	&= x^{2} + 9 \cdot x\\
+	&= 5^{2} + 9 \times 5\\
+	&= 70\\
+\end{split}
+\end{align}
+
+\section{With Units}
 
 $F = ma$ It should be emphasized that for systems in which the inputs are known ahead of time and in which there are no disturbances it is advisable to use open-loop control.  Closed-loop control systems have advantages only when unpredictable disturbanc  and/or unpredictable variations in system components are present. Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is generally higher in cost and power.To decrease the required power of a system,open-  loop control may be used where applicable.A proper combination of open-loop and  closed-loop controls is usually less expensive and will give satisfactory overall system  performance.
 
-$\beta_{} = 58\,\mathrm{in}$ 
+$\beta = 58\,\mathrm{in}$ 
 
 \begin{align}
 \begin{split}
-\zeta	&= \beta_{} + 69 \cdot \mathrm{m}\\
-	&= \beta_{} + 69 \times 1\,\mathrm{m}\\
-	&= 70.473\,\mathrm{m}\\
+\zeta	&= \beta + 69 \cdot \mathrm{m}\\
+		&= 58\,\mathrm{in} + 69 \times 1\,\mathrm{m}\\
+		&= 70.473\,\mathrm{m}\\
 \end{split}
 \end{align}
 
-\section{Aserar with arrays}
+\chapter{Aserar With Arrays}
+\section{Without Units}
 
 $F = ma$ It should be emphasized that for systems in which the inputs are known ahead of time and in which there are no disturbances it is advisable to use open-loop control.  Closed-loop control systems have advantages only when unpredictable disturbanc  and/or unpredictable variations in system components are present. Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is generally higher in cost and power.To decrease the required power of a system,open-  loop control may be used where applicable.A proper combination of open-loop and  closed-loop controls is usually less expensive and will give satisfactory overall system  performance.
 
-\left[\begin{matrix}1\\1.182\\\vdots\\5\end{matrix}\right]
-\left[\begin{matrix}1\\1.182\\\vdots\\5\end{matrix}\right]
+---------------------------------------------------------------------------TypeError                                 Traceback (most recent call last)<ipython-input-1-9696b78e03e4> in <module>()
+----> 1 aserar('D_f = np.linspace(1,5,9)[2:6]')
+      2 aserar('S_d = 5+D_f*98')
+..\scpycalc.py in aserar(eqn, intent, unit)
+    289     str_exp = re.sub(r'(?<![a-zA-Z_])[a-zA-Z]+\.(?=[a-zA-Z_]+)',
+    290                      '', expr_0_str)
+--> 291     sympified = sympify(str_exp)
+    292     expr_1_lx = latex(sympified, mul_symbol='dot')
+    293     for full_form, short_form in abb.items():
+c:\programs\python\python36-32\lib\site-packages\sympy\core\sympify.py in sympify(a, locals, convert_xor, strict, rational, evaluate)
+    352     try:
+    353         a = a.replace('\n', '')
+--> 354         expr = parse_expr(a, local_dict=locals, transformations=transformations, evaluate=evaluate)
+    355     except (TokenError, SyntaxError) as exc:
+    356         raise SympifyError('could not parse %r' % a, exc)
+c:\programs\python\python36-32\lib\site-packages\sympy\parsing\sympy_parser.py in parse_expr(s, local_dict, transformations, global_dict, evaluate)
+    892         code = compile(evaluateFalse(code), '<string>', 'eval')
+    893 
+--> 894     return eval_expr(code, local_dict, global_dict)
+    895 
+    896 
+c:\programs\python\python36-32\lib\site-packages\sympy\parsing\sympy_parser.py in eval_expr(code, local_dict, global_dict)
+    805     """
+    806     expr = eval(
+--> 807         code, global_dict, local_dict)  # take local objects in preference
+    808 
+    809     return expr
+<string> in <module>()
+TypeError: 'linspace' object is not subscriptable
+
+\section{With Units}
+$F = ma$ It should be emphasized that for systems in which the inputs are known ahead of time and in which there are no disturbances it is advisable to use open-loop control.  Closed-loop control systems have advantages only when unpredictable disturbanc  and/or unpredictable variations in system components are present. Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is generally higher in cost and power.To decrease the required power of a system,open-  loop control may be used where applicable.A proper combination of open-loop and  closed-loop controls is usually less expensive and will give satisfactory overall system  performance.
 
 \begin{align}
 \begin{split}
-R_{D}	&= rd\\
-	&= \left[egin{matrix}1\1.182\dots\5\end{matrix}ight]\,\mathrm{m}\\
-	&= \left[\begin{matrix}1\\1.182\\\vdots\\5\end{matrix}\right]\,\mathrm{m}\\
+R_{D}	&= \mathrm{m} \cdot \operatorname{linspace}{\left (1,5,32 \right )}\\
+		&= 1\,\mathrm{m} \times \operatorname{linspace}{\left (1,5,32 \right )}\\
+		&= \left[\begin{matrix}1\\1.129\\\vdots\\5\end{matrix}\right]\,\mathrm{m}\\
 \end{split}
 \end{align}
- $T_{m} = 56\,\mathrm{s}$ 
-\left[\begin{matrix}1\\1.182\\\vdots\\5\end{matrix}\right]
-\left[\begin{matrix}1.79(10^{-02})\\2.11(10^{-02})\\\vdots\\8.93(10^{-02})\end{matrix}\right]
 
 \begin{align}
 \begin{split}
-V^{D}_{f}	&= \frac{R_{D}}{T_{m}}\\
-		&= \frac{\left[egin{matrix}1\1.182\dots\5\end{matrix}ight]\,\mathrm{m}}{56\,\mathrm{s}}\\
-		&= \left[\begin{matrix}1.79(10^{-02})\\2.11(10^{-02})\\\vdots\\8.93(10^{-02})\end{matrix}\right]\,\mathrm{{m}\slash{s}}\\
+T_{m}	&= 56 \cdot \mathrm{s}\\
+		&= 56 \times 1\,\mathrm{s}\\
+		&= 56\,\mathrm{s}\\
 \end{split}
 \end{align}
+
+\begin{align}
+\begin{split}
+V^{D}_{y}	&= \frac{R_{D}^{2}}{T_{m}}\\
+			&= \frac{\left(\left[\begin{matrix}1\\1.129\\\vdots\\5\end{matrix}\right]\,\mathrm{m}\right)^{2}}{56\,\mathrm{s}}\\
+			&= \left[\begin{matrix}1.79(10^{-02})\\2.28(10^{-02})\\\vdots\\0.446\end{matrix}\right]\,\mathrm{{m^{2}}\slash{s}}\\
+\end{split}
+\end{align}
+
+\chapter{Aserar With Matrices}
+\section{Without Units}
+
+$F = ma$ It should be emphasized that for systems in which the inputs are known ahead of time and in which there are no disturbances it is advisable to use open-loop control.  Closed-loop control systems have advantages only when unpredictable disturbanc  and/or unpredictable variations in system components are present. Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is generally higher in cost and power.To decrease the required power of a system,open-  loop control may be used where applicable.A proper combination of open-loop and  closed-loop controls is usually less expensive and will give satisfactory overall system  performance.
+
+$M_{T} = \left[\begin{matrix}1 & 4 1 & \cdots & 2\\4 1 & 5 1 & \cdots & 3\\\vdots & \vdots & \ddots & \vdots\\1 & 4 & \cdots & 4\end{matrix}\right]\,\mathrm{m}$ 
+
+\begin{align}
+\begin{split}
+M_{a}	&= 2 \cdot M_{T}\\
+		&= 2 \times \left[\begin{matrix}1 & 4 1 & \cdots & 2\\4 1 & 5 1 & \cdots & 3\\\vdots & \vdots & \ddots & \vdots\\1 & 4 & \cdots & 4\end{matrix}\right]\,\mathrm{m}\\
+		&= \left[\begin{matrix}2 & 8 & \cdots & 4\\8 & 10 & \cdots & 6\\\vdots & \vdots & \ddots & \vdots\\2 & 8 & \cdots & 8\end{matrix}\right]\,\mathrm{m}\\
+\end{split}
+\end{align}
+
+\section{With Units}
+
+$F = ma$ It should be emphasized that for systems in which the inputs are known ahead of time and in which there are no disturbances it is advisable to use open-loop control.  Closed-loop control systems have advantages only when unpredictable disturbanc  and/or unpredictable variations in system components are present. Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is generally higher in cost and power.To decrease the required power of a system,open-  loop control may be used where applicable.A proper combination of open-loop and  closed-loop controls is usually less expensive and will give satisfactory overall system  performance.
+
+\end{document}

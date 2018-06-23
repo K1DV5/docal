@@ -5,6 +5,7 @@ from sympy.physics.units import meter, second, kilogram, convert_to, Quantity
 import re
 import __main__
 
+
 def equation(*eqns, inline: bool = False, raw: bool = False):
     if raw == True:
         if len(eqns) == 1:
@@ -55,6 +56,7 @@ def equation(*eqns, inline: bool = False, raw: bool = False):
                     print(f'{lxify(eqt)}\\\\')
             print('\\end{split}\n\\end{align}')
 
+
 def aserar(eqn, intent='full', unit=None):
     '''
     evaluates all the calculations and assignment needed in the eqn
@@ -66,6 +68,7 @@ def aserar(eqn, intent='full', unit=None):
     def format_quantity(qty, unit_internal=None):
         '''returns a nicely latex formatted string of the quantity
         including the units (if any)'''
+
         if unit_internal == None:
             default_units = [meter, kilogram, second]
         else:
@@ -79,26 +82,28 @@ def aserar(eqn, intent='full', unit=None):
             except:
                 return 0
 
-        # re.sub(r'([0-9]*)e([-+][0-9]*)', r'\1\\times 10^{\2}', vb)
         def fmt_un_num(Qty):
-            if unit_internal == None:
-                if 'Add' in str(type(Qty)):
-                    Num = float(list(
-                        convert_to(Qty, default_units)
-                        .evalf().as_coefficients_dict().values())[0])
+            try:
+                Num = float(convert_to(Qty, [meter, kilogram, second]))
+            except:
+                if unit_internal == None:
+                    if 'Add' in str(type(Qty)):
+                        comps = list(convert_to(Qty, default_units).evalf(
+                        ).as_coefficients_dict().values())
+                        Num = float(comps[0])
+                    else:
+                        comps = list(
+                            Qty.evalf().as_coefficients_dict().values())
+                        Num = float(comps[0])
                 else:
-                    Num = float(list(
-                        Qty.evalf().as_coefficients_dict().values())[0]
-                    )
-            else:
-                Num = float(list(
-                    convert_to(Qty, default_units)
-                    .evalf().as_coefficients_dict().values())[0])
+                    comps = list(convert_to(Qty, default_units).evalf(
+                    ).as_coefficients_dict().values())
+                    Num = float(comps[0])
 
             if Num > 1000 or Num < 0.1:
-                return re.sub(r'([0-9]*)E([+-][0-9]*)',
-                              r'\1(10^{\2})',
-                              f'{Num:.2E}').replace('+', '')
+                return re.sub(r'([0-9]+)E([-+])([0-9]+)',
+                        r'\1(10^{\2'+r'\g<3>'.lstrip(r'0')+r'})',
+                        f'{Num:.2E}').replace('+', '')
 
             else:
                 if Num == int(Num):
@@ -107,30 +112,35 @@ def aserar(eqn, intent='full', unit=None):
                     return str(round(Num, 3))
 
         def fmt_un_un(Qty):
-            if unit_internal == None:
-                if 'Add' in str(type(Qty)):
+            try:
+                Num = float(convert_to(Qty, [meter, kilogram, second]))
+                if type(Num) == float:
+                    return ''
+            except:
+                if unit_internal == None:
+                    if 'Add' in str(type(Qty)):
+                        return '\\mathrm{' \
+                            + latex(list(convert_to(Qty.evalf(), default_units)
+                                         .as_coefficients_dict().keys())[0],
+                                    mul_symbol='dot') \
+                            .replace('\\cdot', '\\,') + '}'
+                    else:
+                        return '\\mathrm{' \
+                            + latex(list(Qty.evalf()
+                                         .as_coefficients_dict().keys())[0],
+                                    mul_symbol='dot') \
+                            .replace('\\cdot', '\\,') + '}'
+                else:
                     return '\\mathrm{' \
                         + latex(list(convert_to(Qty.evalf(), default_units)
                                      .as_coefficients_dict().keys())[0],
                                 mul_symbol='dot') \
                         .replace('\\cdot', '\\,') + '}'
-                else:
-                    return '\\mathrm{' \
-                        + latex(list(Qty.evalf()
-                                     .as_coefficients_dict().keys())[0],
-                                mul_symbol='dot') \
-                        .replace('\\cdot', '\\,') + '}'
-            else:
-                return '\\mathrm{' \
-                    + latex(list(convert_to(Qty.evalf(), default_units)
-                                 .as_coefficients_dict().keys())[0],
-                            mul_symbol='dot') \
-                    .replace('\\cdot', '\\,') + '}'
 
         def fmt_ul(Qty):
             if Qty > 1000 or Qty < 0.1:
-                return re.sub(r'([0-9]*)E([-+][0-9]*)',
-                              r'\1(10^{\2})',
+                return re.sub(r'([0-9]+)E([-+])([0-9]+)',
+                              r'\1(10^{\2'+r'\g<3>'.lstrip('0')+r'})',
                               f'{Qty:.2E}').replace('+', '')
             else:
                 if Qty == int(Qty):
@@ -141,9 +151,6 @@ def aserar(eqn, intent='full', unit=None):
         if 'array' in qty_type or 'Array' in qty_type:
 
             def shorten_array(fpart, Ffunc):
-                print(fpart.replace(
-                    '\\end{matrix}',
-                    f'\\\\\\vdots\\\\{Ffunc(qty[-1])}\\end{{matrix}}'))
                 return fpart.replace(
                     '\\end{matrix}',
                     f'\\\\\\vdots\\\\{Ffunc(qty[-1])}\\end{{matrix}}')
@@ -194,25 +201,29 @@ def aserar(eqn, intent='full', unit=None):
                               '\\end{matrix}'))
 
             def narrow_matrix(fpart, Ffunc):
-                return fpart.replace('\\\\',
-                                     f' & \\cdots & {Ffunc(qty[0, -1])}\\temp', 1)\
-                    .replace('\\\\', f' & \\cdots & {Ffunc(qty[1, -1])}\\temp', 1)\
-                    .replace('\\\\', f' & \\cdots & {Ffunc(qty[2, -1])}\\temp', 1)\
-                    .replace('\\temp', '\\\\')\
+                line_breaks = fpart.count('\\\\')
+                narrowed = fpart
+                for row in range(0, line_breaks):
+                    narrowed = narrowed.replace(
+                        '\\\\', f' & \\cdots & {Ffunc(qty[row, -1])}\\temp', 1)
+                return narrowed.replace('\\temp', '\\\\')\
                     .replace('\\end{matrix}',
-                             f' & \\cdots & {Ffunc(qty[3, -1])}\\end{{matrix}}')
+                             f' & \\cdots & {Ffunc(qty[line_breaks, -1])}\\end{{matrix}}')
 
             def shorten_matrix(fpart, Ffunc):
-                return fpart.replace('\\end{matrix}',
-                                     ('\\\\\\vdots & \\vdots & \\vdots & \\vdots\\\\'
-                                      f'{Ffunc(qty[-1, 0])} & {Ffunc(qty[-1, 1])} & '
-                                      f'{Ffunc(qty[-1, 2])} & {Ffunc(qty[-1, 3])}'
-                                      '\\end{matrix}'))
+                end_part = '\\\\\\vdots'
+                ands = fpart.count('&', 0, fpart.find('\\\\'))
+                for col in range(1, ands + 1):
+                    end_part += ' & \\vdots'
+                end_part += f'\\\\{Ffunc(qty[-1, 0])}'
+                for col in range(1, ands + 1):
+                    end_part += f' & {Ffunc(qty[-1, col])}'
+                return fpart.replace('\\end{matrix}', end_part + '\\end{matrix}')
 
             def format_matrix(Mat, Ffunc):
                 Mat_lx = latex(Mat)
                 for ele in Mat:
-                    Mat_lx = Mat_lx.replace(str(ele), Ffunc(ele))
+                    Mat_lx = Mat_lx.replace(latex(ele), Ffunc(ele))
                 return Mat_lx
 
             qty_mat = Matrix(qty)
@@ -250,10 +261,10 @@ def aserar(eqn, intent='full', unit=None):
                     return shrink_matrix(format_matrix(qty_mat[0:2, 0:2], fmt_ul), fmt_ul)
                 elif qty_mat.rows > 4 and qty_mat.cols < 5:
                     # very long matrix
-                    return shrink_matrix(format_matrix(qty_mat[0:2, :], fmt_ul), fmt_ul)
+                    return shorten_matrix(format_matrix(qty_mat[0:2, :], fmt_ul), fmt_ul)
                 elif qty_mat.rows < 5 and qty_mat.cols > 4:
                     # very wide matrix
-                    return shrink_matrix(format_matrix(qty_mat[:, 0:2], fmt_ul), fmt_ul)
+                    return narrow_matrix(format_matrix(qty_mat[:, 0:2], fmt_ul), fmt_ul)
                 else:
                     # normal size matrix
                     return format_matrix(qty_mat, fmt_ul)
@@ -276,8 +287,8 @@ def aserar(eqn, intent='full', unit=None):
                 return fmt_ul(N(qty))
 
     # main variable:
-    variable_main = eqn.split('=')[0].strip()
-    variable_lx = latex(sympify(variable_main))
+    ዋና_ተጠሪ = eqn.split('=')[0].strip()
+    variable_lx = latex(sympify(ዋና_ተጠሪ))
 
     # expression 1:
     expr_0_str = eqn.split('=')[1].strip()
@@ -299,42 +310,54 @@ def aserar(eqn, intent='full', unit=None):
     values_dict = dict(zip(variables_list, values_list))
     expr_2_lx = latex(sympified, mul_symbol='times')
     for var, val in values_dict.items():
-        expr_2_lx = re.sub(fr'(?<!_{{|[a-zA-Z_]{{2}}){var}(?![a-zA-Z_]+)',
-                           format_quantity(val),
-                           expr_2_lx)
-
+        val_lx = format_quantity(val).replace('\\', '\\\\')
+        if '\\mathrm{' in val_lx:
+            expr_2_lx = re.sub(fr'(?<!_{{|[a-zA-Z_]{{2}}){re.escape(var)}(?![a-zA-Z_^]+)',
+                               val_lx,
+                               expr_2_lx)
+            expr_2_lx = re.sub(fr'(?<!_{{|[a-zA-Z_]{{2}}){re.escape(var)}(?=\^)',
+                               fr'\\left({val_lx}\\right)',
+                               expr_2_lx)
+        else:
+            expr_2_lx = re.sub(fr'(?<!_{{|[a-zA-Z_]{{2}}){re.escape(var)}(?![a-zA-Z_]+)',
+                               val_lx,
+                               expr_2_lx)
     # variable assignment:
     if unit == None:
-        result = expr_0_str
+        ወጤት = expr_0_str
     else:
-        result = convert_to(eval(expr_0_str, __main__.__dict__),
-                            [meter, kilogram, second])
-    exec(f'{variable_main} = {result}', __main__.__dict__)
+        try:
+            ወጤት = convert_to(eval(expr_0_str, __main__.__dict__),
+                             unit)
+        except:
+            ወጤት = expr_0_str
+    exec(f'{ዋና_ተጠሪ} = {ወጤት}', __main__.__dict__)
 
     # expression 3:
     expr_3_lx = format_quantity(eval(expr_0_str, __main__.__dict__),
                                 unit_internal=unit)
 
     # write equations:
-    _tabs_ = len(variable_lx)//6
+    _tabs_ = len(variable_lx)//4
     if intent == 'define':
         equation(
             variable_lx + ' = ' + expr_3_lx,
             inline=True, raw=True)
     elif intent == '2steps' or intent == '2step':
         equation(variable_lx + '\t= ' + expr_1_lx,
-                      _tabs_*'\t' + '\t= ' + expr_3_lx,
-                      raw=True)
-    elif intent == 'final':
+                 _tabs_*'\t' + '\t= ' + expr_3_lx,
+                 raw=True)
+    elif intent == 'final' or intent == 'last':
         equation(variable_lx + '\t= ' + expr_3_lx,
-                      raw=True)
+                 raw=True)
     else:
         equation(variable_lx + '\t= ' + expr_1_lx,
-                      _tabs_*'\t' + '\t= ' + expr_2_lx,
-                      _tabs_*'\t' + '\t= ' + expr_3_lx,
-                      raw=True)
-                      
+                 _tabs_*'\t' + '\t= ' + expr_2_lx,
+                 _tabs_*'\t' + '\t= ' + expr_3_lx,
+                 raw=True)
+
+
 def solveStr(strg, var):
-    eqn = sympify(strg)
-    var = sympify(var)
-    return solve(eqn, var)
+    ጥያቄ = sympify(strg)
+    ተጠሪ = sympify(var)
+    return solve(ጥያቄ, ተጠሪ)

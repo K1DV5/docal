@@ -1,3 +1,4 @@
+% -pd(docx)
 \documentclass{article}
 \usepackage{amsmath, graphicx}
 \begin{document}
@@ -5,7 +6,7 @@
 from sys import path
 path.append('..')
 from scpycalc import aserar, equation, sqrt, solve
-from sympy.physics.units import centimeter, mega, newton, pascal, Quantity, pressure, millimeter, second, meter
+from sympy.physics.units import centimeter, mega, newton, pascal, Quantity, pressure, millimeter, second, meter, kilogram
 import numpy as np
 import sympy as sp
 %>
@@ -84,7 +85,12 @@ The side rails are made of aluminum for easy removal of dry cement which can obs
 
 The profile of the rails can be approximated as
 
-\includegraphics{profile.png}
+\begin{figure}
+	\centering
+	\includegraphics{profile.png}
+	\caption{Rails Profile}
+	\label{first}
+\end{figure}
 where <%aserar('b = 5*centimeter', 'define')%> and <%aserar('h = 11*centimeter', 'define')%>
 
 Then the thickness t must be found. The initial guess for the thickness is
@@ -97,12 +103,67 @@ The center of mass is:
 
 The center of gravity is
 
-<%aserar('c_R = np.linspace(1,5,5)*meter', 'final')%>
+<%aserar('c_R = h/2')%>
 
 Now the maximum force that can be exerted is when the blade is midway down, half the height of the frame, where it can exert a horizontal force at the mid points of the rails, while the rails are held in place by the connector at the top and bottom. Then the rails can be assumed to be simply supported beams with forces applied at their midpoints. Since they are identical, one will be analyzed.
 
-The force applied can be found as the horizontal force in figure 2 (because there is an angle).
+The force applied can be found as the horizontal force in \ref{first} (because there is an angle).
 
-<%aserar('beta = 5*second')%>
+<%
+aserar('theta = 30*np.pi/180', '2step')
+aserar('F_R = abs(F_B*np.tan(theta))')
+%>
 
+The length of the rails is <%aserar('l_R = 2.4*meter', 'define')%>
+
+Now the bending moment is
+
+<%aserar('M_R = (F_R/2)*(l-l/2)')%>
+
+Then the safety factor can be found from the stress as:
+
+<%
+aserar('sigma_R = M_R*c_R/I_R', unit = MPa)
+aserar('n_R = S_Al/sigma_R')
+%>
+
+Then it is safe, maybe too safe.
+
+\section{Top and bottom frame bars}
+
+The maximum force that can be exerted on these bars is when the blade is near them and is
+moving. Considering one of the bars because they are identical, the side rails exert equal forces on each end and the connector exerts a reaction at the midpoint. Thus the same
+configuration as the side rails can be considered.
+
+The forces of the side rails is found from the force of the cenemt as:
+
+<%aserar('F_B = F_R/2')%>
+
+And the reaction of the connector is equal to the force of the cement.
+
+<%aserar('R_C = F_R', '2step')%>
+
+The bars are made of aluminum, the same as the side rails because welding two different
+materials is not recommended. The profile for the bars is a rectangular with the dimensions as <%aserar('b = 5*centimeter', 'define')%> and <%aserar('h = 2.5*centimeter', 'define')%> with a thickness <%aserar('t = 1*millimeter', 'define')%>
+
+Then the center of gravity and the area moment of inertia are:
+
+<%
+aserar('c_B = h/2')
+aserar('I_B = b*h**3/12-(b-2*t)*(h-2*t)**3/(12)')
+%>
+
+Now the bending moment, noting that the bar has a length of <%aserar('l = 1*meter', 'define')%>
+
+<%aserar('M_B = (R_C*l/2)/2')%>
+
+Now remembering that the material is the same aluminum as that of the side rails, the
+strength is the same. The bending stress and safety factor can be found as:
+
+<%
+aserar('sigma_B = M_B*c_B/I_B', unit = MPa)
+aserar('n_B = S_Al/sigma_B')
+%>
+
+It can be said that the bars are safe.
 \end{document}
