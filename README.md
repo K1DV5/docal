@@ -10,7 +10,7 @@ This library aims to use the above tools as infrustructure and make it easy to w
 * LaTeX (.tex) file output that can be converted to other formats via pandoc (including MS Word .docx)
 * Clear LaTeX formatted calculation procedure output
 
-###An Example:
+### An Example:
 Inside a Pweave source document the user (having imported necessary modules and defined variables) writes
 ```latex
 ...
@@ -21,7 +21,7 @@ The area moment of inertia is:
 The center of gravity is
 ...
 ```
-Now when the file is weaved into a .tex file:
+Now when the file is weaved into a .tex file, the above is converted into:
 ```latex
 ...
 The area moment of inertia is:
