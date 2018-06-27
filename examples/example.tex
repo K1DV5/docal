@@ -10,12 +10,12 @@
 It should be emphasized that for systems in which the inputs are known ahead of time and in which there are no disturbances it is advisable to use open-loop control.  Closed-loop control systems have advantages only when unpredictable disturbanc and/or unpredictable variations in system components are present. Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is  generally higher in cost and power.To decrease the required power of a system,open-  loop control may be used where applicable.A proper combination of open-loop and  closed-loop controls is usually less expensive and will give satisfactory overall system  performance
 
 \begin{equation}
-\alpha=R_{C} + \frac{\beta}{\theta} \, \psi
+\alpha=R_{C} + \frac{\beta_{}}{\theta} \, \psi
 \end{equation}
 
 \begin{align}
 \begin{split}
-\alpha &= R_{C} + \frac{\beta}{\theta} \cdot \psi\\
+\alpha &= R_{C} + \frac{\beta_{}}{\theta} \cdot \psi\\
  &= 5 \cdot R_{c}\\
  &= 69\\
 \end{split}
@@ -53,11 +53,11 @@ y	&= x^{2} + 9 \cdot x\\
 
 $F = ma$ It should be emphasized that for systems in which the inputs are known ahead of time and in which there are no disturbances it is advisable to use open-loop control.  Closed-loop control systems have advantages only when unpredictable disturbanc  and/or unpredictable variations in system components are present. Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is generally higher in cost and power.To decrease the required power of a system,open-  loop control may be used where applicable.A proper combination of open-loop and  closed-loop controls is usually less expensive and will give satisfactory overall system  performance.
 
-$\beta = 58\,\mathrm{in}$ 
+$\beta_{} = 58\,\mathrm{in}$ 
 
 \begin{align}
 \begin{split}
-\zeta	&= \beta + 69 \cdot \mathrm{m}\\
+\zeta	&= \beta_{} + 69 \cdot \mathrm{m}\\
 		&= 58\,\mathrm{in} + 69 \times 1\,\mathrm{m}\\
 		&= 70.473\,\mathrm{m}\\
 \end{split}
@@ -68,35 +68,21 @@ $\beta = 58\,\mathrm{in}$
 
 $F = ma$ It should be emphasized that for systems in which the inputs are known ahead of time and in which there are no disturbances it is advisable to use open-loop control.  Closed-loop control systems have advantages only when unpredictable disturbanc  and/or unpredictable variations in system components are present. Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is generally higher in cost and power.To decrease the required power of a system,open-  loop control may be used where applicable.A proper combination of open-loop and  closed-loop controls is usually less expensive and will give satisfactory overall system  performance.
 
----------------------------------------------------------------------------TypeError                                 Traceback (most recent call last)<ipython-input-1-9696b78e03e4> in <module>()
-----> 1 aserar('D_f = np.linspace(1,5,9)[2:6]')
-      2 aserar('S_d = 5+D_f*98')
-..\scpycalc.py in aserar(eqn, intent, unit)
-    289     str_exp = re.sub(r'(?<![a-zA-Z_])[a-zA-Z]+\.(?=[a-zA-Z_]+)',
-    290                      '', expr_0_str)
---> 291     sympified = sympify(str_exp)
-    292     expr_1_lx = latex(sympified, mul_symbol='dot')
-    293     for full_form, short_form in abb.items():
-c:\programs\python\python36-32\lib\site-packages\sympy\core\sympify.py in sympify(a, locals, convert_xor, strict, rational, evaluate)
-    352     try:
-    353         a = a.replace('\n', '')
---> 354         expr = parse_expr(a, local_dict=locals, transformations=transformations, evaluate=evaluate)
-    355     except (TokenError, SyntaxError) as exc:
-    356         raise SympifyError('could not parse %r' % a, exc)
-c:\programs\python\python36-32\lib\site-packages\sympy\parsing\sympy_parser.py in parse_expr(s, local_dict, transformations, global_dict, evaluate)
-    892         code = compile(evaluateFalse(code), '<string>', 'eval')
-    893 
---> 894     return eval_expr(code, local_dict, global_dict)
-    895 
-    896 
-c:\programs\python\python36-32\lib\site-packages\sympy\parsing\sympy_parser.py in eval_expr(code, local_dict, global_dict)
-    805     """
-    806     expr = eval(
---> 807         code, global_dict, local_dict)  # take local objects in preference
-    808 
-    809     return expr
-<string> in <module>()
-TypeError: 'linspace' object is not subscriptable
+\begin{align}
+\begin{split}
+D_{f}	&= \operatorname{linspace}{\left (1,5,9 \right )}\\
+		&= \operatorname{linspace}{\left (1,5,9 \right )}\\
+		&= \left[\begin{matrix}1\\1.5\\\vdots\\5\end{matrix}\right]\\
+\end{split}
+\end{align}
+
+\begin{align}
+\begin{split}
+S_{d}	&= 98 \cdot D_{f} + 5\\
+		&= 98 \times \left[\begin{matrix}1\\1.5\\\vdots\\5\end{matrix}\right] + 5\\
+		&= \left[\begin{matrix}103\\152\\\vdots\\495\end{matrix}\right]\\
+\end{split}
+\end{align}
 
 \section{With Units}
 $F = ma$ It should be emphasized that for systems in which the inputs are known ahead of time and in which there are no disturbances it is advisable to use open-loop control.  Closed-loop control systems have advantages only when unpredictable disturbanc  and/or unpredictable variations in system components are present. Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is generally higher in cost and power.To decrease the required power of a system,open-  loop control may be used where applicable.A proper combination of open-loop and  closed-loop controls is usually less expensive and will give satisfactory overall system  performance.

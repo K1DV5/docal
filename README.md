@@ -12,7 +12,7 @@ This library aims to use the above tools as infrustructure and make it easy to w
 
 ###An Example:
 Inside a Pweave source document the user (having imported necessary modules and defined variables) writes
-```python
+```latex
 ...
 The area moment of inertia is:
 
@@ -38,7 +38,7 @@ The center of gravity is
 ...
 ```
 which, when compiled to pdf will look like
-![alt text](pdfpre.png "PDF preview")
+![PDF preview](examples/figures/pdfpre.png "PDF preview")
 
 ### Note:
 The project is currently under development and since I am not experienced, any suggestion or contribution is very welcome.

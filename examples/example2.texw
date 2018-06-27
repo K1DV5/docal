@@ -97,7 +97,7 @@ Then the thickness t must be found. The initial guess for the thickness is
 
 <%aserar('t = 1*millimeter', 'define')%>
 
-The center of mass is:
+The mass moment of inertia is:
 
 <%aserar('I_R = (b*(h**3))/12 - ((b-2*t)*(h-2*t)**3)/12')%>
 

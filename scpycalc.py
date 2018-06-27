@@ -102,8 +102,8 @@ def aserar(eqn, intent='full', unit=None):
 
             if Num > 1000 or Num < 0.1:
                 return re.sub(r'([0-9]+)E([-+])([0-9]+)',
-                        r'\1(10^{\2'+r'\g<3>'.lstrip(r'0')+r'})',
-                        f'{Num:.2E}').replace('+', '')
+                              r'\1(10^{\2'+r'\g<3>'.lstrip(r'0')+r'})',
+                              f'{Num:.2E}').replace('+', '')
 
             else:
                 if Num == int(Num):
@@ -140,7 +140,7 @@ def aserar(eqn, intent='full', unit=None):
         def fmt_ul(Qty):
             if Qty > 1000 or Qty < 0.1:
                 return re.sub(r'([0-9]+)E([-+])([0-9]+)',
-                              r'\1(10^{\2'+r'\g<3>'.lstrip('0')+r'})',
+                              r'\1(10^{\2' + r'\g<3>'.lstrip('0') + r'})',
                               f'{Qty:.2E}').replace('+', '')
             else:
                 if Qty == int(Qty):
@@ -248,9 +248,10 @@ def aserar(eqn, intent='full', unit=None):
                 un = fmt_un_un(qty[0, 0]).replace('\\frac', '')\
                     .replace('}{', '}\\slash{')
                 for full_form, short_form in abb.items():
-                    un = re.sub(fr'(?<!_{{|[a-zA-Z_]{{2}}){full_form}(?![a-zA-Z_]+)',
-                                short_form,
-                                un)
+                    un = re.sub(
+                        fr'(?<!_{{|[a-zA-Z_]{{2}}){full_form}(?![a-zA-Z_]+)',
+                        short_form,
+                        un)
 
                 return f'{number}\\,{un}'
 
@@ -258,13 +259,16 @@ def aserar(eqn, intent='full', unit=None):
                 # matrix + num
                 if qty_mat.rows > 4 and qty_mat.cols > 4:
                     # very big matrix
-                    return shrink_matrix(format_matrix(qty_mat[0:2, 0:2], fmt_ul), fmt_ul)
+                    return shrink_matrix(format_matrix(
+                        qty_mat[0:2, 0:2], fmt_ul), fmt_ul)
                 elif qty_mat.rows > 4 and qty_mat.cols < 5:
                     # very long matrix
-                    return shorten_matrix(format_matrix(qty_mat[0:2, :], fmt_ul), fmt_ul)
+                    return shorten_matrix(format_matrix(
+                        qty_mat[0:2, :], fmt_ul), fmt_ul)
                 elif qty_mat.rows < 5 and qty_mat.cols > 4:
                     # very wide matrix
-                    return narrow_matrix(format_matrix(qty_mat[:, 0:2], fmt_ul), fmt_ul)
+                    return narrow_matrix(format_matrix(
+                        qty_mat[:, 0:2], fmt_ul), fmt_ul)
                 else:
                     # normal size matrix
                     return format_matrix(qty_mat, fmt_ul)
@@ -276,9 +280,10 @@ def aserar(eqn, intent='full', unit=None):
                 un = fmt_un_un(qty).replace('\\frac', '')\
                     .replace('}{', '}\\slash{')
                 for full_form, short_form in abb.items():
-                    un = re.sub(fr'(?<!_{{|[a-zA-Z_]{{2}}){full_form}(?![a-zA-Z_]+)',
-                                short_form,
-                                un)
+                    un = re.sub(
+                        fr'(?<!_{{|[a-zA-Z_]{{2}}){full_form}(?![a-zA-Z_]+)',
+                        short_form,
+                        un)
 
                 return f'{number}\\,{un}'
 
@@ -298,9 +303,10 @@ def aserar(eqn, intent='full', unit=None):
     expr_1_lx = latex(sympified, mul_symbol='dot')
     for full_form, short_form in abb.items():
         if full_form in expr_1_lx:
-            expr_1_lx = re.sub(fr'(?<!_{{|[a-zA-Z_]{{2}}){full_form}(?![a-zA-Z_]+)',
-                               f'\\mathrm{{{short_form}}}',
-                               expr_1_lx)
+            expr_1_lx = re.sub(
+                fr'(?<!_{{|[a-zA-Z_]{{2}}){full_form}(?![a-zA-Z_]+)',
+                f'\\mathrm{{{short_form}}}',
+                expr_1_lx)
 
     # expression 2:
     free_symbols = list(sympified.atoms(Symbol))
@@ -312,16 +318,19 @@ def aserar(eqn, intent='full', unit=None):
     for var, val in values_dict.items():
         val_lx = format_quantity(val).replace('\\', '\\\\')
         if '\\mathrm{' in val_lx:
-            expr_2_lx = re.sub(fr'(?<!_{{|[a-zA-Z_]{{2}}){re.escape(var)}(?![a-zA-Z_^]+)',
-                               val_lx,
-                               expr_2_lx)
-            expr_2_lx = re.sub(fr'(?<!_{{|[a-zA-Z_]{{2}}){re.escape(var)}(?=\^)',
-                               fr'\\left({val_lx}\\right)',
-                               expr_2_lx)
+            expr_2_lx = re.sub(
+                fr'(?<!_{{|[a-zA-Z_]{{2}}){re.escape(var)}(?![a-zA-Z_^]+)',
+                val_lx,
+                expr_2_lx)
+            expr_2_lx = re.sub(
+                fr'(?<!_{{|[a-zA-Z_]{{2}}){re.escape(var)}(?=\^)',
+                fr'\\left({val_lx}\\right)',
+                expr_2_lx)
         else:
-            expr_2_lx = re.sub(fr'(?<!_{{|[a-zA-Z_]{{2}}){re.escape(var)}(?![a-zA-Z_]+)',
-                               val_lx,
-                               expr_2_lx)
+            expr_2_lx = re.sub(
+                fr'(?<!_{{|[a-zA-Z_]{{2}}){re.escape(var)}(?![a-zA-Z_]+)',
+                val_lx,
+                expr_2_lx)
     # variable assignment:
     if unit == None:
         ወጤት = expr_0_str

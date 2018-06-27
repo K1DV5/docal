@@ -1,0 +1,27 @@
+\documentclass[11pt]{article}
+\begin{document}
+<<echo=False>>=
+while True:
+	x=input('enter ')
+	print(float(x)*2)
+
+@
+
+nuvnngjngjtgtg
+
+<<echo=False>>=
+56
+@
+
+nktgkntgktg
+
+<<echo=False>>=
+100
+@
+
+nntgktngktg
+
+<<echo=False>>=
+200
+@
+\end{document}
