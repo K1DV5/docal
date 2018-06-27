@@ -38,7 +38,7 @@ The center of gravity is
 ...
 ```
 which, when compiled to pdf will look like
-![PDF preview](examples/figures/pdfpre.png "PDF preview")
+![PDF preview](examples/figures/pdfpre.png, "PDF preview")
 
 ### Note:
 The project is currently under development and since I am not experienced, any suggestion or contribution is very welcome.
