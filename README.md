@@ -38,7 +38,7 @@ The center of gravity is
 ...
 ```
 which, when compiled to pdf will look like
-![PDF preview](https://raw.githubusercontent.com/K1DV5/ScpyCalc/tree/master/examples/figures/pdfpre.PNG "PDF preview")
+![PDF preview](https://raw.githubusercontent.com/K1DV5/ScpyCalc/master/examples/figures/pdfpre.PNG "PDF preview")
 
 ### Note:
 The project is currently under development and since I am not experienced, any suggestion or contribution is very welcome.
