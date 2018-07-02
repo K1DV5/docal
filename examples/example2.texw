@@ -1,11 +1,10 @@
-% -pd(docx)
 \documentclass{article}
 \usepackage{amsmath, graphicx}
 \begin{document}
 <%
 from sys import path
 path.append('..')
-from scpycalc import aserar, equation, sqrt, solve
+from ScpyCalc.scpycalc import aserar, equation, sqrt, solve
 from sympy.physics.units import centimeter, mega, newton, pascal, Quantity, pressure, millimeter, second, meter, kilogram
 import numpy as np
 import sympy as sp
@@ -28,13 +27,13 @@ Then the cement will react with the same force distributed evenly along the blad
 
 Since the blade will be supported on both ends, from \cite[Table A-9]{shigley}, it can be assumed as number 7, simple supports, uniform load system. then taking the dimension
 
-<%aserar('b=10*centimeter', 'define')%>
+<%aserar('b=10*centimeter', 'd')%>
 
-, the stress equations will be solved for h. The Area moment of inertia for the blade is:
+the stress equations will be solved for h. The Area moment of inertia for the blade is:
 
 <%equation('I = (b*h**3)/12')%>
 
-And the center of mass is:')
+And the center of mass is:
 
 <%equation('c = h/2')%>
 
@@ -91,13 +90,13 @@ The profile of the rails can be approximated as
 	\caption{Rails Profile}
 	\label{first}
 \end{figure}
-where <%aserar('b = 5*centimeter', 'define')%> and <%aserar('h = 11*centimeter', 'define')%>
+where <%aserar('b = 5*centimeter', 'd')%> and <%aserar('h = 11*centimeter', 'd')%>
 
 Then the thickness t must be found. The initial guess for the thickness is
 
-<%aserar('t = 1*millimeter', 'define')%>
+<%aserar('t = 1*millimeter', 'd')%>
 
-The mass moment of inertia is:
+The area moment of inertia is:
 
 <%aserar('I_R = (b*(h**3))/12 - ((b-2*t)*(h-2*t)**3)/12')%>
 
@@ -114,7 +113,7 @@ aserar('theta = 30*np.pi/180', '2step')
 aserar('F_R = abs(F_B*np.tan(theta))')
 %>
 
-The length of the rails is <%aserar('l_R = 2.4*meter', 'define')%>
+The length of the rails is <%aserar('l_R = 2.4*meter', 'd')%>
 
 Now the bending moment is
 
@@ -144,7 +143,7 @@ And the reaction of the connector is equal to the force of the cement.
 <%aserar('R_C = F_R', '2step')%>
 
 The bars are made of aluminum, the same as the side rails because welding two different
-materials is not recommended. The profile for the bars is a rectangular with the dimensions as <%aserar('b = 5*centimeter', 'define')%> and <%aserar('h = 2.5*centimeter', 'define')%> with a thickness <%aserar('t = 1*millimeter', 'define')%>
+materials is not recommended. The profile for the bars is a rectangular with the dimensions as <%aserar('b = 5*centimeter', 'd')%> and <%aserar('h = 2.5*centimeter', 'd')%> with a thickness <%aserar('t = 1*millimeter', 'd')%>
 
 Then the center of gravity and the area moment of inertia are:
 
@@ -153,7 +152,7 @@ aserar('c_B = h/2')
 aserar('I_B = b*h**3/12-(b-2*t)*(h-2*t)**3/(12)')
 %>
 
-Now the bending moment, noting that the bar has a length of <%aserar('l = 1*meter', 'define')%>
+Now the bending moment, noting that the bar has a length of <%aserar('l = 1*meter', 'd')%>
 
 <%aserar('M_B = (R_C*l/2)/2')%>
 

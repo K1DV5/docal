@@ -6,7 +6,7 @@
 <%
 from sys import path
 path.append('..')
-from scpycalc import aserar, equation, sqrt, solve
+from ScpyCalc.scpycalc import aserar, equation, sqrt, solve
 from sympy.physics.units import second, meter, inch
 import numpy as np
 import sympy as sp

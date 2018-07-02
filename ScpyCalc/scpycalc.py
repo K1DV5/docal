@@ -7,7 +7,7 @@ import __main__
 
 
 def equation(*eqns, inline: bool = False, raw: bool = False):
-    if raw == True:
+    if raw is True:
         if len(eqns) == 1:
             if inline == True:
                 print(f' ${eqns[0]}$ ')
@@ -348,15 +348,15 @@ def aserar(eqn, intent='full', unit=None):
 
     # write equations:
     _tabs_ = len(variable_lx)//4
-    if intent == 'define':
+    if intent == 'define' or intent == 'd':
         equation(
             variable_lx + ' = ' + expr_3_lx,
             inline=True, raw=True)
-    elif intent == '2steps' or intent == '2step':
+    elif intent == '2step' or intent == '2':
         equation(variable_lx + '\t= ' + expr_1_lx,
                  _tabs_*'\t' + '\t= ' + expr_3_lx,
                  raw=True)
-    elif intent == 'final' or intent == 'last':
+    elif intent == 'last' or intent == 'l':
         equation(variable_lx + '\t= ' + expr_3_lx,
                  raw=True)
     else:
