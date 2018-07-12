@@ -1,4 +1,5 @@
 # -ipy
+from sys import argv
 from shutil import rmtree
 from sympy import latex, sympify, Symbol, sqrt, solve, Matrix, N
 from sympy.physics.units import meter, second, kilogram, convert_to, Quantity
@@ -331,16 +332,17 @@ def aserar(eqn, intent='full', unit=None):
                 fr'(?<!_{{|[a-zA-Z_]{{2}}){re.escape(var)}(?![a-zA-Z_]+)',
                 val_lx,
                 expr_2_lx)
+
     # variable assignment:
     if unit == None:
-        ወጤት = expr_0_str
+        ዋጋ = expr_0_str
     else:
         try:
-            ወጤት = convert_to(eval(expr_0_str, __main__.__dict__),
+            ዋጋ = convert_to(eval(expr_0_str, __main__.__dict__),
                              unit)
         except:
-            ወጤት = expr_0_str
-    exec(f'{ዋና_ተጠሪ} = {ወጤት}', __main__.__dict__)
+            ዋጋ = expr_0_str
+    exec(f'{ዋና_ተጠሪ} = {ዋጋ}', __main__.__dict__)
 
     # expression 3:
     expr_3_lx = format_quantity(eval(expr_0_str, __main__.__dict__),
@@ -370,3 +372,15 @@ def solveStr(strg, var):
     ጥያቄ = sympify(strg)
     ተጠሪ = sympify(var)
     return solve(ጥያቄ, ተጠሪ)
+
+if len(argv) == 2:
+    file_name = argv[1]
+    with open(file_name, 'r') as fl:
+        contents = fl.read()
+    contents = re.sub(r'<<(.+)>>',
+            aserar(*tuple(r'\1'\
+                .replace(r'<<', '')\
+                .replace(r'>>', '')\
+                .split(';'))), contents)
+    with open(file_name, 'w') as fl:
+        fl.write()

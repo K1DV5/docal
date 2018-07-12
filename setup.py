@@ -14,8 +14,9 @@ setuptools.setup(
     url='https://github.com/K1DV5/ScpyCalc',
     packages=setuptools.find_packages(),
     classifiers=(
-        'programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3',
         'License :: OSI Approved :: MIT License',
-        'Operating System :: OS Indepent'
+        'Operating System :: OS Independent'
     )
 )
+
