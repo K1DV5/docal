@@ -1,10 +1,8 @@
 
 todo:
-1.	get a better unitless quantity vs quantity with unit differentiating way
-2.	add figure capability
-3.	add a plot capability (matplotlib)
-4.	add a table capability
-5.	add documentation
+1.	add a plot capability (matplotlib)
+2.	add a table capability
+3.	add documentation
 
 problems:
 1.	beta is mestaken, use beta_ instead

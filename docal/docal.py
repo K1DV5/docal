@@ -1,4 +1,8 @@
 # -ipy
+'''
+Module docal by K1DV5
+'''
+
 from sys import argv
 from shutil import rmtree
 from sympy import latex, sympify, Symbol, sqrt, solve, Matrix, N
@@ -8,6 +12,14 @@ import __main__
 
 
 def equation(*eqns, inline: bool = False, raw: bool = False):
+    '''prints the given equation(s) in a nice latex format.
+
+    >>> equation('c_V = beta_ * sqrt(alpha)/5')
+    <BLANKLINE>
+    \\begin{equation}
+    c_{V}=\\frac{\\beta_{}}{5} \\, \\sqrt{\\alpha}
+    \\end{equation}
+    '''
     if raw is True:
         if len(eqns) == 1:
             if inline == True:
@@ -61,7 +73,22 @@ def equation(*eqns, inline: bool = False, raw: bool = False):
 def aserar(eqn, intent='full', unit=None):
     '''
     evaluates all the calculations and assignment needed in the eqn
-    and writes all the procedures in the document'''
+    and prints all the procedures
+    (which can be inserted in a pweave or pythontex document)
+    
+    >>> aserar('t_f = 56', 'd')
+    $t_{f} = 56$
+
+    >>> aserar('r_d = sqrt(t_f/56)+78')
+    <BLANKLINE>
+    \\begin{align}
+    \\begin{split}
+    r_{d}       &= \\frac{\\sqrt{14}}{28} \\cdot \\sqrt{t_{f}} + 78\\\\
+                &= \\frac{\\sqrt{14}}{28} \\times \\sqrt{56} + 78\\\\
+                &= 79\\\\
+    \\end{split}
+    \\end{align}
+    '''
 
     abb = {'meter': 'm', 'millimeter': 'mm', 'second': 's', 'centimeter': 'cm',
            'inch': 'in', 'kilogram': 'kg', 'pascal': 'Pa', 'newton': 'N'}
@@ -372,15 +399,3 @@ def solveStr(strg, var):
     ጥያቄ = sympify(strg)
     ተጠሪ = sympify(var)
     return solve(ጥያቄ, ተጠሪ)
-
-if len(argv) == 2:
-    file_name = argv[1]
-    with open(file_name, 'r') as fl:
-        contents = fl.read()
-    contents = re.sub(r'<<(.+)>>',
-            aserar(*tuple(r'\1'\
-                .replace(r'<<', '')\
-                .replace(r'>>', '')\
-                .split(';'))), contents)
-    with open(file_name, 'w') as fl:
-        fl.write()
