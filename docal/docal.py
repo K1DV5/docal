@@ -11,66 +11,7 @@ import re
 import __main__
 
 
-def equation(*eqns, inline: bool = False, raw: bool = False):
-    '''prints the given equation(s) in a nice latex format.
-
-    >>> equation('c_V = beta_ * sqrt(alpha)/5')
-    <BLANKLINE>
-    \\begin{equation}
-    c_{V}=\\frac{\\beta_{}}{5} \\, \\sqrt{\\alpha}
-    \\end{equation}
-    '''
-    if raw is True:
-        if len(eqns) == 1:
-            if inline == True:
-                print(f' ${eqns[0]}$ ')
-            else:
-                print(
-                    f'\n\\begin{{equation}}\n{eqns[0]}\n\\end{{equation}}')
-        else:
-            print('\n\\begin{align}\n\\begin{split}')
-            for eq in eqns:
-                print(f"{eq.replace('=', '&=')}\\\\")
-            print('\\end{split}\n\\end{align}')
-
-    else:
-        def lxify(eq): return latex(eq, mul_symbol='dot')
-        if len(eqns) == 1:
-            if '=' in eqns[0]:
-                eq = eqns[0].split('=')
-                eqn = (lxify(sympify(eq[0])).replace('\\cdot', '\\,')
-                       + '='
-                       + lxify(sympify(eq[1])).replace('\\cdot', '\\,')
-                       )
-                if inline == True:
-                    print(f'${eqn}$')
-                else:
-                    print(
-                        f'\n\\begin{{equation}}\n{eqn}\n\\end{{equation}}')
-            else:
-                expr = sympify(eqns[0])
-                if inline == True:
-                    print(f'${lxify(expr)}$')
-                else:
-                    print(
-                        f'\n\\begin{{equation}}\n{lxify(expr)}\n\\end{{equation}}')
-        else:
-            print('\n\\begin{align}\n\\begin{split}')
-            for eqt in eqns:
-                if '=' in eqt:
-                    eq = eqt.split('=')
-                    try:
-                        lhand = lxify(sympify(eq[0]))
-                    except:
-                        lhand = ''
-                    rhand = lxify(sympify(eq[1]))
-                    print(f'{lhand} &= {rhand}\\\\')
-                else:
-                    print(f'{lxify(eqt)}\\\\')
-            print('\\end{split}\n\\end{align}')
-
-
-def aserar(eqn, intent='full', unit=None):
+def cal(eqn, intent='full', unit=None):
     '''
     evaluates all the calculations and assignment needed in the eqn
     and prints all the procedures

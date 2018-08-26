@@ -5,7 +5,7 @@ with open('README.md', 'r') as fh:
 
 setuptools.setup(
     name='doCal',
-    version='0.0.1',
+    version='0.1.1',
     author='K1DV5',
     author_email='kidusadugna@gmail.com',
     description='A Scientific Document Calculation Assistant',
