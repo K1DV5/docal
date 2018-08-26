@@ -16,7 +16,7 @@ Inside a Pweave source document the user (having imported necessary modules and 
 ...
 The area moment of inertia is:
 
-<%aserar('I_R = (b*(h**3))/12 - ((b-2*t)*(h-2*t)**3)/12')%>
+<%cal('I_R = (b*(h**3))/12 - ((b-2*t)*(h-2*t)**3)/12')%>
 
 The center of gravity is
 ...
