@@ -1,6 +1,6 @@
 '''initializiation module'''
 
 from .equation import eqn
-from .docal import cal
+from .calculation import cal
 
 name = 'docal'

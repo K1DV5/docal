@@ -7,24 +7,22 @@ not evaluated
 
 from sympy import latex, sympify
 
-def _surround_equation(equation: str, text: bool):
+def _surround_equation(equation: str, disp: bool):
     '''surround given equation by latex surroundings/ environments'''
 
     equation_len = 1 + equation.count('\n')
 
-    if text:
-        if equation_len == 1:
-            output_equation = f' ${equation}$ '
-
-    else:
-        if equation_len == 1:
+    if equation_len == 1:
+        if disp:
             output_equation = ('\\begin{equation}\n'
                                f'{equation}\n'
                                '\\end{equation}')
         else:
-            output_equation = ('\\begin{align}\n\\begin{split}\n'
-                               f'{equation}\n'
-                               '\\end{split}\n\\end{align}')
+            output_equation = f' ${equation}$ '
+    else:
+        output_equation = ('\\begin{align}\n\\begin{split}\n'
+                           f'{equation}\n'
+                           '\\end{split}\n\\end{align}')
 
     return output_equation
 
@@ -35,7 +33,7 @@ def _equation_raw(*equations):
         output_equation = equations[0]
 
     else:
-        output_equation = '\n'.join(
+        output_equation = '\\\\\n'.join(
             [equation.replace('=', '&=') for equation in equations])
 
     return output_equation
@@ -54,20 +52,20 @@ def _equation_normal(*equations):
                                         for expr in equation.split('=')])
                            for equation in equations]
 
-    output_equation = '\n'.join(equations_formatted)
+    output_equation = '\\\\\n'.join(equations_formatted)
 
     return output_equation
 
 
-def eqn(*equation_list, normal: bool = True, inline: bool = True):
+def eqn(*equation_list, norm: bool = True, disp: bool = True):
     '''main api for equations'''
 
-    if normal:
+    if norm:
         output_equation = _equation_normal(*equation_list)
     else:
         output_equation = _equation_raw(*equation_list)
 
-    return _surround_equation(output_equation, text=inline)
+    print(_surround_equation(output_equation, disp))
 
 
 if __name__ == '__main__':
@@ -82,24 +80,24 @@ if __name__ == '__main__':
         def test_eqn(self):
             "test main equation for all cases (change print by return first)"
             # with one equation
-            self.assertEqual(eqn('A_x = alpha + H_l', normal=False, inline=True),
+            self.assertEqual(eqn('A_x = alpha + H_l', norm=False, disp=False),
                              ' $A_x = alpha + H_l$ ')
-            self.assertEqual(eqn('A_x = alpha + H_l', normal=True, inline=True),
+            self.assertEqual(eqn('A_x = alpha + H_l', norm=True, disp=False),
                              ' $A_{x} = H_{l} + \\alpha$ ')
-            self.assertEqual(eqn('A_x = alpha + H_l', normal=False, inline=False),
+            self.assertEqual(eqn('A_x = alpha + H_l', norm=False, disp=True),
                              '\\begin{equation}\nA_x = alpha + H_l\n\\end{equation}')
-            self.assertEqual(eqn('A_x = alpha + H_l', normal=True, inline=False),
+            self.assertEqual(eqn('A_x = alpha + H_l', norm=True, disp=True),
                              '\\begin{equation}\nA_{x} = H_{l} + \\alpha\n\\end{equation}')
             # with many equations
             self.assertEqual(eqn('A_x = alpha + H_l', '= psi / H_d', '= 13',
-                                 normal=True, inline=False),
+                                 norm=True, disp=False),
                              '\\begin{align}\n\\begin{split}'
                              '\nA_{x} &= H_{l} + \\alpha'
                              '\n &= \\frac{\\psi}{H_{d}}'
                              '\n &= 13'
                              '\n\\end{split}\n\\end{align}')
             self.assertEqual(eqn('A_x = alpha + H_l', '= psi / H_d', '= 13',
-                                 normal=False, inline=False),
+                                 norm=False, disp=False),
                              '\\begin{align}\n\\begin{split}'
                              '\nA_x &= alpha + H_l'
                              '\n&= psi / H_d'
