@@ -4,7 +4,7 @@
 \begin{document}
 
 <%
-from docal import cal, eqn
+from docal import cal, eqn, fmt
 from sympy import sqrt
 from sympy.physics.units import second, meter, inch
 import numpy as np
@@ -41,8 +41,9 @@ cal('y=x**2+x*9')
 $F = ma$ It should be emphasized that for systems in which the inputs are known ahead of time and in which there are no disturbances it is advisable to use open-loop control.  Closed-loop control systems have advantages only when unpredictable disturbance  and/or unpredictable variations in system components are present. Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is generally higher in cost and power.To decrease the required power of a system,open-  loop control may be used where applicable.A proper combination of open-loop and  closed-loop controls is usually less expensive and will give satisfactory overall system  performance.
 
 <%
-cal('beta_ = 58*inch', 'define')
+cal('beta_ = 58*inch')
 cal('zeta = beta_+69*meter')
+fmt(zeta)
 %>
 
 \chapter{cal With Arrays}
@@ -70,7 +71,7 @@ cal('V__D_y = R_D**2/T_m')
 $F = ma$ It should be emphasized that for systems in which the inputs are known ahead of time and in which there are no disturbances it is advisable to use open-loop control.  Closed-loop control systems have advantages only when unpredictable disturbance  and/or unpredictable variations in system components are present. Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is generally higher in cost and power.To decrease the required power of a system,open-  loop control may be used where applicable.A proper combination of open-loop and  closed-loop controls is usually less expensive and will give satisfactory overall system  performance.
 
 <%
-M_T = sp.Matrix(np.matrix("1 4 7 4 5 2 2; 4 5 69 8 9 2 3; 1 2 4 5 8 9 3; 1 2 4 5 6 3 2; 1 4 57 5 3 6 4"))*meter
+M_T = sp.Matrix(np.matrix("1 4 7 4 5 2 2; 4 5 69 8 9 2 3; 1 2 4 5 8 9 3; 1 2 4 5 6 3 2"))
 cal('M_T = M_T', 'define')
 cal('M_a = M_T*2')
 %>
@@ -78,5 +79,11 @@ cal('M_a = M_T*2')
 \section{With Units}
 
 $F = ma$ It should be emphasized that for systems in which the inputs are known ahead of time and in which there are no disturbances it is advisable to use open-loop control.  Closed-loop control systems have advantages only when unpredictable disturbance  and/or unpredictable variations in system components are present. Note that the  output power rating partially determines the cost,weight,and size of a control system.  The number of components used in a closed-loop control system is more than that for  a corresponding open-loop control system. Thus, the closed-loop control system is generally higher in cost and power.To decrease the required power of a system,open-  loop control may be used where applicable.A proper combination of open-loop and  closed-loop controls is usually less expensive and will give satisfactory overall system  performance.
+
+<%
+M_T = sp.Matrix(np.matrix("1 4 7 4 5 2 2; 4 5 69 8 9 2 3; 1 2 4 5 8 9 3; 1 2 4 5 6 3 2; 1 4 57 5 3 6 4"))*meter
+cal('M_T = M_T', 'define')
+cal('M_a = M_T*2')
+%>
 
 \end{document}

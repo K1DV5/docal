@@ -1,11 +1,9 @@
 
 todo:
-1.	add a plot capability (matplotlib)
-2.	add a table capability
-3.	add documentation
+1.	add documentation
 
 problems:
 1.	beta is mestaken, use beta_ instead
 2.	the unit psi is mistaken for the greek letter, assign it to another variable and work with it
-3.	can't use modules imported as "import ... as ..." directly, use above method
+3.	sometimes can't use modules imported as "import ... as ..." directly, use above method
 4.	units cannot be used with numpy matrices, use sympy matrices instead

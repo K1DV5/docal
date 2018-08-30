@@ -1,3 +1,4 @@
+# -ipy
 '''
 module procedure
 
@@ -9,7 +10,7 @@ import re
 from sympy import latex, sympify, Symbol, Matrix
 from sympy.physics.units import meter, second, kilogram, convert_to, Quantity
 import __main__
-from .equation import eqn
+from .equation import eqn, _surround_equation
 
 UNIT_ABBREVIATIONS = {'meter': 'm', 'millimeter': 'mm', 'second': 's',
                       'centimeter': 'cm', 'inch': 'in', 'kilogram': 'kg',
@@ -49,9 +50,8 @@ def _format_unit(quantity, desired_unit):
     '''make the unit conform to unit notation standards (more or less)'''
 
     # if the quantity is unitless or units cancel out
-    if not sympify(quantity).atoms(Quantity) \
-            or not convert_to(quantity,
-                              [meter, kilogram, second]).atoms(Quantity):
+    if not sympify(quantity).atoms(Quantity) or not \
+            convert_to(quantity, [meter, kilogram, second]).atoms(Quantity):
         return ''
 
     # if it is a sum (4*meter + 5*centimeter) or conversion is desired
@@ -75,20 +75,18 @@ def _format_unit(quantity, desired_unit):
 def _format_array(array, desired_unit):
     '''look above'''
 
-    if len(array) > 4:
-        array = list(array[0:2]) + [array[-1]] # shorten
-
-    number = latex(Matrix(array[:-1]))
-    for element in array[:-1]:
-        number = number.replace(latex(element),
-                                _format_number(element, desired_unit),
-                                1)
-    number = number.replace('\\end{matrix}',
-                            '\\\\\\vdots\\\\'
-                            f'{_format_number(array[-1], desired_unit)}'
-                            '\\end{matrix}')
-
     unit = _format_unit(array[0], desired_unit)
+
+    if len(array) > 4:
+        array = [*[_format_number(element, desired_unit) for element in array[:2]],
+                 '\\vdots',
+                 _format_number(array[-1], desired_unit)]
+    else:
+        array = [_format_number(element, desired_unit) for element in array]
+
+    number = ('\\left[\\begin{matrix}'
+              +'\\\\'.join(array)
+              +'\\end{matrix}\\right]')
 
     return f'{number}{unit}'
 
@@ -98,20 +96,25 @@ def _format_big_matrix(matrix, desired_unit):
 
     matrix = matrix[:, :2].row_join(matrix[:, -1])  # make narrow
     matrix = matrix[:2, :].col_join(matrix[-1, :])  # shorten
-    number = latex(matrix[:2, :2])
-    for qty in matrix:
-        number = number.replace(latex(qty), _format_number(qty, desired_unit))
-    number = number\
-        .replace('\\\\',
-                 f' & \\cdots & {_format_number(matrix[0, -1], desired_unit)}'
-                 '\\\\')\
-        .replace('\\end{matrix}',
-                 (f' & \\cdots & {_format_number(matrix[1, -1], desired_unit)}'
-                  '\\\\\\vdots & \\vdots & \\ddots & \\vdots\\\\'
-                  f'{_format_number(matrix[-1, 0], desired_unit)} '
-                  f'& {_format_number(matrix[-1, 1], desired_unit)}'
-                  f' & \\cdots & {_format_number(matrix[-1, -1], desired_unit)}'
-                  '\\end{matrix}'))
+    mat_ls = []
+
+    for index in range(matrix[:2, :].rows):
+        mat_ls.append(' & '.join(
+            [*[_format_number(element, desired_unit) for element in matrix[index, :-1]],
+             '\\cdots',
+             _format_number(matrix[index, -1], desired_unit)]))
+
+    mat_ls.append(' & '.join(
+        [*['\\vdots'] * (matrix.cols - 1), '\\ddots', '\\vdots']))
+    mat_ls.append(' & '.join(
+        [*[_format_number(element, desired_unit) for element in matrix[-1, :-1]],
+         '\\cdots',
+         _format_number(matrix[-1, -1], desired_unit)]))
+
+    number = ('\\left[\\begin{matrix}' +
+              '\\\\'.join(mat_ls) +
+              '\\end{matrix}\\right]')
+
     return number
 
 
@@ -119,36 +122,35 @@ def _format_wide_matrix(matrix, desired_unit):
     '''look above'''
 
     matrix = matrix[:, :2].row_join(matrix[:, -1])  # make narrow
-    number = latex(matrix[:2, :2])
-    line_breaks = number.count('\\\\')
-    for row in range(0, line_breaks):
-        number = number.replace(
-            '\\\\',
-            (' & \\cdots & {_format_number(matrix[row, -1], desired_unit)}'
-             '\\temp'), 1)
-    number = number.replace('\\temp', '\\\\')\
-        .replace('\\end{matrix}',
-                 ' & \\cdots & '
-                 f'{_format_number(matrix[line_breaks, -1], desired_unit)}'
-                 '\\end{{matrix}}')
+    mat_ls = []
+    for index in range(matrix.rows):
+        mat_ls.append(' & '.join(
+            [*[_format_number(element, desired_unit) for element in matrix[index, :-1]],
+             '\\cdots',
+             _format_number(matrix[index, -1], desired_unit)]))
+
+    number = ('\\left[\\begin{matrix}' +
+              '\\\\'.join(mat_ls) +
+              '\\end{matrix}\\right]')
 
     return number
+
 
 def _format_long_matrix(matrix, desired_unit):
     '''look above'''
 
     matrix = matrix[:2, :].col_join(matrix[-1, :])  # shorten
-    number = latex(matrix[:2, :2])
-    for qty in matrix:
-        number = number.replace(latex(qty), _format_number(qty, desired_unit))
-    end_part = '\\\\\\vdots'
-    ands = number.count('&', 0, number.find('\\\\'))
-    for col in range(1, ands + 1):
-        end_part += ' & \\vdots'
-    end_part += f'\\\\{_format_number(matrix[-1, 0], desired_unit)}'
-    for col in range(1, ands + 1):
-        end_part += f' & {_format_number(matrix[-1, col], desired_unit)}'
-    number = number.replace('\\end{matrix}', end_part + '\\end{matrix}')
+    mat_ls = []
+    for index in range(matrix[:2, :].rows):
+        mat_ls.append(' & '.join(
+            [_format_number(element, desired_unit) for element in matrix[index, :]]))
+    mat_ls.append(' & '.join(['\\vdots'] * matrix.cols))
+    mat_ls.append(' & '.join(
+        [_format_number(element, desired_unit) for element in matrix[-1, :]]))
+
+    number = ('\\left[\\begin{matrix}' +
+              '\\\\'.join(mat_ls) +
+              '\\end{matrix}\\right]')
 
     return number
 
@@ -175,21 +177,21 @@ def _format_matrix(matrix, desired_unit):
     return f'{number}{unit}'
 
 
-def format_quantity(qty, desired_unit=(meter, kilogram, second)):
+def format_quantity(quantity, desired_unit=(meter, kilogram, second)):
     '''returns a nicely latex formatted string of the quantity
     including the units (if any)'''
 
-    qty_type = str(type(qty))
+    quantity_type = str(type(quantity))
 
-    if 'array' in qty_type or 'Array' in qty_type:
-        formatted = _format_array(qty, desired_unit)
+    if 'array' in quantity_type or 'Array' in quantity_type:
+        formatted = _format_array(quantity, desired_unit)
 
-    elif 'matrix' in qty_type or 'Matrix' in qty_type:
-        formatted = _format_matrix(qty, desired_unit)
+    elif 'matrix' in quantity_type or 'Matrix' in quantity_type:
+        formatted = _format_matrix(quantity, desired_unit)
 
     else:
-        number = _format_number(qty, desired_unit)
-        unit = _format_unit(qty, desired_unit)
+        number = _format_number(quantity, desired_unit)
+        unit = _format_unit(quantity, desired_unit)
         formatted = f'{number}{unit}'
 
     return formatted
@@ -204,8 +206,8 @@ class _calculation:
         self.main_variable = equation.split('=')[0].strip()
         self.variable_lx = latex(sympify(self.main_variable))
         self.expr_0_str = equation.split('=')[1].strip()
-        self.str_exp = re.sub(r'(?<![a-zA-Z_])[a-zA-Z]+\.(?=[a-zA-Z_]+)',
-                              '', self.expr_0_str)
+        self.str_exp = re.sub(r'[a-zA-Z_.]*\.([a-zA-Z_]*)',
+                              r'\1', self.expr_0_str)
         self.sympified = sympify(self.str_exp)
 
     def step_one(self):
@@ -253,7 +255,7 @@ class _calculation:
     def assign_variable(self, result_unit):
         '''the name says it'''
 
-        if result_unit is None:
+        if result_unit == (meter, kilogram, second):
             main_value = self.expr_0_str
         else:
             try:
@@ -266,8 +268,7 @@ class _calculation:
         exec(f'{self.main_variable} = {main_value}', __main__.__dict__)
 
 
-
-def cal(equation, intent='full', unit=None):
+def cal(equation, intent='full', unit=(meter, kilogram, second)):
     '''
     evaluates all the calculations and assignment needed in the eqn
     and prints all the procedures
@@ -310,3 +311,9 @@ def cal(equation, intent='full', unit=None):
             _alignment_tabs * '\t' + '\t= ' + calc.step_two(),
             _alignment_tabs * '\t' + '\t= ' + calc.step_three(unit),
             norm=False, disp=True)
+
+
+def fmt(quantity, unit=(meter, kilogram, second)):
+    '''when just formatting is needed'''
+
+    print(_surround_equation(format_quantity(quantity, unit), disp=False))

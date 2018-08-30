@@ -43,7 +43,7 @@ It can be installed using pip:
 ```
 pip install doCal
 ```
-Currently, the package provides two functions: ```eqn``` for formatting equations and ```cal``` for calculations.
+Currently, the package provides two functions: ```eqn``` for formatting equations (no calculations), ```fmt``` for formatting individual quantities, and ```cal``` for calculations.
 
 ### Note:
 The project is currently under development and since I am not experienced, any suggestion or contribution is welcome.
