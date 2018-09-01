@@ -85,8 +85,8 @@ def _format_array(array, desired_unit):
         array = [_format_number(element, desired_unit) for element in array]
 
     number = ('\\left[\\begin{matrix}'
-              +'\\\\'.join(array)
-              +'\\end{matrix}\\right]')
+              + '\\\\'.join(array)
+              + '\\end{matrix}\\right]')
 
     return f'{number}{unit}'
 
@@ -270,14 +270,14 @@ class _calculation:
 
 def cal(equation, intent='full', unit=(meter, kilogram, second)):
     '''
-    evaluates all the calculations and assignment needed in the eqn
-    and prints all the procedures
-    (which can be inserted in a pweave or pythontex document)
+    evaluate all the calculations, carry out the appropriate assignments,
+    and return all the procedures
+    (which can be inserted in a pweave or pythontex document with print())
 
     >>> cal('t_f = 56', 'd')
     $t_{f} = 56$
 
-    >>> cal('r_d = sqrt(t_f/56)+78')
+    >>> print(cal('r_d = sqrt(t_f/56)+78'))
     <BLANKLINE>
     \\begin{align}
     \\begin{split}
@@ -294,26 +294,28 @@ def cal(equation, intent='full', unit=(meter, kilogram, second)):
     _alignment_tabs = len(calc.variable_lx)//4
 
     if intent in ('define', 'd'):
-        eqn(calc.variable_lx + ' = ' + calc.step_one(),
-            norm=False, disp=False)
+        output = eqn(calc.variable_lx + ' = ' + calc.step_one(),
+                     norm=False, disp=False)
 
     elif intent in ('2step', '2'):
-        eqn(calc.variable_lx + '\t= ' + calc.step_one(),
-            _alignment_tabs * '\t' + '\t= ' + calc.step_three(unit),
-            norm=False, disp=True)
+        output = eqn(calc.variable_lx + '\t= ' + calc.step_one(),
+                     _alignment_tabs * '\t' + '\t= ' + calc.step_three(unit),
+                     norm=False, disp=True)
 
     elif intent in ('last', 'l'):
-        eqn(calc.variable_lx + '\t= ' + calc.step_three(unit),
-            norm=False, disp=True)
+        output = eqn(calc.variable_lx + '\t= ' + calc.step_three(unit),
+                     norm=False, disp=True)
 
     else:
-        eqn(calc.variable_lx + '\t= ' + calc.step_one(),
-            _alignment_tabs * '\t' + '\t= ' + calc.step_two(),
-            _alignment_tabs * '\t' + '\t= ' + calc.step_three(unit),
-            norm=False, disp=True)
+        output = eqn(calc.variable_lx + '\t= ' + calc.step_one(),
+                     _alignment_tabs * '\t' + '\t= ' + calc.step_two(),
+                     _alignment_tabs * '\t' + '\t= ' + calc.step_three(unit),
+                     norm=False, disp=True)
+
+    return output
 
 
 def fmt(quantity, unit=(meter, kilogram, second)):
     '''when just formatting is needed'''
 
-    print(_surround_equation(format_quantity(quantity, unit), disp=False))
+    return _surround_equation(format_quantity(quantity, unit), disp=False)

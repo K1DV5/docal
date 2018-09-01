@@ -5,10 +5,10 @@ with open('README.md', 'r') as fh:
 
 setuptools.setup(
     name='doCal',
-    version='0.1.2',
+    version='0.2.1',
     author='K1DV5',
     author_email='kidusadugna@gmail.com',
-    description='A Scientific Document Calculation Assistant',
+    description='Mathcad-like functionality for Pweave and related tools',
     long_description_content_type='text/markdown',
     long_description=long_description,
     url='https://github.com/K1DV5/doCal',
