@@ -1,7 +1,7 @@
 '''
 module equation
 
-handles equationation formatting for inputs that are merely meant to be shown,
+handles equation formatting for inputs that are merely meant to be shown,
 not evaluated
 '''
 
