@@ -228,7 +228,7 @@ class _calculation:
 
         free_symbols = list(self.sympified.atoms(Symbol))
         variables_list = [latex(var) for var in free_symbols]
-        values_list = [eval(str(var), __main__.__dict__)
+        values_list = [__main__.__dict__[str(var)]
                        for var in free_symbols]
         values_dict = dict(zip(variables_list, values_list))
         expr_2_lx = latex(self.sympified, mul_symbol='times')
@@ -236,8 +236,8 @@ class _calculation:
             val_lx = format_quantity(val)
             expr_2_lx = re.sub(
                 fr'(?<!_{{|[a-zA-Z_]{{2}}){re.escape(var)}\^?(?![a-zA-Z_]+)',
-                lambda m: (fr'\left({val_lx}\right)^'
-                           if m.group().endswith('^')
+                lambda mo: (fr'\left({val_lx}\right)^'
+                           if mo.group().endswith('^')
                            and '\\mathrm' in val_lx
                            else val_lx),
                 expr_2_lx)
