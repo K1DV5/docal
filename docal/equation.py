@@ -1,7 +1,7 @@
 '''
 module equation
 
-handles equationation formatting for inputs that are merely meant to be shown,
+handles equation formatting for inputs that are merely meant to be shown,
 not evaluated
 '''
 
@@ -18,7 +18,7 @@ def _surround_equation(equation: str, disp: bool):
                                f'{equation}\n'
                                '\\end{equation}')
         else:
-            output_equation = f' ${equation}$ '
+            output_equation = f'\\({equation}\\)'
     else:
         output_equation = ('\\begin{align}\n\\begin{split}\n'
                            f'{equation}\n'
@@ -65,7 +65,7 @@ def eqn(*equation_list, norm: bool = True, disp: bool = True):
     else:
         output_equation = _equation_raw(*equation_list)
 
-    print(_surround_equation(output_equation, disp))
+    return _surround_equation(output_equation, disp)
 
 
 if __name__ == '__main__':
