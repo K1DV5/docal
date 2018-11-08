@@ -5,20 +5,25 @@ Module document
 provides the document class that can be used to
 replace the pythontex and pweave requirement.
 
-write your calculations on a separate python file
-import this class
-use methods tag('tagname') for something like labels (placeholders)
-in the latex file, and ins(contents) to insert the contents into the
-tag place. Finally use the write() method to write the final file.
+In the latex file,
+    use hashtags(# tagname) to reserve places for contents that
+    will come from the python script.
+In a separate python script,
+    import this class.
+    use methods tag('tagname') for something like labels(placeholders)
+    write your calculations under those tags using ins(contents) to choose
+        what goes to the document tag place.
+    Finally use the write() method to write the final file.
+
 when the python file is run, it writes a tex file with the tags
 replaced by contents from the python file.
 '''
 
 import re
-import __main__
-from .calculation import format_quantity as fmt, _surround_equation as srnd
 from subprocess import run
 from os import environ, remove                   # for temp folder and delete
+import __main__
+from .calculation import format_quantity as fmt, _surround_equation as srnd
 
 # file taken as input file when not explicitly set:
 DEFAULT_INFILE = __main__.__file__.replace('.py', '.tex')
@@ -99,7 +104,7 @@ class document:
                       self._repl_bare,
                       file_str)
 
-    def _prepare(self, outfile): # outfile needed for conditional
+    def _prepare(self, outfile):  # outfile needed for conditional
         '''prepare what will be written to the final file'''
 
         with open(self.infile) as file:

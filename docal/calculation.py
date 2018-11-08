@@ -237,9 +237,9 @@ class _calculation:
             expr_2_lx = re.sub(
                 fr'(?<!_{{|[a-zA-Z_]{{2}}){re.escape(var)}\^?(?![a-zA-Z_]+)',
                 lambda mo: (fr'\left({val_lx}\right)^'
-                           if mo.group().endswith('^')
-                           and '\\mathrm' in val_lx
-                           else val_lx),
+                            if mo.group().endswith('^')
+                            and '\\mathrm' in val_lx
+                            else val_lx),
                 expr_2_lx)
 
         return expr_2_lx
@@ -291,25 +291,27 @@ def cal(equation, intent='full', unit=(meter, kilogram, second)):
     calc = _calculation(equation)
     calc.assign_variable(unit)
 
-    _alignment_tabs = len(calc.variable_lx)//4
+    _var_len = len(calc.variable_lx)
+    _rem = 4 - _var_len // 4
+    _spaces = _var_len + _rem
 
     if intent in ('define', 'd'):
-        output = eqn(calc.variable_lx + ' = ' + calc.step_one(),
+        output = eqn(calc.variable_lx + _rem*' ' + '= ' + calc.step_one(),
                      norm=False, disp=False)
 
     elif intent in ('2step', '2'):
-        output = eqn(calc.variable_lx + '\t= ' + calc.step_one(),
-                     _alignment_tabs * '\t' + '\t= ' + calc.step_three(unit),
+        output = eqn(calc.variable_lx + _rem*' ' + '= ' + calc.step_one(),
+                     _spaces * ' ' + '= ' + calc.step_three(unit),
                      norm=False, disp=True)
 
     elif intent in ('last', 'l'):
-        output = eqn(calc.variable_lx + '\t= ' + calc.step_three(unit),
+        output = eqn(calc.variable_lx + _rem*' ' + '= ' + calc.step_three(unit),
                      norm=False, disp=True)
 
     else:
-        output = eqn(calc.variable_lx + '\t= ' + calc.step_one(),
-                     _alignment_tabs * '\t' + '\t= ' + calc.step_two(),
-                     _alignment_tabs * '\t' + '\t= ' + calc.step_three(unit),
+        output = eqn(calc.variable_lx + _rem*' ' + '= ' + calc.step_one(),
+                     _spaces * ' ' + '= ' + calc.step_two(),
+                     _spaces * ' ' + '= ' + calc.step_three(unit),
                      norm=False, disp=True)
 
     return output
