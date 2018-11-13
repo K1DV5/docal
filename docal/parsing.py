@@ -1,4 +1,5 @@
 # -ipy
+# -pdb
 '''
 python expression to latex converter with import prefixes removal and optional
 substitution of values from the main script, based on Geoff Reedy's answer to
@@ -6,8 +7,6 @@ https://stackoverflow.com/questions/3867028/converting-a-python-numeric-expressi
 '''
 
 import ast
-from .formatting import format_quantity
-from __main__ import __dict__ as globals_dict
 
 GREEK_LETTERS = [
     'alpha', 'nu', 'beta', 'xi', 'Xi', 'gamma', 'Gamma', 'delta', 'Delta',
@@ -16,6 +15,12 @@ GREEK_LETTERS = [
     'iota', 'phi', 'varphi', 'Phi', 'kappa', 'chi', 'lambda', 'Lambda', 'psi',
     'Psi', 'mu', 'omega', 'Omega'
 ]
+
+MATH_ACCENTS = [
+    'hat', 'check', 'breve', 'acute', 'grave', 'tilde', 'bar', 'vec', 'dot', 'ddot'
+]
+
+PRIMES = { 'prime': "'", '2prime': "''", '3prime': "'''" }
 
 class _LatexVisitor(ast.NodeVisitor):
 
@@ -47,19 +52,38 @@ class _LatexVisitor(ast.NodeVisitor):
     def visit_Name(self, n):
         if self.subs:
             # substitute the value of the variable by formatted value
+            from .formatting import format_quantity
+            from __main__ import __dict__ as globals_dict
             return format_quantity(globals_dict[n.id])
-            # pass
         else:
-            # convert __ to ^ and enclose words in the name
+            # to convert __ to ^ and enclose words in the name
             parts = n.id.split('_')
+            # remember the locations for later removal
+            accent_locations = []
+            # to just prevent the leading variable from being surrounded
             if parts[0] in GREEK_LETTERS:
                 parts[0] = '\\' + parts[0]
-            for n in range(1, len(parts)):
-                if parts[n] in GREEK_LETTERS:
-                    parts[n] = '{\\' + parts[n] + '}'
-                elif parts[n] != '':
-                    parts[n] = '{' + parts[n] + '}'
-            name = '_'.join(parts).replace('__', '^')
+            # for the rest
+            for index, part in enumerate(parts[1:]):
+                # convert to latex commands
+                if part in GREEK_LETTERS:
+                    parts[index + 1] = '{\\' + part + '}'
+                # enclose the previous item in accent commands
+                elif part in MATH_ACCENTS:
+                    # if it was supposed to be a superscript
+                    # (to choose which to surround)
+                    if parts[index] == '':
+                        parts[index-1] = '{\\' + parts[index+1] + '{' + parts[index-1] + '}}'
+                    else:
+                        parts[index] = '{\\' + parts[index+1] + '{' + parts[index] + '}}'
+                    accent_locations.append(index + 1)
+                # convert primes
+                elif part in PRIMES.keys():
+                    parts[index+1] = PRIMES[part]
+                elif part != '':
+                    parts[index + 1] = '{' + part + '}'
+            parts = [part for index, part in enumerate(parts) if index not in accent_locations]
+            name = '_'.join(parts).replace('__', '^').replace("_'", "'").strip('_')
             return name
 
     def prec_Name(self, n):
@@ -194,3 +218,5 @@ class _LatexVisitor(ast.NodeVisitor):
 def latexify(expr, mul_symbol=' ', div_symbol='-:-', subs=False):
     pt = ast.parse(expr)
     return _LatexVisitor(mul_symbol, div_symbol, subs).visit(pt.body[0].value)
+
+# d = latexify('alpha_bar_beta_hat__gamma_tilde')
