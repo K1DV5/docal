@@ -5,7 +5,7 @@ handles equation formatting for inputs that are merely meant to be shown,
 not evaluated
 '''
 
-from sympy import latex, sympify
+from .parsing import latexify
 
 def _surround_equation(equation: str, disp: bool):
     '''surround given equation by latex surroundings/ environments'''
@@ -18,7 +18,7 @@ def _surround_equation(equation: str, disp: bool):
                                f'{equation}\n'
                                '\\end{equation}')
         else:
-            output_equation = f'\\({equation}\\)'
+            output_equation = f'\({equation}\)'
     else:
         output_equation = ('\\begin{align}\n\\begin{split}\n'
                            f'{equation}\n'
@@ -47,8 +47,7 @@ def _equation_normal(*equations):
     else:
         equals = ' = '
 
-    equations_formatted = [equals.join([latex(sympify(expr), mul_symbol='dot')
-                                        if expr != '' else ''
+    equations_formatted = [equals.join([latexify(expr.strip())
                                         for expr in equation.split('=')])
                            for equation in equations]
 
@@ -67,41 +66,3 @@ def eqn(*equation_list, norm: bool = True, disp: bool = True):
 
     return _surround_equation(output_equation, disp)
 
-
-if __name__ == '__main__':
-    import doctest
-    doctest.testmod()
-
-    import unittest as ut
-
-    class TestTheAboveFunctions(ut.TestCase):
-        "test the functions"
-
-        def test_eqn(self):
-            "test main equation for all cases (change print by return first)"
-            # with one equation
-            self.assertEqual(eqn('A_x = alpha + H_l', norm=False, disp=False),
-                             ' $A_x = alpha + H_l$ ')
-            self.assertEqual(eqn('A_x = alpha + H_l', norm=True, disp=False),
-                             ' $A_{x} = H_{l} + \\alpha$ ')
-            self.assertEqual(eqn('A_x = alpha + H_l', norm=False, disp=True),
-                             '\\begin{equation}\nA_x = alpha + H_l\n\\end{equation}')
-            self.assertEqual(eqn('A_x = alpha + H_l', norm=True, disp=True),
-                             '\\begin{equation}\nA_{x} = H_{l} + \\alpha\n\\end{equation}')
-            # with many equations
-            self.assertEqual(eqn('A_x = alpha + H_l', '= psi / H_d', '= 13',
-                                 norm=True, disp=False),
-                             '\\begin{align}\n\\begin{split}'
-                             '\nA_{x} &= H_{l} + \\alpha'
-                             '\n &= \\frac{\\psi}{H_{d}}'
-                             '\n &= 13'
-                             '\n\\end{split}\n\\end{align}')
-            self.assertEqual(eqn('A_x = alpha + H_l', '= psi / H_d', '= 13',
-                                 norm=False, disp=False),
-                             '\\begin{align}\n\\begin{split}'
-                             '\nA_x &= alpha + H_l'
-                             '\n&= psi / H_d'
-                             '\n&= 13'
-                             '\n\\end{split}\n\\end{align}')
-
-    ut.main()
