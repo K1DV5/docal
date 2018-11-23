@@ -28,67 +28,84 @@ UNIT_PF = '___0UNIT0'
 
 class _LatexVisitor(ast.NodeVisitor):
 
-    def __init__(self, mul_symbol, div_symbol, subs):
+    def __init__(self, mul_symbol, div_symbol, subs, mat_size):
         self.mul_symbol = mul_symbol
         self.div_symbol = div_symbol
         self.subs = subs
+        self.mat_size = mat_size
 
     def prec(self, n):
         return getattr(self, 'prec_'+n.__class__.__name__, getattr(self, 'generic_prec'))(n)
 
+    # attributes (foo.bar)
+    def visit_Attribute(self, n):
+        # only get the part after the dot
+        return self.format_name(n.attr)
+
+    def prec_Attribute(self, n):
+        return 1000
+
     # function calls
     def visit_Call(self, n):
-        # remove the import prefixes
         if isinstance(n.func, ast.Attribute):
             func = self.visit(n.func.attr)
+        elif isinstance(n.func, ast.Name):
+            func = n.func.id
         else:
             func = self.visit(n.func)
         args = ', '.join([self.visit(arg) for arg in n.args])
         if func == 'sqrt':
-            return f'\sqrt{{{args}}}'
-        else:
-            return fr'\operatorname{{{func}}}\left({args}\right)'
+            return fr'\sqrt{{{args}}}'
+        return fr'\operatorname{{{func}}}\left({args}\right)'
 
     def prec_Call(self, n):
         return 1000
+
+    def format_name(self, name_str):
+        parts = name_str.strip(' _').split('_')
+        parts_final = parts[:]
+        accent_locations = []
+        for index, part in enumerate(parts):
+            # no modification is wanted if the first character is 0
+            if part.startswith('0') and len(part) > 1:
+                parts_final[index] = f'\mathrm{{{part[1:]}}}'
+            # convert to latex commands
+            elif part in GREEK_LETTERS:
+                parts_final[index] = '{\\' + part + '}'
+            # enclose the previous item in accent commands
+            elif part in MATH_ACCENTS:
+                # (to choose which to surround)
+                which = index - 2 if not parts[index - 1] else index - 1
+                parts_final[which] = '{\\' + f'{part}{{{parts_final[which]}}}}}'
+                accent_locations.append(index)
+            # convert primes
+            elif part in PRIMES.keys():
+                which = index - 2 if not parts[index - 1] else index - 1
+                parts_final[which] = '{' + parts_final[which] + PRIMES[part] + "}"
+                accent_locations.append(index)
+            elif len(part) > 1:
+                parts_final[index] = f'\mathrm{{{parts_final[index]}}}'
+        # remove the accents
+        parts_final = [part for index, part in enumerate(parts_final)
+                        if index not in accent_locations]
+        name = '_'.join(parts_final).replace('__', '^')
+
+        return name
 
     # variables
     def visit_Name(self, n):
         if self.subs:
             # substitute the value of the variable by formatted value
             from .formatting import format_quantity
-            from __main__ import __dict__ as globals_dict
-            return format_quantity(globals_dict[n.id])
-        else:
-            # to convert __ to ^ and enclose words in the name
-            parts = n.id.split('_')
-            # remember the locations for later removal
-            accent_locations = []
-            # to just prevent the leading variable from being surrounded
-            if parts[0] in GREEK_LETTERS:
-                parts[0] = '\\' + parts[0]
-            # for the rest
-            for index, part in enumerate(parts[1:]):
-                # convert to latex commands
-                if part in GREEK_LETTERS:
-                    parts[index + 1] = '{\\' + part + '}'
-                # enclose the previous item in accent commands
-                elif part in MATH_ACCENTS:
-                    # if it was supposed to be a superscript
-                    # (to choose which to surround)
-                    if parts[index] == '':
-                        parts[index-1] = '{\\' + parts[index+1] + '{' + parts[index-1] + '}}'
-                    else:
-                        parts[index] = '{\\' + parts[index+1] + '{' + parts[index] + '}}'
-                    accent_locations.append(index + 1)
-                # convert primes
-                elif part in PRIMES.keys():
-                    parts[index+1] = PRIMES[part]
-                elif part != '':
-                    parts[index + 1] = '{' + part + '}'
-            parts = [part for index, part in enumerate(parts) if index not in accent_locations]
-            name = '_'.join(parts).replace('__', '^').replace("_'", "'").strip('_')
-            return name
+            from __main__ import __dict__
+            try:
+                qty = format_quantity(__dict__[n.id], self.mat_size)
+                unit = __dict__[n.id + UNIT_PF] \
+                    if n.id + UNIT_PF in __dict__.keys() else ''
+            except KeyError:
+                raise UserWarning(f"The variable '{n.id}' has not been defined.")
+            return qty + unit
+        return self.format_name(n.id)
 
     def prec_Name(self, n):
         return 1000
@@ -111,13 +128,16 @@ class _LatexVisitor(ast.NodeVisitor):
             right = fr'\left({ self.visit(n.right) }\right)'
         else:
             right = self.visit(n.right)
-        if self.div_symbol == 'frac':
+        if isinstance(n.op, ast.Mult) and isinstance(n.right, ast.Name):
+            if not self.subs:
+                return fr'{self.visit(n.left)} \, {self.visit(n.right)}'
+        elif isinstance(n.op, ast.Pow):
+            return fr'{self.visit(n.left)}^{{{self.visit(n.right)}}}'
+        elif self.div_symbol == 'frac':
             if isinstance(n.op, ast.Div):
                 return fr'\frac{{{ self.visit(n.left) }}}{{{ self.visit(n.right) }}}'
             elif isinstance(n.op, ast.FloorDiv):
                 return fr'\left\lfloor\frac{{{ self.visit(n.left) }}}{{{ self.visit(n.right) }}}\right\rfloor'
-        elif isinstance(n.op, ast.Pow):
-            return fr'{left}^{{{ self.visit(n.right) }}}'
         return fr'{left} {self.visit(n.op)} {right}'
 
     def prec_BinOp(self, n):
@@ -140,7 +160,7 @@ class _LatexVisitor(ast.NodeVisitor):
             return '\\times'
         elif self.mul_symbol == '.':
             return '\\cdot'
-        return '\\;'
+        return '\,'
 
     def prec_Mult(self, n):
         return 400
@@ -204,23 +224,25 @@ class _LatexVisitor(ast.NodeVisitor):
 
     def prec_USub(self, n):
         return 800
+
     def visit_Num(self, n):
         return str(n.n)
 
     def prec_Num(self, n):
         return 1000
 
-    def generic_visit(self, n):
-        if isinstance(n, ast.AST):
-            return r'' % (n.__class__.__name__, ', '.join(map(self.visit, [getattr(n, f) for f in n._fields])))
-        else:
-            return str(n)
+    # def generic_visit(self, n):
+    #     if isinstance(n, ast.AST):
+    #         return r'' % (n.__class__.__name__, ', '.join(map(self.visit, [getattr(n, f) for f in n._fields])))
+    #     else:
+    #         return str(n)
 
     def generic_prec(self, n):
         return 0
 
-def latexify(expr, mul_symbol=' ', div_symbol='-:-', subs=False):
-    pt = ast.parse(expr)
-    return _LatexVisitor(mul_symbol, div_symbol, subs).visit(pt.body[0].value)
 
-# d = latexify('alpha_bar_beta_hat__gamma_tilde')
+def latexify(expr, mul_symbol='*', div_symbol='frac', subs=False, mat_size=5):
+    if expr:
+        pt = ast.parse(expr.strip())
+        return _LatexVisitor(mul_symbol, div_symbol, subs, mat_size).visit(pt.body[0].value)
+    return ''
