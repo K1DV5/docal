@@ -20,7 +20,11 @@ MATH_ACCENTS = [
     'hat', 'check', 'breve', 'acute', 'grave', 'tilde', 'bar', 'vec', 'dot', 'ddot'
 ]
 
-PRIMES = { 'prime': "'", '2prime': "''", '3prime': "'''" }
+
+PRIMES = {'prime': "'", '2prime': "''", '3prime': "'''"}
+
+# what will be appended after the names to store units for those names
+UNIT_PF = '___0UNIT0'
 
 class _LatexVisitor(ast.NodeVisitor):
 
