@@ -6,12 +6,10 @@ does the calculations needed, sets the appropriate variables in the main
 module and returns the procedure of the calsulations
 '''
 
-import re
-# from sympy import latex, sympify, Symbol
-from sympy.physics.units import meter, second, kilogram, convert_to
-import __main__
-from .equation import eqn, _surround_equation
-from .formatting import format_quantity, UNIT_ABBREVIATIONS
+import ast # to know deduce which steps are needed
+from __main__ import __dict__
+from .equation import eqn
+from .formatting import format_quantity
 from .parsing import latexify
 
 
