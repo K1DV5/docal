@@ -155,7 +155,9 @@ class document:
 
         tags = list(re.finditer(r'\n\s*#\w+\s*\n', content))
         tags_count = len(tags)
+        # if there are tags mentioned
         if tags_count:
+            # if no tag is specified at the start, send it to the current one
             tag_0_start = tags[0].span()[0] + 1
             content_before = content[:tag_0_start]
             if content_before.strip():
@@ -213,7 +215,8 @@ class document:
             file_str = re.sub(r'(?s)'
                               + re.escape(self.surrounding[0])
                               + '.*?'
-                              + re.escape(self.surrounding[1]), '#' + tag, file_str, 1)
+                              + re.escape(self.surrounding[1]),
+                              '#' + tag, file_str, 1)
         return file_str
 
     def _subs_in_place(self):
@@ -260,9 +263,13 @@ class document:
         revert = 1
         if outfile_or_revert == 0:
             revert = False
-            outfile = self.infile
+            outfile = self.infile[:-len('.docx')] + '-out.docx' \
+                    if self.infile.endswith('.docx') \
+                    else self.infile
         elif not outfile_or_revert:
-            outfile = self.infile
+            outfile = self.infile[:-len('.docx')] + '-out.docx' \
+                    if self.infile.endswith('.docx') \
+                    else self.infile
         else:
             outfile = outfile_or_revert
 
