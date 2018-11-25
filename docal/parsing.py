@@ -102,9 +102,12 @@ class _LatexVisitor(ast.NodeVisitor):
                 qty = format_quantity(__dict__[n.id], self.mat_size)
                 unit = __dict__[n.id + UNIT_PF] \
                     if n.id + UNIT_PF in __dict__.keys() else ''
+                # if the quantity is raised to some power and has a unit,
+                # surround it with parens
+                if hasattr(n, 'is_in_power') and n.is_in_power and unit:
+                    return f'\\left({qty} {unit}\\right)'
             except KeyError:
                 raise UserWarning(f"The variable '{n.id}' has not been defined.")
-            return qty + unit
         return self.format_name(n.id)
 
     def prec_Name(self, n):
@@ -132,6 +135,8 @@ class _LatexVisitor(ast.NodeVisitor):
             if not self.subs:
                 return fr'{self.visit(n.left)} \, {self.visit(n.right)}'
         elif isinstance(n.op, ast.Pow):
+            # so that it can be surrounded with parens if it has units
+            n.left.is_in_power = True
             return fr'{self.visit(n.left)}^{{{self.visit(n.right)}}}'
         elif self.div_symbol == 'frac':
             if isinstance(n.op, ast.Div):
@@ -232,10 +237,7 @@ class _LatexVisitor(ast.NodeVisitor):
         return 1000
 
     def generic_visit(self, n):
-        if isinstance(n, ast.AST):
-            return r'' % (n.__class__.__name__, ', '.join(map(self.visit, [getattr(n, f) for f in n._fields])))
-        else:
-            return str(n)
+        return str(n)
 
     def generic_prec(self, n):
         return 0

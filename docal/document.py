@@ -26,7 +26,7 @@ from os import environ, remove, path
 from __main__ import __file__, __dict__
 from .formatting import format_quantity
 from .calculation import cal, _assort_input
-from .parsing import UNIT_PF, _surround_equation as srnd, eqn
+from .parsing import UNIT_PF, eqn, _surround_equation as srnd
 
 
 class document:
