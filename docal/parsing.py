@@ -68,7 +68,7 @@ class _LatexVisitor(ast.NodeVisitor):
         for index, part in enumerate(parts):
             # no modification is wanted if the first character is 0
             if part.startswith('0') and len(part) > 1:
-                parts_final[index] = f'\mathrm{{{part[1:]}}}'
+                parts_final[index] = fr'\mathrm{{{part[1:]}}}'
             # convert to latex commands
             elif part in GREEK_LETTERS:
                 parts_final[index] = '{\\' + part + '}'
@@ -84,7 +84,7 @@ class _LatexVisitor(ast.NodeVisitor):
                 parts_final[which] = '{' + parts_final[which] + PRIMES[part] + "}"
                 accent_locations.append(index)
             elif len(part) > 1:
-                parts_final[index] = f'\mathrm{{{parts_final[index]}}}'
+                parts_final[index] = fr'\mathrm{{{parts_final[index]}}}'
         # remove the accents
         parts_final = [part for index, part in enumerate(parts_final)
                         if index not in accent_locations]
@@ -160,7 +160,7 @@ class _LatexVisitor(ast.NodeVisitor):
             return '\\times'
         elif self.mul_symbol == '.':
             return '\\cdot'
-        return '\,'
+        return r'\,'
 
     def prec_Mult(self, n):
         return 400
@@ -231,11 +231,11 @@ class _LatexVisitor(ast.NodeVisitor):
     def prec_Num(self, n):
         return 1000
 
-    # def generic_visit(self, n):
-    #     if isinstance(n, ast.AST):
-    #         return r'' % (n.__class__.__name__, ', '.join(map(self.visit, [getattr(n, f) for f in n._fields])))
-    #     else:
-    #         return str(n)
+    def generic_visit(self, n):
+        if isinstance(n, ast.AST):
+            return r'' % (n.__class__.__name__, ', '.join(map(self.visit, [getattr(n, f) for f in n._fields])))
+        else:
+            return str(n)
 
     def generic_prec(self, n):
         return 0
@@ -246,3 +246,63 @@ def latexify(expr, mul_symbol='*', div_symbol='frac', subs=False, mat_size=5):
         pt = ast.parse(expr.strip())
         return _LatexVisitor(mul_symbol, div_symbol, subs, mat_size).visit(pt.body[0].value)
     return ''
+
+def _surround_equation(equation: str, disp: bool):
+    '''surround given equation by latex surroundings/ environments'''
+
+    equation_len = 1 + equation.count('\n')
+
+    if equation_len == 1:
+        if disp:
+            output_equation = ('\\begin{equation}\n'
+                               f'{equation}\n'
+                               '\\end{equation}')
+        else:
+            output_equation = fr'\({equation}\)'
+    else:
+        output_equation = ('\\begin{align}\n\\begin{split}\n'
+                           f'{equation}\n'
+                           '\\end{split}\n\\end{align}')
+
+    return output_equation
+
+def _equation_raw(*equations):
+    '''Modify [many] latex equations so they can be aligned vertically '''
+
+    if len(equations) == 1:
+        output_equation = equations[0]
+
+    else:
+        output_equation = '\\\\\n'.join(
+            [equation.replace('=', '&=') for equation in equations])
+
+    return output_equation
+
+
+def _equation_normal(*equations):
+    ''' convert [many] string equations from python form to latex '''
+
+    if len(equations) > 1:
+        equals = ' &= '
+    else:
+        equals = ' = '
+
+    equations_formatted = [equals.join([latexify(expr.strip())
+                                        for expr in equation.split('=')])
+                           for equation in equations]
+
+    output_equation = '\\\\\n'.join(equations_formatted)
+
+    return output_equation
+
+
+def eqn(*equation_list, norm: bool = True, disp: bool = True):
+    '''main api for equations'''
+
+    if norm:
+        output_equation = _equation_normal(*equation_list)
+    else:
+        output_equation = _equation_raw(*equation_list)
+
+    return _surround_equation(output_equation, disp)
+

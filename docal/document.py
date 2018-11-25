@@ -24,10 +24,9 @@ from subprocess import run
 # for temp folder access and path manips
 from os import environ, remove, path
 from __main__ import __file__, __dict__
-from .equation import _surround_equation as srnd, eqn
 from .formatting import format_quantity
 from .calculation import cal, _assort_input
-from .parsing import UNIT_PF
+from .parsing import UNIT_PF, _surround_equation as srnd, eqn
 
 
 class document:
@@ -108,7 +107,7 @@ class document:
             if re.match(r'\s*#[^#]', line):
                 line = line.lstrip()[1:].strip()
                 if line.startswith('$'):
-                    line = re.sub(r'#(\w+?)\b', '\g<1>00temp00', line)
+                    line = re.sub(r'#(\w+?)\b', r'\g<1>00temp00', line)
                     if line.startswith('$$'):
                         line = eqn(*line[2:].split('|'))
                     else:

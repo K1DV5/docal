@@ -7,9 +7,8 @@ module and returns the procedure of the calsulations
 
 import ast # to know deduce which steps are needed
 from __main__ import __dict__
-from .equation import eqn
 from .formatting import format_quantity
-from .parsing import latexify
+from .parsing import latexify, eqn
 
 DEFAULT_MAT_SIZE = 5
 

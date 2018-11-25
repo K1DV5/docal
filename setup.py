@@ -1,5 +1,5 @@
-# -{python setup.py install}-
-# -{python "%f" sdist | pip install -U .\dist\doCal-0.2.3.tar.gz}-
+# -{python %f sdist bdist_wheel --universal}-
+# -{python %f install}-
 import setuptools
 
 with open('README.md', 'r') as fh:

@@ -95,9 +95,10 @@ def _format_matrix(matrix, max_size=(5,5)):
             [_format_number(element) for element in matrix.tolist()[index]])
             for index in range(matrix.shape[0])]
 
-    return ('\\left[\\begin{matrix}\n' +
+    braces = ['\\{', '\\}'] if matrix.shape[1] == 1 else ['[', ']']
+    return ('\\left' + braces[0] + '\\begin{matrix}\n' +
               '\\\\\n'.join(mat_ls) +
-              '\n\\end{matrix}\\right]')
+              '\n\\end{matrix}\\right' + braces[1])
 
 
 def format_quantity(quantity, mat_size=(5,5)):
