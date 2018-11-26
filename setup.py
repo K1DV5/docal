@@ -1,3 +1,5 @@
+# -{python %f sdist bdist_wheel --universal}-
+# -{python %f install}-
 import setuptools
 
 with open('README.md', 'r') as fh:
@@ -5,7 +7,7 @@ with open('README.md', 'r') as fh:
 
 setuptools.setup(
     name='doCal',
-    version='0.2.2',
+    version='0.3.0',
     author='K1DV5',
     author_email='kidusadugna@gmail.com',
     description='Mathcad-like functionality for Pweave and related tools',
@@ -13,10 +15,10 @@ setuptools.setup(
     long_description=long_description,
     url='https://github.com/K1DV5/doCal',
     packages=setuptools.find_packages(),
-    classifiers=(
+    classifiers=[
         'Programming Language :: Python :: 3',
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent'
-    )
+        ]
 )
 
