@@ -106,6 +106,7 @@ class _LatexVisitor(ast.NodeVisitor):
                 # surround it with parens
                 if hasattr(n, 'is_in_power') and n.is_in_power and unit:
                     return f'\\left({qty} {unit}\\right)'
+                return qty + unit
             except KeyError:
                 raise UserWarning(f"The variable '{n.id}' has not been defined.")
         return self.format_name(n.id)

@@ -62,7 +62,7 @@ class document:
         self._prepare_infile(infile)
         # the tag pattern
         self.pattern = re.compile(
-            r'(?s)[^a-zA-Z0-9_\\]#[a-zA-Z_][a-zA-Z0-9_]*?[^a-zA-Z0-9_]')
+            r'(?s)([^a-zA-Z0-9_\\])#([a-zA-Z_][a-zA-Z0-9_]*?)([^a-zA-Z0-9_])')
         # the calculation parts
         self.contents = {}
         if self.infile.endswith('.tex'):
@@ -87,8 +87,8 @@ class document:
             end = self.tagline.group(0).rfind(']]')
             self.tags = self.tagline.group(0)[start:end].split()
         else:
-            self.tags = [tag[2:-1]
-                         for tag in self.pattern.findall(self.file_contents)]
+            self.tags = [tag.group(2)
+                         for tag in self.pattern.finditer(self.file_contents)]
         # where the argument of the send function will go to
         self.current_tag = self.tags[0] if self.tags else None
 
@@ -107,17 +107,17 @@ class document:
             if re.match(r'\s*#[^#]', line):
                 line = line.lstrip()[1:].strip()
                 if line.startswith('$'):
-                    line = re.sub(r'#(\w+?)\b', r'\g<1>00temp00', line)
+                    line = re.sub(r'(?a)#(\w+)',
+                            lambda x: 'TMP0'.join(x.group(1).split('_')) + 'TMP0', line)
                     if line.startswith('$$'):
                         line = eqn(*line[2:].split('|'))
                     else:
                         line = eqn(line[1:], disp=False)
-                    sent.append(re.sub(r'\\mathrm\s*\{\s*(\w+)00temp00\s*\}',
+                    sent.append(re.sub(r'(?a)\\mathrm\s*\{\s*(\w+)TMP0\s*\}',
                                        lambda x: format_quantity(
-                                           __dict__[x.group(1)]), line))
+                                           __dict__['_'.join(x.group(1).split('TMP0'))]), line))
                 else:
-                    sent.append(self.pattern.sub(
-                        self._repl_bare, line.strip()[1:]))
+                    sent.append(self.pattern.sub(self._repl_bare, line))
             # if it is an assignment, take it as a calculation to send unless it ends with a ;
             elif re.search(r'[^=]=[^=]', line) and not line.rstrip().endswith(';'):
                 main_var, irrelevant, unit = _assort_input(line.strip())[:3]
@@ -138,14 +138,13 @@ class document:
         for later substitution
         '''
         if tag == '_':
-            tag = self.tags[self.tags.index(self.current_tag) - 1]
+            tag = self.current_tag
         if tag in self.tags:
             if tag not in self.contents.keys():
                 self.contents[tag] = []
             self.contents[tag].append(self._exec_and_fmt(content))
-            current_index = self.tags.index(self.current_tag)
-            if current_index < len(self.tags) - 1:
-                self.current_tag = self.tags[current_index + 1]
+            if tag != self.current_tag:
+                self.current_tag = tag
         else:
             raise UserWarning(f'Tag "{tag}" is not present in the document')
 
@@ -176,8 +175,8 @@ class document:
             self._send(self.current_tag, content)
 
     def _repl(self, match_object, surround: bool):
-        tag = match_object.group(0)[2:-1]
-        ends = match_object.group(0)[0], match_object.group(0)[-1]
+        tag = match_object.group(2)
+        ends = match_object.group(1), match_object.group(3)
         if tag in self.contents.keys():
             result = '\n'.join(self.contents[tag])
         elif tag in __dict__.keys():
