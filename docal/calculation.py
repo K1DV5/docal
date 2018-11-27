@@ -40,35 +40,6 @@ def figure_out_steps(expr_dump):
 
     return steps
 
-
-def steps_vs_mat_size(num_str, expr_str):
-    '''receive a number string and figure out which is supposed to be
-    configured between steps and matrix size. If the number is to configure
-    the matrix size, figure out which steps to take from the equation, else
-    take the default matrix size.'''
-
-    # the minimum matrix size is 4*4 and min array size is 4.
-    min_mat = 44
-    min_arr = 4
-    as_num = int(num_str)
-    if len(num_str) == 1:
-        if as_num > min_arr:
-            steps = figure_out_steps(expr_str)
-            mat_size = as_num
-        else:
-            steps = [as_num]
-            mat_size = DEFAULT_MAT_SIZE
-    else:
-        if as_num > min_mat:
-            steps = figure_out_steps(expr_str)
-            mat_size = (int(num_str[0]), int(num_str[1]))
-        else:
-            steps = [int(num) for num in num_str]
-            mat_size = DEFAULT_MAT_SIZE
-
-    return steps, mat_size
-
-
 def _assort_input(input_str):
     '''look above'''
 
@@ -83,19 +54,19 @@ def _assort_input(input_str):
     var_name, expression = [part.strip() for part in equation.split('=')]
     expr_dump = ast.dump(ast.parse(expression))
 
-    if additionals.isdigit():
-        steps, mat_size = steps_vs_mat_size(additionals, expression)
-        unit = ''
-    elif ',' in additionals:
-        parts = [part.strip() for part in additionals.split(',')]
-        if not parts[0].isdigit():
-            parts.reverse()
-        steps, mat_size = steps_vs_mat_size(parts[0], expr_dump)
-        unit = parts[1]
-    else:
-        steps = figure_out_steps(expr_dump)
-        mat_size = DEFAULT_MAT_SIZE
-        unit = additionals
+    steps = figure_out_steps(expr_dump)
+    mat_size = DEFAULT_MAT_SIZE
+    unit = ''
+    for a in [a.strip() for a in additionals.split(',')]:
+        if a.isdigit():
+            steps = [int(num) - 1 for num in a]
+        elif a.startswith('m') and a[1:].isdigit():
+            if len(a) == 2:
+                mat_size = int(a[1])
+            else:
+                mat_size = (int(a[1]), int(a[2]))
+        else:
+            unit = a
 
     if unit:
         if unit == 'deg':

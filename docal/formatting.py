@@ -6,14 +6,17 @@ from .parsing import latexify
 def _format_number(number):
     '''make the number part of a quantity more readable'''
 
-    if number != 0 and (number > 1000 or number < 0.1):
-        # in scientific notation
-        return re.sub(r'([0-9]+)E([-+])([0-9]+)',
-                        r'\1\\left(10^{\2'+r'\g<3>'.lstrip(r'0')+r'}\\right)',
-                        f'{number:.2E}').replace('+', '')
-    if number == int(number):
-        return str(int(number))
-    number = str(round(number, 3))
+    if any([isinstance(number, typ) for typ in [float, int]]):
+        if number != 0 and (abs(number) > 1000 or abs(number) < 0.1):
+            # in scientific notation
+            return re.sub(r'([0-9]+)E([-+])([0-9]+)',
+                            r'\1\\left(10^{\2'+r'\g<3>'.lstrip(r'0')+r'}\\right)',
+                            f'{number:.2E}').replace('+', '')
+        if number == int(number):
+            return str(int(number))
+        number = str(round(number, 3))
+    else:
+        number = format_quantity(number)
 
     return number
 
@@ -123,6 +126,6 @@ def format_quantity(quantity, mat_size=(5,5)):
         formatted = _format_matrix(quantity, size_mat)
 
     else:
-        formatted = str(quantity)
+        formatted = latexify(str(quantity))
 
     return formatted

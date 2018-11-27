@@ -1,5 +1,5 @@
-# -{python %f sdist bdist_wheel --universal}-
 # -{python %f install}-
+# -{python %f sdist bdist_wheel --universal}-
 import setuptools
 
 with open('README.md', 'r') as fh:
