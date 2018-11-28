@@ -7,8 +7,7 @@ module and returns the procedure of the calsulations
 
 import ast # to know deduce which steps are needed
 from __main__ import __dict__
-from .formatting import format_quantity
-from .parsing import latexify, eqn
+from .parsing import latexify, eqn, format_quantity
 
 DEFAULT_MAT_SIZE = 5
 
@@ -57,16 +56,22 @@ def _assort_input(input_str):
     steps = figure_out_steps(expr_dump)
     mat_size = DEFAULT_MAT_SIZE
     unit = ''
-    for a in [a.strip() for a in additionals.split(',')]:
-        if a.isdigit():
-            steps = [int(num) - 1 for num in a]
-        elif a.startswith('m') and a[1:].isdigit():
-            if len(a) == 2:
-                mat_size = int(a[1])
+    mode = 'default'
+    if additionals:
+        for a in [a.strip() for a in additionals.split(',')]:
+            if a.isdigit():
+                steps = [int(num) - 1 for num in a]
+            elif a.startswith('m') and a[1:].isdigit():
+                if len(a) == 2:
+                    mat_size = int(a[1])
+                else:
+                    mat_size = (int(a[1]), int(a[2]))
+            elif a == '$':
+                mode = 'inline'
+            elif a == '$$':
+                mode = 'display'
             else:
-                mat_size = (int(a[1]), int(a[2]))
-        else:
-            unit = a
+                unit = a
 
     if unit:
         if unit == 'deg':
@@ -74,7 +79,7 @@ def _assort_input(input_str):
         else:
             unit = f" \, \mathrm{{{latexify(unit, mul_symbol=' ', div_symbol='/')}}}"
 
-    return var_name, expression, unit, steps, mat_size
+    return var_name, expression, unit, steps, mat_size, mode
 
 def cal(input_str):
     '''
@@ -96,15 +101,20 @@ def cal(input_str):
     \\end{align}
     '''
 
-    var_name, expr, unit, steps, mat_size = _assort_input(input_str)
+    var_name, expr, unit, steps, mat_size, mode = _assort_input(input_str)
     result = _calculate(expr, mat_size)
     var_lx = latexify(var_name)
     result[2] += unit
 
-    if len(steps) == 1 and steps[0] == 0 or steps[0] == 2:
+    if mode == 'inline':
         displ = False
-    else:
+    elif mode == 'display':
         displ = True
+    else:
+        if len(steps) == 1 and steps[0] == 0:
+            displ = False
+        else:
+            displ = True
 
     procedure = [f'{var_lx} = {result[steps[0]]}']
     for step in [result[step] for step in steps[1:]]:
