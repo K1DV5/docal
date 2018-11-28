@@ -1,5 +1,4 @@
 # -ipy
-# -pdb
 '''
 python expression to latex converter with import prefixes removal and optional
 substitution of values from the main script, based on Geoff Reedy's answer to
@@ -7,6 +6,8 @@ https://stackoverflow.com/questions/3867028/converting-a-python-numeric-expressi
 '''
 
 import ast
+import re
+from __main__ import __dict__
 
 GREEK_LETTERS = [
     'alpha', 'nu', 'beta', 'xi', 'Xi', 'gamma', 'Gamma', 'delta', 'Delta',
@@ -25,6 +26,7 @@ PRIMES = {'prime': "'", '2prime': "''", '3prime': "'''"}
 
 # what will be appended after the names to store units for those names
 UNIT_PF = '___0UNIT0'
+
 
 class _LatexVisitor(ast.NodeVisitor):
 
@@ -76,18 +78,20 @@ class _LatexVisitor(ast.NodeVisitor):
             elif part in MATH_ACCENTS:
                 # (to choose which to surround)
                 which = index - 2 if not parts[index - 1] else index - 1
-                parts_final[which] = '{\\' + f'{part}{{{parts_final[which]}}}}}'
+                parts_final[which] = '{\\' + \
+                    f'{part}{{{parts_final[which]}}}}}'
                 accent_locations.append(index)
             # convert primes
             elif part in PRIMES.keys():
                 which = index - 2 if not parts[index - 1] else index - 1
-                parts_final[which] = '{' + parts_final[which] + PRIMES[part] + "}"
+                parts_final[which] = '{' + \
+                    parts_final[which] + PRIMES[part] + "}"
                 accent_locations.append(index)
             elif len(part) > 1:
                 parts_final[index] = fr'\mathrm{{{parts_final[index]}}}'
         # remove the accents
         parts_final = [part for index, part in enumerate(parts_final)
-                        if index not in accent_locations]
+                       if index not in accent_locations]
         name = '_'.join(parts_final).replace('__', '^')
 
         return name
@@ -96,8 +100,6 @@ class _LatexVisitor(ast.NodeVisitor):
     def visit_Name(self, n):
         if self.subs:
             # substitute the value of the variable by formatted value
-            from .formatting import format_quantity
-            from __main__ import __dict__
             try:
                 qty = format_quantity(__dict__[n.id], self.mat_size)
                 unit = __dict__[n.id + UNIT_PF] \
@@ -108,7 +110,8 @@ class _LatexVisitor(ast.NodeVisitor):
                     return f'\\left({qty} {unit}\\right)'
                 return qty + unit
             except KeyError:
-                raise UserWarning(f"The variable '{n.id}' has not been defined.")
+                raise UserWarning(
+                    f"The variable '{n.id}' has not been defined.")
         return self.format_name(n.id)
 
     def prec_Name(self, n):
@@ -232,7 +235,7 @@ class _LatexVisitor(ast.NodeVisitor):
         return 800
 
     def visit_Num(self, n):
-        return str(n.n)
+        return format_quantity(n.n)
 
     def prec_Num(self, n):
         return 1000
@@ -250,62 +253,158 @@ def latexify(expr, mul_symbol='*', div_symbol='frac', subs=False, mat_size=5):
         return _LatexVisitor(mul_symbol, div_symbol, subs, mat_size).visit(pt.body[0].value)
     return ''
 
-def _surround_equation(equation: str, disp: bool):
-    '''surround given equation by latex surroundings/ environments'''
-
-    equation_len = 1 + equation.count('\n')
-
-    if equation_len == 1:
-        if disp:
-            output_equation = ('\\begin{equation}\n'
-                               f'{equation}\n'
-                               '\\end{equation}')
-        else:
-            output_equation = fr'\({equation}\)'
-    else:
-        output_equation = ('\\begin{align}\n\\begin{split}\n'
-                           f'{equation}\n'
-                           '\\end{split}\n\\end{align}')
-
-    return output_equation
-
-def _equation_raw(*equations):
-    '''Modify [many] latex equations so they can be aligned vertically '''
-
-    if len(equations) == 1:
-        output_equation = equations[0]
-
-    else:
-        output_equation = '\\\\\n'.join(
-            [equation.replace('=', '&=') for equation in equations])
-
-    return output_equation
-
-
-def _equation_normal(*equations):
-    ''' convert [many] string equations from python form to latex '''
-
-    if len(equations) > 1:
-        equals = ' &= '
-    else:
-        equals = ' = '
-
-    equations_formatted = [equals.join([latexify(expr.strip())
-                                        for expr in equation.split('=')])
-                           for equation in equations]
-
-    output_equation = '\\\\\n'.join(equations_formatted)
-
-    return output_equation
-
 
 def eqn(*equation_list, norm: bool = True, disp: bool = True):
     '''main api for equations'''
 
-    if norm:
-        output_equation = _equation_normal(*equation_list)
+    eqn_len = len(equation_list)
+    equals = ' = '
+    joint = '\\quad{}'
+
+    if disp:
+        if eqn_len > 1:
+            surroundings = [
+                '\\begin{align}\n\\begin{split}\n', '\n\\end{split}\n\\end{align}']
+            equals = ' &= '
+            joint = '\\\\\n'
+        else:
+            surroundings = ['\\begin{equation}\n', '\n\\end{equation}']
     else:
-        output_equation = _equation_raw(*equation_list)
+        surroundings = ['\\( ', ' \\)']
 
-    return _surround_equation(output_equation, disp)
+    if norm:
+        equations = [equals.join([latexify(expr.strip())
+                                  for expr in equation.split('=')])
+                     for equation in equation_list]
+    else:
+        equations = [equation.replace('=', equals)
+                     for equation in equation_list]
 
+    return surroundings[0] + joint.join(equations) + surroundings[1]
+
+def _format_number(number):
+    '''make the number part of a quantity more readable'''
+
+    if any([isinstance(number, typ) for typ in [float, int]]):
+        if number != 0 and (abs(number) > 1000 or abs(number) < 0.1):
+            # in scientific notation
+            return re.sub(r'([0-9]+)E([-+])([0-9]+)',
+                            r'\1\\left(10^{\2'+r'\g<3>'.lstrip(r'0')+r'}\\right)',
+                            f'{number:.2E}').replace('+', '')
+        if number == int(number):
+            return str(int(number))
+        number = str(round(number, 3))
+    else:
+        number = format_quantity(number)
+
+    return number
+
+
+def _format_array(array, max_size=5):
+    '''look above'''
+
+    if len(array) > max_size:
+        array = [*[_format_number(element) for element in array[:max_size - 2]],
+                 '\\vdots',
+                 _format_number(array[-1])]
+    else:
+        array = [_format_number(element) for element in array]
+
+    number = ('\\left[\\begin{matrix}\n'
+              + '\\\\\n'.join(array)
+              + '\n\\end{matrix}\\right]')
+
+    return f'{number}'
+
+
+def _format_big_matrix(matrix, size):
+    '''look above'''
+
+    rows, cols = size
+    cut_matrix = matrix[:rows - 2, :cols - 2].tolist()
+    last_col = matrix[:rows - 2, -1].tolist()
+    last_row = matrix[-1, :cols - 2].tolist()
+    last_element = matrix[-1,-1]
+
+    mat_ls = [' & '.join(
+        [_format_number(element) for element in cut_matrix[index]]) + ' & \\cdots & ' + _format_number(last_col[index][0])
+        for index in range(len(cut_matrix))] \
+        + [' & '.join(['\\vdots'] * (cols - 2) + ['\\ddots', '\\vdots'])] \
+        + [' & '.join([_format_number(element) for element in last_row[0]]) + ' & \\cdots & ' + _format_number(last_element)]
+
+    return mat_ls
+
+
+def _format_wide_matrix(matrix, max_cols):
+    '''look above'''
+
+    cut_matrix = matrix[:, :max_cols - 2].tolist()
+    last_col = matrix[:, -1].tolist()
+
+    mat_ls = [' & '.join(
+        [_format_number(element) for element in cut_matrix[index]]) + ' & \\cdots & ' + _format_number(last_col[index][0])
+        for index in range(matrix.shape[0])]
+
+    return mat_ls
+
+def _format_long_matrix(matrix, max_rows):
+    '''look above'''
+
+    mat_ls = [' & '.join(
+                          [_format_number(element) for element in matrix[:max_rows - 2, :].tolist()[index]])
+                          for index in range(matrix[:max_rows - 2, :].shape[0])]
+    mat_ls.append(' & '.join(['\\vdots'] * matrix.shape[1]))
+    mat_ls.append(' & '.join([_format_number(element) for element in matrix[-1, :].tolist()[0]]))
+
+    return mat_ls
+
+
+def _format_matrix(matrix, max_size=(5,5)):
+    '''look above'''
+
+    # too big -> small
+    if matrix.shape[0] > max_size[0] and matrix.shape[1] > max_size[1]:
+        mat_ls = _format_big_matrix(matrix, max_size)
+    # too long -> small
+    elif matrix.shape[0] > max_size[0] and matrix.shape[1] < max_size[1]:
+        mat_ls = _format_long_matrix(matrix, max_size[0])
+    # too wide -> small
+    elif matrix.shape[0] < max_size[0] and matrix.shape[1] > max_size[1]:
+        mat_ls = _format_wide_matrix(matrix, max_size[1])
+    # already small so :)
+    else:
+        mat_ls = [' & '.join(
+            [_format_number(element) for element in matrix.tolist()[index]])
+            for index in range(matrix.shape[0])]
+
+    braces = ['\\{', '\\}'] if matrix.shape[1] == 1 else ['[', ']']
+    return ('\\left' + braces[0] + '\\begin{matrix}\n' +
+              '\\\\\n'.join(mat_ls) +
+              '\n\\end{matrix}\\right' + braces[1])
+
+
+def format_quantity(quantity, mat_size=(5,5)):
+    '''returns a nicely latex formatted string of the quantity'''
+
+    if isinstance(mat_size, int):
+        size_mat = (mat_size, mat_size)
+        size_arr = mat_size
+    else:
+        size_mat = mat_size
+        size_arr = mat_size[0]
+
+    quantity_type = str(type(quantity))
+
+    if any([isinstance(quantity, typ) for typ in [float, int]]):
+        formatted = _format_number(quantity)
+
+    elif 'array' in quantity_type or 'Array' in quantity_type:
+        formatted = _format_array(quantity, size_arr)
+
+    elif 'matrix' in quantity_type:
+        formatted = _format_matrix(quantity, size_mat)
+
+    else:
+        formatted = latexify(str(quantity))
+
+    return formatted

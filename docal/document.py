@@ -24,9 +24,8 @@ from subprocess import run
 # for temp folder access and path manips
 from os import environ, remove, path
 from __main__ import __file__, __dict__
-from .formatting import format_quantity
 from .calculation import cal, _assort_input
-from .parsing import UNIT_PF, eqn, _surround_equation as srnd
+from .parsing import UNIT_PF, eqn, format_quantity
 
 
 class document:
@@ -128,7 +127,9 @@ class document:
                 if unit:
                     exec(f'{main_var}{UNIT_PF} = "{unit}"', __dict__)
             # if it does not appear like an equation or a comment, just execute it
-            elif line.strip():
+            elif line.strip() == '#':
+                sent.append('')
+            else:
                 exec(line, __dict__)
         sent = '\n'.join(sent)
         return sent
@@ -182,7 +183,7 @@ class document:
         elif tag in __dict__.keys():
             unit_name = tag + UNIT_PF
             unit = __dict__[unit_name] if unit_name in __dict__.keys() else ''
-            result = srnd(format_quantity(__dict__[tag]) + unit, False)
+            result = eqn(format_quantity(__dict__[tag]) + unit, norm=False, disp=False)
         else:
             raise UserWarning(f"There is nothing to send to tag '{tag}'.")
 
