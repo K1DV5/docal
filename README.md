@@ -1,5 +1,7 @@
 # doCal
 
+[![CircleCI](https://circleci.com/gh/K1DV5/doCal.svg?style=svg)](https://circleci.com/gh/K1DV5/doCal)
+
 doCal is a scientific report document calculation assistant that aims to reduce the routine code used inside Python chunks in Pweave and/or PythonTEX documents. While embedding python code inside a document is a big advantage, it is still required to format Python calculations output and equations to LaTeX form. Thus the user still has to write significantly more code to make the results flow with the surrounding document. This library intends to solve that problem.
 
 ## Features
