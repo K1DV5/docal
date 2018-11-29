@@ -58,10 +58,18 @@ class _LatexVisitor(ast.NodeVisitor):
         args = ', '.join([self.visit(arg) for arg in n.args])
         if func == 'sqrt':
             return fr'\sqrt{{{args}}}'
+        elif func == 'round':
+            return self.visit(n.args[0])
         return fr'\operatorname{{{func}}}\left({args}\right)'
 
     def prec_Call(self, n):
         return 1000
+
+    def visit_Lambda(self, n):
+        return self.visit(n.body)
+
+    def prec_Lambda(self, n):
+        return self.prec(n.body)
 
     def format_name(self, name_str):
         parts = name_str.strip(' _').split('_')
@@ -254,7 +262,7 @@ def latexify(expr, mul_symbol='*', div_symbol='frac', subs=False, mat_size=5):
     return ''
 
 
-def eqn(*equation_list, norm: bool = True, disp: bool = True):
+def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True):
     '''main api for equations'''
 
     eqn_len = len(equation_list)
@@ -280,7 +288,9 @@ def eqn(*equation_list, norm: bool = True, disp: bool = True):
         equations = [equation.replace('=', equals)
                      for equation in equation_list]
 
-    return surroundings[0] + joint.join(equations) + surroundings[1]
+    if surr:
+        return surroundings[0] + joint.join(equations) + surroundings[1]
+    return joint.join(equations)
 
 def _format_number(number):
     '''make the number part of a quantity more readable'''
@@ -405,6 +415,6 @@ def format_quantity(quantity, mat_size=(5,5)):
         formatted = _format_matrix(quantity, size_mat)
 
     else:
-        formatted = latexify(str(quantity))
+        formatted = eqn(str(quantity), surr=False)
 
     return formatted

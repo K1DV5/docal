@@ -23,6 +23,9 @@ import re
 from subprocess import run
 # for temp folder access and path manips
 from os import environ, remove, path
+# to log info about what it's doing with timestamps
+from datetime import datetime
+# for working with the document's variables and filename
 from __main__ import __file__, __dict__
 from .calculation import cal, _assort_input
 from .parsing import UNIT_PF, eqn, format_quantity
@@ -98,16 +101,30 @@ class document:
         # if the first non-blank line is only #, do not modify
         hash_line = re.match(r'\s*#\s*\n', content)
         if hash_line:
+            print(str(datetime.time(datetime.now())),
+                  'Sending the content without modifying...')
             return content[hash_line.span()[1]:]
         sent = []
+        parens = ['()', '[]', '{}']
+        incomplete = ''
         for line in content.split('\n'):
+            # a real comment starts with ## and does nothing
+            if line.lstrip().startswith('##'):
+                pass
+            elif line.strip() == '#':
+                print('    Adding an empty line...',
+                      str(datetime.time(datetime.now())))
+                sent.append('')
             # if the first non whitespace char is # and not ## send as is
             # with the variables referenced with #var substituted
-            if re.match(r'\s*#[^#]', line):
+            elif line.lstrip().startswith('#'):
+                print('    Processing comment line to a paragraph...',
+                      str(datetime.time(datetime.now())),
+                      f'\n        {line}')
                 line = line.lstrip()[1:].strip()
                 if line.startswith('$'):
                     line = re.sub(r'(?a)#(\w+)',
-                            lambda x: 'TMP0'.join(x.group(1).split('_')) + 'TMP0', line)
+                                  lambda x: 'TMP0'.join(x.group(1).split('_')) + 'TMP0', line)
                     if line.startswith('$$'):
                         line = eqn(*line[2:].split('|'))
                     else:
@@ -118,19 +135,31 @@ class document:
                 else:
                     sent.append(self.pattern.sub(self._repl_bare, line))
             # if it is an assignment, take it as a calculation to send unless it ends with a ;
-            elif re.search(r'[^=]=[^=]', line) and not line.rstrip().endswith(';'):
-                main_var, irrelevant, unit = _assort_input(line.strip())[:3]
-                sent.append(cal(line))
-                # carry out normal op in main script
-                exec(line, __dict__)
-                # for later unit retrieval
-                if unit:
-                    exec(f'{main_var}{UNIT_PF} = "{unit}"', __dict__)
-            # if it does not appear like an equation or a comment, just execute it
-            elif line.strip() == '#':
-                sent.append('')
-            else:
-                exec(line, __dict__)
+            elif re.search(r'[^=]=[^=]', incomplete + line): 
+                if incomplete or any([line.count(par[0]) != line.count(par[1]) for par in parens]):
+                    incomplete += '\n' + line
+                    if all([incomplete.count(par[0]) == incomplete.count(par[1]) for par in parens]):
+                        line = incomplete
+                        incomplete = ''
+                    else:
+                        line = None
+                if line:
+                    if not line.rstrip().endswith(';'):
+                        print('    Evaluating and converting equation line to LaTeX form...',
+                              str(datetime.time(datetime.now())),
+                              f'\n        {line}')
+                        main_var, irrelevant, unit = _assort_input(line.strip())[:3]
+                        sent.append(cal(line))
+                        # carry out normal op in main script
+                        exec(line, __dict__)
+                        # for later unit retrieval
+                        if unit:
+                            exec(f'{main_var}{UNIT_PF} = "{unit}"', __dict__)
+                    else:
+                        # if it does not appear like an equation or a comment, just execute it
+                        print('    Executing statement...', f'\n        {line}',
+                              str(datetime.time(datetime.now())))
+                        exec(line, __dict__)
         sent = '\n'.join(sent)
         return sent
 
@@ -143,6 +172,8 @@ class document:
         if tag in self.tags:
             if tag not in self.contents.keys():
                 self.contents[tag] = []
+            print(f'[{tag}]: Processing contents...',
+                    str(datetime.time(datetime.now())))
             self.contents[tag].append(self._exec_and_fmt(content))
             if tag != self.current_tag:
                 self.current_tag = tag
@@ -183,7 +214,8 @@ class document:
         elif tag in __dict__.keys():
             unit_name = tag + UNIT_PF
             unit = __dict__[unit_name] if unit_name in __dict__.keys() else ''
-            result = eqn(format_quantity(__dict__[tag]) + unit, norm=False, disp=False)
+            result = eqn(format_quantity(
+                __dict__[tag]) + unit, norm=False, disp=False)
         else:
             raise UserWarning(f"There is nothing to send to tag '{tag}'.")
 
@@ -264,12 +296,12 @@ class document:
         if outfile_or_revert == 0:
             revert = False
             outfile = self.infile[:-len('.docx')] + '-out.docx' \
-                    if self.infile.endswith('.docx') \
-                    else self.infile
+                if self.infile.endswith('.docx') \
+                else self.infile
         elif not outfile_or_revert:
             outfile = self.infile[:-len('.docx')] + '-out.docx' \
-                    if self.infile.endswith('.docx') \
-                    else self.infile
+                if self.infile.endswith('.docx') \
+                else self.infile
         else:
             outfile = outfile_or_revert
 
