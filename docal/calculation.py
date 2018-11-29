@@ -11,14 +11,19 @@ from .parsing import latexify, eqn, format_quantity
 
 DEFAULT_MAT_SIZE = 5
 
-def _calculate(expr, mat_size):
+def _calculate(expr, steps, mat_size):
     '''carryout the necesary calculations and assignments'''
 
-    expr_1_lx = latexify(expr, mul_symbol='.', mat_size=mat_size)
-    expr_2_lx = latexify(expr, mul_symbol='*', subs=True, mat_size=mat_size)
-    expr_3_lx = format_quantity(eval(expr, __dict__), mat_size)
+    result = []
+    for step in steps:
+        if step == 0:
+            result.append(latexify(expr, mul_symbol='.', mat_size=mat_size))
+        elif step == 1:
+            result.append(latexify(expr, mul_symbol='*', subs=True, mat_size=mat_size))
+        elif step == 2:
+            result.append(format_quantity(eval(expr, __dict__), mat_size))
 
-    return [expr_1_lx, expr_2_lx, expr_3_lx]
+    return result
 
 def figure_out_steps(expr_dump):
     '''used when nothing about the steps comes from the user to prevent repetition
@@ -50,7 +55,8 @@ def _assort_input(input_str):
         equation = input_parts[0]
         additionals = input_parts[1]
 
-    var_name, expression = [part.strip() for part in equation.split('=')]
+    fir_eq = equation.find('=')
+    var_name, expression = [part.strip() for part in [equation[:fir_eq], equation[fir_eq + 1:]]]
     expr_dump = ast.dump(ast.parse(expression))
 
     steps = figure_out_steps(expr_dump)
@@ -102,9 +108,9 @@ def cal(input_str):
     '''
 
     var_name, expr, unit, steps, mat_size, mode = _assort_input(input_str)
-    result = _calculate(expr, mat_size)
+    result = _calculate(expr, steps, mat_size)
     var_lx = latexify(var_name)
-    result[2] += unit
+    result[-1] += unit
 
     if mode == 'inline':
         displ = False
@@ -116,8 +122,8 @@ def cal(input_str):
         else:
             displ = True
 
-    procedure = [f'{var_lx} = {result[steps[0]]}']
-    for step in [result[step] for step in steps[1:]]:
+    procedure = [f'{var_lx} = {result[0]}']
+    for step in result[1:]:
         procedure.append('    = ' + step)
 
     output = eqn(*procedure, norm=False, disp=displ)
