@@ -107,6 +107,7 @@ class document:
         sent = []
         parens = ['()', '[]', '{}']
         incomplete = ''
+        inline_calc = re.compile(r'(?<![\w\\])#\{(.*?)\}')
         for line in content.split('\n'):
             # a real comment starts with ## and does nothing
             if line.lstrip().startswith('##'):
@@ -123,17 +124,25 @@ class document:
                       f'\n        {line}')
                 line = line.lstrip()[1:].strip()
                 if line.startswith('$'):
+                    # inline calculations, accepted in #{...}
+                    calcs = [format_quantity(eval(x.group(1), __dict__)) for x in list(inline_calc.finditer(line))]
                     line = re.sub(r'(?a)#(\w+)',
                                   lambda x: 'TMP0'.join(x.group(1).split('_')) + 'TMP0', line)
+                    line = inline_calc.sub('TMP0CALC000', line)
                     if line.startswith('$$'):
                         line = eqn(*line[2:].split('|'))
                     else:
                         line = eqn(line[1:], disp=False)
-                    sent.append(re.sub(r'(?a)\\mathrm\s*\{\s*(\w+)TMP0\s*\}',
-                                       lambda x: format_quantity(
-                                           __dict__['_'.join(x.group(1).split('TMP0'))]), line))
+                    augmented = re.sub(r'(?a)\\mathrm\s*\{\s*(\w+)TMP0\s*\}',
+                            lambda x: format_quantity(
+                                __dict__['_'.join(x.group(1).split('TMP0'))]), line)
+                    for calc in calcs:
+                        augmented = re.sub(r'(?a)\\mathrm\s*\{\s*TMP0CALC000\s*\}', calc.replace('\\', r'\\'), augmented, 1)
+                    sent.append(augmented)
                 else:
-                    sent.append(self.pattern.sub(self._repl_bare, line))
+                    augmented = self.pattern.sub(self._repl_bare, line)
+                    augmented = inline_calc.sub(lambda x: eqn(str(eval(x.group(1), __dict__)), disp=False), augmented)
+                    sent.append(augmented)
             # if it is an assignment, take it as a calculation to send unless it ends with a ;
             elif re.search(r'[^=]=[^=]', incomplete + line): 
                 if incomplete or any([line.count(par[0]) != line.count(par[1]) for par in parens]):
