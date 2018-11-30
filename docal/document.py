@@ -249,6 +249,8 @@ class document:
                               + '.*?'
                               + re.escape(self.surrounding[1]),
                               '#' + tag, file_str, 1)
+        # for inplace editing
+        self.file_contents = file_str
         return file_str
 
     def _subs_in_place(self):
