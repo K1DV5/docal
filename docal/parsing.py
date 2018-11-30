@@ -177,6 +177,12 @@ class _LatexVisitor(ast.NodeVisitor):
     def prec_Tuple(self, n):
         return 1000
 
+    def visit_Str(self, n):
+        return n.s
+
+    def prec_Str(self, n):
+        return 1000
+
     def visit_Sub(self, n):
         return '-'
 
