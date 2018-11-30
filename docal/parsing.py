@@ -58,7 +58,7 @@ class _LatexVisitor(ast.NodeVisitor):
         args = ', '.join([self.visit(arg) for arg in n.args])
         if func == 'sqrt':
             return fr'\sqrt{{{args}}}'
-        elif func == 'round':
+        elif func == 'round' or func == 'matrix':
             return self.visit(n.args[0])
         return fr'\operatorname{{{func}}}\left({args}\right)'
 
@@ -118,8 +118,7 @@ class _LatexVisitor(ast.NodeVisitor):
                     return f'\\left({qty} {unit}\\right)'
                 return qty + unit
             except KeyError:
-                raise UserWarning(
-                    f"The variable '{n.id}' has not been defined.")
+                print(f"WARNING: The variable '{n.id}' has not been defined.")
         return self.format_name(n.id)
 
     def prec_Name(self, n):
@@ -159,6 +158,24 @@ class _LatexVisitor(ast.NodeVisitor):
 
     def prec_BinOp(self, n):
         return self.prec(n.op)
+
+    def visit_List(self, n):
+        for child in ast.iter_child_nodes(n):
+            if isinstance(child, ast.List):
+                child.is_in_list = True
+        elements = [self.visit(element) for element in n.elts]
+        if hasattr(n, 'is_in_list') and n.is_in_list:
+            return ' & '.join(elements)
+        return '\\left[\\begin{matrix}\n' + '\\\\\n'.join(elements) + '\n\\end{matrix}\\right]'
+
+    def prec_List(self, n):
+        return 1000
+
+    def visit_Tuple(self, n):
+        return '\\left(' + ', '.join([self.visit(element) for element in n.elts]) + '\\right)'
+
+    def prec_Tuple(self, n):
+        return 1000
 
     def visit_Sub(self, n):
         return '-'
@@ -267,7 +284,7 @@ def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True)
 
     eqn_len = len(equation_list)
     equals = ' = '
-    joint = '\\quad{}'
+    joint = ' \\; '
 
     if disp:
         if eqn_len > 1:
@@ -299,7 +316,7 @@ def _format_number(number):
         if number != 0 and (abs(number) > 1000 or abs(number) < 0.1):
             # in scientific notation
             return re.sub(r'([0-9]+)E([-+])([0-9]+)',
-                            r'\1\\left(10^{\2'+r'\g<3>'.lstrip(r'0')+r'}\\right)',
+                            r'\1\\left(10^{\2'+r'\g<3>'.lstrip('0')+r'}\\right)',
                             f'{number:.2E}').replace('+', '')
         if number == int(number):
             return str(int(number))
