@@ -19,6 +19,9 @@ when the python file is run, it writes a tex file with the tags
 replaced by contents from the python file.
 '''
 
+from datetime import datetime
+START_TIME = datetime.now()
+
 import re
 from subprocess import run
 # for temp folder access and path manips
@@ -101,8 +104,8 @@ class document:
         # if the first non-blank line is only #, do not modify
         hash_line = re.match(r'\s*#\s*\n', content)
         if hash_line:
-            print(str(datetime.time(datetime.now())),
-                  'Sending the content without modifying...')
+            print('    Sending the content without modifying...',
+                str(datetime.time(datetime.now())))
             return content[hash_line.span()[1]:]
         sent = []
         parens = ['()', '[]', '{}']
@@ -329,3 +332,5 @@ class document:
         else:
             with open(outfile, 'w') as file:
                 file.write(file_contents)
+
+        print(f'\nSuccess!! (finished in {datetime.now() - START_TIME})')
