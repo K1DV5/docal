@@ -59,6 +59,10 @@ class _LatexVisitor(ast.NodeVisitor):
         ignored = ['round', 'matrix', 'Matrix', 'array', 'ndarray']
         if func == 'sqrt':
             return fr'\sqrt{{{args}}}'
+        elif func == 'inv':
+            return f'{{{args}}}^{{-1}}'
+        elif func == 'transpose':
+            return f'{{{args}}}^{{T}}'
         elif func in ignored:
             return self.visit(n.args[0])
         return fr'\operatorname{{{func}}}\left({args}\right)'
