@@ -56,9 +56,10 @@ class _LatexVisitor(ast.NodeVisitor):
         else:
             func = self.visit(n.func)
         args = ', '.join([self.visit(arg) for arg in n.args])
+        ignored = ['round', 'matrix', 'Matrix', 'array', 'ndarray']
         if func == 'sqrt':
             return fr'\sqrt{{{args}}}'
-        elif func == 'round' or func == 'matrix':
+        elif func in ignored:
             return self.visit(n.args[0])
         return fr'\operatorname{{{func}}}\left({args}\right)'
 
@@ -182,6 +183,9 @@ class _LatexVisitor(ast.NodeVisitor):
         # if whole string contains only word characters
         if re.match('\w*', n.s).span()[1] == len(n.s):
             return self.format_name(n.s)
+        # or if it seems like an equation
+        elif re.search(r'[^=]=[^w]', n.s):
+            return eqn(n.s)
         return n.s
 
     def prec_Str(self, n):
@@ -370,7 +374,7 @@ def _format_wide_matrix(matrix, max_cols):
     mat = matrix[:, :max_cols - 2].tolist()
     last_col = matrix[:, -1].tolist()
     for index, element in enumerate(mat):
-        element += ['\\cdots', last_col[index]]
+        element += ['\\cdots', last_col[index][0]]
 
     return mat
 
@@ -378,7 +382,7 @@ def _format_long_matrix(matrix, max_rows):
     '''look above'''
 
     mat = matrix[:max_rows - 2, :].tolist()
-    mat += ['\\vdots'] * matrix.shape[1]
+    mat += [['\\vdots'] * matrix.shape[1]]
     mat += matrix[-1, :].tolist()
 
     return mat
