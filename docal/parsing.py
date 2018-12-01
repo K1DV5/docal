@@ -160,12 +160,13 @@ class _LatexVisitor(ast.NodeVisitor):
         return self.prec(n.op)
 
     def visit_List(self, n):
+        if hasattr(n, 'is_in_list') and n.is_in_list:
+            elements = [self.visit(element) for element in n.elts]
+            return ' & '.join(elements)
         for child in ast.iter_child_nodes(n):
             if isinstance(child, ast.List):
                 child.is_in_list = True
         elements = [self.visit(element) for element in n.elts]
-        if hasattr(n, 'is_in_list') and n.is_in_list:
-            return ' & '.join(elements)
         return '\\left[\\begin{matrix}\n' + '\\\\\n'.join(elements) + '\n\\end{matrix}\\right]'
 
     def prec_List(self, n):
@@ -178,6 +179,9 @@ class _LatexVisitor(ast.NodeVisitor):
         return 1000
 
     def visit_Str(self, n):
+        # if whole string contains only word characters
+        if re.match('\w*', n.s).span()[1] == len(n.s):
+            return self.format_name(n.s)
         return n.s
 
     def prec_Str(self, n):
@@ -266,7 +270,15 @@ class _LatexVisitor(ast.NodeVisitor):
         return 800
 
     def visit_Num(self, n):
-        return format_quantity(n.n)
+        number = n.n
+        if number != 0 and (abs(number) > 1000 or abs(number) < 0.1):
+            # in scientific notation
+            return re.sub(r'([0-9]+)E([-+])([0-9]+)',
+                            r'\1\\left(10^{\2'+r'\g<3>'.lstrip('0')+r'}\\right)',
+                            f'{number:.2E}').replace('+', '')
+        if number == int(number):
+            return str(int(number))
+        return str(round(number, 3))
 
     def prec_Num(self, n):
         return 1000
@@ -318,17 +330,7 @@ def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True)
 def _format_number(number):
     '''make the number part of a quantity more readable'''
 
-    if any([isinstance(number, typ) for typ in [float, int]]):
-        if number != 0 and (abs(number) > 1000 or abs(number) < 0.1):
-            # in scientific notation
-            return re.sub(r'([0-9]+)E([-+])([0-9]+)',
-                            r'\1\\left(10^{\2'+r'\g<3>'.lstrip('0')+r'}\\right)',
-                            f'{number:.2E}').replace('+', '')
-        if number == int(number):
-            return str(int(number))
-        number = str(round(number, 3))
-    else:
-        number = format_quantity(number)
+    number = latexify(str(number))
 
     return number
 
@@ -337,66 +339,60 @@ def _format_array(array, max_size=5):
     '''look above'''
 
     if len(array) > max_size:
-        array = [*[_format_number(element) for element in array[:max_size - 2]],
-                 '\\vdots',
-                 _format_number(array[-1])]
-    else:
-        array = [_format_number(element) for element in array]
+        array = [*array[:max_size - 2], '\\vdots', array[-1]]
 
-    number = ('\\left[\\begin{matrix}\n'
-              + '\\\\\n'.join(array)
-              + '\n\\end{matrix}\\right]')
-
-    return f'{number}'
+    return array
 
 
 def _format_big_matrix(matrix, size):
     '''look above'''
 
     rows, cols = size
-    cut_matrix = matrix[:rows - 2, :cols - 2].tolist()
+    mat = matrix[:rows - 2, :cols - 2].tolist()
     last_col = matrix[:rows - 2, -1].tolist()
+    if not isinstance(last_col[0], list):
+        last_col = [[e] for e in last_col]
     last_row = matrix[-1, :cols - 2].tolist()
+    if not isinstance(last_row[0], list):
+        last_row = [[e] for e in last_row]
     last_element = matrix[-1,-1]
+    for index, element in enumerate(mat):
+        element += ['\\cdots', last_col[index][0]]
+    mat.append(['\\vdots'] * (cols - 2) + ['\\ddots', '\\vdots'])
+    mat.append(last_row[0] + ['\\cdots', last_element])
 
-    mat_ls = [' & '.join(
-        [_format_number(element) for element in cut_matrix[index]]) + ' & \\cdots & ' + _format_number(last_col[index][0])
-        for index in range(len(cut_matrix))] \
-        + [' & '.join(['\\vdots'] * (cols - 2) + ['\\ddots', '\\vdots'])] \
-        + [' & '.join([_format_number(element) for element in last_row[0]]) + ' & \\cdots & ' + _format_number(last_element)]
-
-    return mat_ls
+    return mat
 
 
 def _format_wide_matrix(matrix, max_cols):
     '''look above'''
 
-    cut_matrix = matrix[:, :max_cols - 2].tolist()
+    mat = matrix[:, :max_cols - 2].tolist()
     last_col = matrix[:, -1].tolist()
+    for index, element in enumerate(mat):
+        element += ['\\cdots', last_col[index]]
 
-    mat_ls = [' & '.join(
-        [_format_number(element) for element in cut_matrix[index]]) + ' & \\cdots & ' + _format_number(last_col[index][0])
-        for index in range(matrix.shape[0])]
-
-    return mat_ls
+    return mat
 
 def _format_long_matrix(matrix, max_rows):
     '''look above'''
 
-    mat_ls = [' & '.join(
-                          [_format_number(element) for element in matrix[:max_rows - 2, :].tolist()[index]])
-                          for index in range(matrix[:max_rows - 2, :].shape[0])]
-    mat_ls.append(' & '.join(['\\vdots'] * matrix.shape[1]))
-    mat_ls.append(' & '.join([_format_number(element) for element in matrix[-1, :].tolist()[0]]))
+    mat = matrix[:max_rows - 2, :].tolist()
+    mat += ['\\vdots'] * matrix.shape[1]
+    mat += matrix[-1, :].tolist()
 
-    return mat_ls
+    return mat
 
 
 def _format_matrix(matrix, max_size=(5,5)):
     '''look above'''
 
+    shape = matrix.shape
+    # array -> short
+    if len(shape) == 1 and shape[0] > max_size[0]:
+        mat_ls = _format_array(matrix, max_size[0])
     # too big -> small
-    if matrix.shape[0] > max_size[0] and matrix.shape[1] > max_size[1]:
+    elif matrix.shape[0] > max_size[0] and matrix.shape[1] > max_size[1]:
         mat_ls = _format_big_matrix(matrix, max_size)
     # too long -> small
     elif matrix.shape[0] > max_size[0] and matrix.shape[1] < max_size[1]:
@@ -406,14 +402,9 @@ def _format_matrix(matrix, max_size=(5,5)):
         mat_ls = _format_wide_matrix(matrix, max_size[1])
     # already small so :)
     else:
-        mat_ls = [' & '.join(
-            [_format_number(element) for element in matrix.tolist()[index]])
-            for index in range(matrix.shape[0])]
+        mat_ls = matrix.tolist()
 
-    braces = ['\\{', '\\}'] if matrix.shape[1] == 1 else ['[', ']']
-    return ('\\left' + braces[0] + '\\begin{matrix}\n' +
-              '\\\\\n'.join(mat_ls) +
-              '\n\\end{matrix}\\right' + braces[1])
+    return latexify(str(mat_ls))
 
 
 def format_quantity(quantity, mat_size=(5,5)):
@@ -431,10 +422,7 @@ def format_quantity(quantity, mat_size=(5,5)):
     if any([isinstance(quantity, typ) for typ in [float, int]]):
         formatted = _format_number(quantity)
 
-    elif 'array' in quantity_type or 'Array' in quantity_type:
-        formatted = _format_array(quantity, size_arr)
-
-    elif 'matrix' in quantity_type:
+    elif 'array' in quantity_type or 'Array' in quantity_type or 'matrix' in quantity_type or 'Matrix' in quantity_type:
         formatted = _format_matrix(quantity, size_mat)
 
     else:
