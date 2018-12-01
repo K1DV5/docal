@@ -20,14 +20,13 @@ replaced by contents from the python file.
 '''
 
 from datetime import datetime
+# to log info about what it's doing with timestamps
 START_TIME = datetime.now()
 
 import re
 from subprocess import run
 # for temp folder access and path manips
 from os import environ, remove, path
-# to log info about what it's doing with timestamps
-from datetime import datetime
 # for working with the document's variables and filename
 from __main__ import __file__, __dict__
 from .calculation import cal, _assort_input
@@ -66,8 +65,7 @@ class document:
         # convert if necessary
         self._prepare_infile(infile)
         # the tag pattern
-        self.pattern = re.compile(
-            r'(?s)([^a-zA-Z0-9_\\])#([a-zA-Z_][a-zA-Z0-9_]*?)([^a-zA-Z0-9_])')
+        self.pattern = re.compile(r'(?s)([^\w\\])#(\w+)(\W?)')
         # the calculation parts
         self.contents = {}
         if self.infile.endswith('.tex'):
@@ -111,18 +109,18 @@ class document:
         parens = ['()', '[]', '{}']
         incomplete = ''
         inline_calc = re.compile(r'(?<![\w\\])#\{(.*?)\}')
-        for line in content.split('\n'):
+        for line_no, line in enumerate(content.split('\n')):
             # a real comment starts with ## and does nothing
             if line.lstrip().startswith('##'):
                 pass
             elif line.strip() == '#':
-                print('    Adding an empty line...',
+                print(f'    {line_no}th line: Adding an empty line...',
                       str(datetime.time(datetime.now())))
                 sent.append('')
             # if the first non whitespace char is # and not ## send as is
             # with the variables referenced with #var substituted
             elif line.lstrip().startswith('#'):
-                print('    Processing comment line to a paragraph...',
+                print(f'    {line_no}th line: Processing comment line to a paragraph...',
                       str(datetime.time(datetime.now())),
                       f'\n        {line}')
                 line = line.lstrip()[1:].strip()
@@ -157,7 +155,7 @@ class document:
                         line = None
                 if line:
                     if not line.rstrip().endswith(';'):
-                        print('    Evaluating and converting equation line to LaTeX form...',
+                        print(f'    {line_no}th line: Evaluating and converting equation line to LaTeX form...',
                               str(datetime.time(datetime.now())),
                               f'\n        {line}')
                         main_var, irrelevant, unit = _assort_input(line.strip())[:3]
@@ -169,7 +167,7 @@ class document:
                             exec(f'{main_var}{UNIT_PF} = "{unit}"', __dict__)
                     else:
                         # if it does not appear like an equation or a comment, just execute it
-                        print('    Executing statement...', f'\n        {line}',
+                        print(f'    {line_no}th line: Executing statement...', f'\n        {line}',
                               str(datetime.time(datetime.now())))
                         exec(line, __dict__)
         sent = '\n'.join(sent)
@@ -219,8 +217,7 @@ class document:
             self._send(self.current_tag, content)
 
     def _repl(self, match_object, surround: bool):
-        tag = match_object.group(2)
-        ends = match_object.group(1), match_object.group(3)
+        start, tag, end = [m if m else '' for m in match_object.groups()]
         if tag in self.contents.keys():
             result = '\n'.join(self.contents[tag])
         elif tag in __dict__.keys():
@@ -232,17 +229,15 @@ class document:
             raise UserWarning(f"There is nothing to send to tag '{tag}'.")
 
         if surround:
-            start = ends[0] if ends[0] == '\n' else ''
-            end = ends[1] if ends[1] == '\n' else ''
-            return (ends[0]
+            return (start
                     + self.surrounding[0]
-                    + start
+                    + (start if start == '\n' else '')
                     + result
-                    + end
+                    + (end if end == '\n' else '')
                     + self.surrounding[1]
-                    + ends[1])
+                    + end)
 
-        return ends[0] + result + ends[1]
+        return start + result + end
 
     def _repl_surround(self, match_object):
         return self._repl(match_object, True)
