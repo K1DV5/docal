@@ -19,18 +19,23 @@ when the python file is run, it writes a tex file with the tags
 replaced by contents from the python file.
 '''
 
-from datetime import datetime
-# to log info about what it's doing with timestamps
-START_TIME = datetime.now()
-
 import re
 from subprocess import run
 # for temp folder access and path manips
 from os import environ, remove, path
+# for timings
+from datetime import datetime
 # for working with the document's variables and filename
-from __main__ import __file__, __dict__
+try:
+    from __main__ import __file__ as DEFAULT_SCRIPT, __dict__ as DICT
+except ImportError:
+    DEFAULT_SCRIPT = None
+    DICT = {}
 from .calculation import cal, _assort_input
 from .parsing import UNIT_PF, eqn, format_quantity
+# to log info about what it's doing with timestamps
+START_TIME = datetime.now()
+
 
 
 class document:
@@ -42,8 +47,11 @@ class document:
         works with word (.docx) files'''
 
         # file taken as input file when not explicitly set:
-        self.infile = path.abspath(
-            infile) if infile else __file__.replace('.py', '.tex')
+        if infile:
+            self.infile = path.abspath(infile)
+            DICT = globals()
+        else:
+            self.infile = DEFAULT_SCRIPT.replace('.py', '.tex')
         if self.infile.endswith('.docx'):
             self.temp_dir = path.join(environ['TMP'], 'docal_tmp')
             self.temp_file = path.join(
@@ -126,7 +134,7 @@ class document:
                 line = line.lstrip()[1:].strip()
                 if line.startswith('$'):
                     # inline calculations, accepted in #{...}
-                    calcs = [format_quantity(eval(x.group(1), __dict__)) for x in list(inline_calc.finditer(line))]
+                    calcs = [format_quantity(eval(x.group(1), DICT)) for x in list(inline_calc.finditer(line))]
                     line = re.sub(r'(?a)#(\w+)',
                                   lambda x: 'TMP0'.join(x.group(1).split('_')) + 'TMP0', line)
                     line = inline_calc.sub('TMP0CALC000', line)
@@ -136,13 +144,13 @@ class document:
                         line = eqn(line[1:], disp=False)
                     augmented = re.sub(r'(?a)\\mathrm\s*\{\s*(\w+)TMP0\s*\}',
                             lambda x: format_quantity(
-                                __dict__['_'.join(x.group(1).split('TMP0'))]), line)
+                                DICT['_'.join(x.group(1).split('TMP0'))]), line)
                     for calc in calcs:
                         augmented = re.sub(r'(?a)\\mathrm\s*\{\s*TMP0CALC000\s*\}', calc.replace('\\', r'\\'), augmented, 1)
                     sent.append(augmented)
                 else:
                     augmented = self.pattern.sub(self._repl_bare, line)
-                    augmented = inline_calc.sub(lambda x: eqn(str(eval(x.group(1), __dict__)), disp=False), augmented)
+                    augmented = inline_calc.sub(lambda x: eqn(str(eval(x.group(1), DICT)), disp=False), augmented)
                     sent.append(augmented)
             # if it is an assignment, take it as a calculation to send unless it ends with a ;
             elif re.search(r'[^=]=[^=]', incomplete + line): 
@@ -161,15 +169,20 @@ class document:
                         main_var, irrelevant, unit = _assort_input(line.strip())[:3]
                         sent.append(cal(line))
                         # carry out normal op in main script
-                        exec(line, __dict__)
+                        exec(line, DICT)
                         # for later unit retrieval
                         if unit:
-                            exec(f'{main_var}{UNIT_PF} = "{unit}"', __dict__)
+                            exec(f'{main_var}{UNIT_PF} = "{unit}"', DICT)
                     else:
                         # if it does not appear like an equation or a comment, just execute it
                         print(f'    {line_no}th line: Executing statement...', f'\n        {line}',
                               str(datetime.time(datetime.now())))
-                        exec(line, __dict__)
+                        exec(line, DICT)
+            else:
+                # if it does not appear like an equation or a comment, just execute it
+                print(f'    {line_no}th line: Executing statement...', f'\n        {line}',
+                      str(datetime.time(datetime.now())))
+                exec(line, DICT)
         sent = '\n'.join(sent)
         return sent
 
@@ -220,11 +233,11 @@ class document:
         start, tag, end = [m if m else '' for m in match_object.groups()]
         if tag in self.contents.keys():
             result = '\n'.join(self.contents[tag])
-        elif tag in __dict__.keys():
+        elif tag in DICT.keys():
             unit_name = tag + UNIT_PF
-            unit = __dict__[unit_name] if unit_name in __dict__.keys() else ''
+            unit = DICT[unit_name] if unit_name in DICT.keys() else ''
             result = eqn(format_quantity(
-                __dict__[tag]) + unit, norm=False, disp=False)
+                DICT[tag]) + unit, norm=False, disp=False)
         else:
             raise UserWarning(f"There is nothing to send to tag '{tag}'.")
 

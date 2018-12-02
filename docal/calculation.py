@@ -6,7 +6,7 @@ module and returns the procedure of the calsulations
 '''
 
 import ast # to know deduce which steps are needed
-from __main__ import __dict__
+from .document import DICT
 from .parsing import latexify, eqn, format_quantity
 
 DEFAULT_MAT_SIZE = 5
@@ -21,7 +21,7 @@ def _calculate(expr, steps, mat_size):
         elif step == 1:
             result.append(latexify(expr, mul_symbol='*', subs=True, mat_size=mat_size))
         elif step == 2:
-            result.append(format_quantity(eval(expr, __dict__), mat_size))
+            result.append(format_quantity(eval(expr, DICT), mat_size))
 
     return result
 

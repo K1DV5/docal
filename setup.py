@@ -15,6 +15,11 @@ setuptools.setup(
     long_description=long_description,
     url='https://github.com/K1DV5/doCal',
     packages=setuptools.find_packages(),
+    entry_points={
+        'console_scripts': [
+            'docal = docal.__main__:main'
+            ]
+        },
     classifiers=[
         'Programming Language :: Python :: 3',
         'License :: OSI Approved :: MIT License',
