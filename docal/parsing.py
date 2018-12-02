@@ -7,7 +7,7 @@ https://stackoverflow.com/questions/3867028/converting-a-python-numeric-expressi
 
 import ast
 import re
-from __main__ import __dict__
+from .document import DICT
 
 GREEK_LETTERS = [
     'alpha', 'nu', 'beta', 'xi', 'Xi', 'gamma', 'Gamma', 'delta', 'Delta',
@@ -114,9 +114,9 @@ class _LatexVisitor(ast.NodeVisitor):
         if self.subs:
             # substitute the value of the variable by formatted value
             try:
-                qty = format_quantity(__dict__[n.id], self.mat_size)
-                unit = __dict__[n.id + UNIT_PF] \
-                    if n.id + UNIT_PF in __dict__.keys() else ''
+                qty = format_quantity(DICT[n.id], self.mat_size)
+                unit = DICT[n.id + UNIT_PF] \
+                    if n.id + UNIT_PF in DICT.keys() else ''
                 # if the quantity is raised to some power and has a unit,
                 # surround it with parens
                 if hasattr(n, 'is_in_power') and n.is_in_power and unit:
