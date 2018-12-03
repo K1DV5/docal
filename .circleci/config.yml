@@ -25,5 +25,6 @@ jobs:
           command: |
             python3 -m venv venv
             . venv/bin/activate
+            pip3 install -U wheel
             python3 setup.py sdist bdist_wheel --universal
 
