@@ -121,10 +121,6 @@ class document:
             # a real comment starts with ## and does nothing
             if line.lstrip().startswith('##'):
                 pass
-            elif line.strip() == '#':
-                print(f'    {line_no}th line: Adding an empty line...',
-                      str(datetime.time(datetime.now())))
-                sent.append('')
             # if the first non whitespace char is # and not ## send as is
             # with the variables referenced with #var substituted
             elif line.lstrip().startswith('#'):
@@ -178,11 +174,13 @@ class document:
                         print(f'    {line_no}th line: Executing statement...', f'\n        {line}',
                               str(datetime.time(datetime.now())))
                         exec(line, DICT)
-            else:
+            elif line:
                 # if it does not appear like an equation or a comment, just execute it
                 print(f'    {line_no}th line: Executing statement...', f'\n        {line}',
                       str(datetime.time(datetime.now())))
                 exec(line, DICT)
+            else:
+                sent.append('')
         sent = '\n'.join(sent)
         return sent
 

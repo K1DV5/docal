@@ -29,6 +29,6 @@ def main():
     if outfile:
         d.write(outfile)
     else:
-        d.write()
+        d.write(0)
 
 main()
