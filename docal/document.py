@@ -325,6 +325,8 @@ class document:
         else:
             outfile = outfile_or_revert
 
+        print(f'Writing output to {outfile}...', datetime.now())
+
         file_contents = self._prepare(outfile, revert)
 
         # if the input is a word file
@@ -339,4 +341,4 @@ class document:
             with open(outfile, 'w') as file:
                 file.write(file_contents)
 
-        print(f'\nSuccess!! (finished in {datetime.now() - START_TIME})')
+        print(f'\nSuccess!!!     (finished in {datetime.now() - START_TIME})')
