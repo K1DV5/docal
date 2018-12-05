@@ -9,6 +9,8 @@ import ast
 import re
 from .document import DICT
 
+DEFAULT_MAT_SIZE = 10
+
 GREEK_LETTERS = [
     'alpha', 'nu', 'beta', 'xi', 'Xi', 'gamma', 'Gamma', 'delta', 'Delta',
     'pi', 'Pi', 'epsilon', 'varepsilon', 'rho', 'varrho', 'zeta', 'sigma',
@@ -415,7 +417,7 @@ def _format_matrix(matrix, max_size=(5,5)):
     return latexify(str(mat_ls))
 
 
-def format_quantity(quantity, mat_size=(5,5)):
+def format_quantity(quantity, mat_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
     '''returns a nicely latex formatted string of the quantity'''
 
     if isinstance(mat_size, int):
