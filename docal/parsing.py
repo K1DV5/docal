@@ -43,6 +43,22 @@ class _LatexVisitor(ast.NodeVisitor):
 
     # attributes (foo.bar)
     def visit_Attribute(self, n):
+        # if the value is desired
+        if self.subs:
+            # if it is a variable take its name
+            if isinstance(n.value, ast.Name):
+                base = n.value.id
+            else:
+                # it might be another attribute so visit it on its own and if
+                # it is, we want its string representation
+                n.value.is_in_attr = True
+                base = self.visit(n.value)
+            attr = n.attr
+            # if it is inside another attribute, return the string representation
+            if hasattr(n, 'is_in_attr') and n.is_in_attr:
+                return f'{base}.{attr}'
+            # get the value
+            return format_quantity(eval(f'{base}.{attr}', DICT), self.mat_size)
         # only get the part after the dot
         return self.format_name(n.attr)
 
