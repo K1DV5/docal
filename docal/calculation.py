@@ -7,9 +7,8 @@ module and returns the procedure of the calsulations
 
 import ast # to know deduce which steps are needed
 from .document import DICT
-from .parsing import latexify, eqn, format_quantity
+from .parsing import latexify, eqn, format_quantity, DEFAULT_MAT_SIZE
 
-DEFAULT_MAT_SIZE = 5
 
 def _calculate(expr, steps, mat_size):
     '''carryout the necesary calculations and assignments'''
