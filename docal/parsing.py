@@ -148,7 +148,9 @@ class _LatexVisitor(ast.NodeVisitor):
         return 1000
 
     def visit_UnaryOp(self, n):
-        if self.prec(n.op) > self.prec(n.operand):
+        if isinstance(n.op, ast.USub):
+            n.operand.is_in_unaryop = True
+        if self.prec(n.op) >= self.prec(n.operand) or (hasattr(n, 'is_in_unaryop') and n.is_in_unaryop):
             return fr'{ self.visit(n.op) } \left({ self.visit(n.operand) }\right)'
         else:
             return fr'{ self.visit(n.op) } { self.visit(n.operand) }'
@@ -168,6 +170,8 @@ class _LatexVisitor(ast.NodeVisitor):
         if isinstance(n.op, ast.Mult) and isinstance(n.right, ast.Name):
             if not self.subs:
                 return fr'{self.visit(n.left)} \, {self.visit(n.right)}'
+        elif isinstance(n.op, ast.Mult) and isinstance(n.right, ast.Num):
+            return fr'{self.visit(n.left)} \times {self.visit(n.right)}'
         elif isinstance(n.op, ast.Pow):
             # so that it can be surrounded with parens if it has units
             n.left.is_in_power = True
@@ -196,10 +200,45 @@ class _LatexVisitor(ast.NodeVisitor):
         return 1000
 
     def visit_Tuple(self, n):
+        # if it is used as an index for an iterable, add 1 to the elements if
+        # they are numbers
+        if hasattr(n, 'is_in_index') and n.is_in_index:
+            return ', '.join([str(int(i.n) + 1)
+                if isinstance(i, ast.Num)
+                else self.visit(i)
+                for i in n.elts])
         return '\\left(' + ', '.join([self.visit(element) for element in n.elts]) + '\\right)'
 
     def prec_Tuple(self, n):
         return 1000
+
+    # indexed items (item[4:])
+    def visit_Subscript(self, n):
+        # if the iterable is kinda not simple, surround it with parens
+        if isinstance(n.value, ast.BinOp) or isinstance(n.value, ast.UnaryOp):
+            return f'{{\\left({self.visit(n.value)}\\right)}}_{{\\left[{self.visit(n.slice)}\\right]}}'
+        # write the indices as subscripts
+        return f'{{{self.visit(n.value)}}}_{{\\left[{self.visit(n.slice)}\\right]}}'
+
+    def visit_Index(self, n):
+        # this will be used by the tuple visitor
+        n.value.is_in_index = True
+        # if it is a number, add 1 to it
+        if isinstance(n.value, ast.Num):
+            return str(int(n.value.n) + 1)
+        return self.visit(n.value)
+
+    def visit_Slice(self, n):
+        # same thing with adding one
+        lower, upper = [str(int(i.n) + 1)
+                if isinstance(i, ast.Num)
+                else self.visit(i)
+                for i in [n.lower, n.upper]]
+        # join the upper and lower limits with -
+        return self.visit(lower) + '-' + self.visit(upper)
+
+    def visit_ExtSlice(self, n):
+        return ', '.join([self.visit(s) for s in n.dims])
 
     def visit_Str(self, n):
         # if whole string contains only word characters
@@ -339,7 +378,7 @@ def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True)
         else:
             surroundings = ['\\begin{equation}\n', '\n\\end{equation}']
     else:
-        surroundings = ['\\( ', ' \\)']
+        surroundings = ['\\(\\displaystyle ', ' \\)']
 
     if norm:
         equations = [equals.join([latexify(expr.strip())
