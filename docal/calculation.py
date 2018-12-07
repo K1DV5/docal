@@ -54,8 +54,8 @@ def _assort_input(input_str):
         equation = input_parts[0]
         additionals = input_parts[1]
 
-    fir_eq = equation.find('=')
-    var_name, expression = [part.strip() for part in [equation[:fir_eq], equation[fir_eq + 1:]]]
+    var_name, expression = [part.strip() for part in equation.split('=', 1)]
+    unp_vars = [n.id for n in list(ast.walk(ast.parse(var_name).body[0].value)) if isinstance(n, ast.Name)]
     expr_dump = ast.dump(ast.parse(expression))
 
     steps = figure_out_steps(expr_dump)
@@ -84,7 +84,7 @@ def _assort_input(input_str):
         else:
             unit = f" \, \mathrm{{{latexify(unit, mul_symbol=' ', div_symbol='/')}}}"
 
-    return var_name, expression, unit, steps, mat_size, mode
+    return var_name, unp_vars, expression, unit, steps, mat_size, mode
 
 def cal(input_str):
     '''
@@ -106,7 +106,7 @@ def cal(input_str):
     \\end{align}
     '''
 
-    var_name, expr, unit, steps, mat_size, mode = _assort_input(input_str)
+    var_name, unp_vars, expr, unit, steps, mat_size, mode = _assort_input(input_str)
     result = _calculate(expr, steps, mat_size)
     var_lx = latexify(var_name)
     result[-1] += unit

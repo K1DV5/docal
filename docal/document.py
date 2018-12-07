@@ -19,6 +19,7 @@ when the python file is run, it writes a tex file with the tags
 replaced by contents from the python file.
 '''
 
+# for tag replacements
 import re
 from subprocess import run
 # for temp folder access and path manips
@@ -162,13 +163,14 @@ class document:
                         print(f'    {line_no}th line: Evaluating and converting equation line to LaTeX form...',
                               str(datetime.time(datetime.now())),
                               f'\n        {line}')
-                        main_var, irrelevant, unit = _assort_input(line.strip())[:3]
+                        main_var, unp_vars, irrelevant, unit = _assort_input(line.strip())[:4]
                         sent.append(cal(line))
                         # carry out normal op in main script
                         exec(line, DICT)
                         # for later unit retrieval
                         if unit:
-                            exec(f'{main_var}{UNIT_PF} = "{unit}"', DICT)
+                            for var in unp_vars:
+                                exec(f'{var}{UNIT_PF} = "{unit}"', DICT)
                     else:
                         # if it does not appear like an equation or a comment, just execute it
                         print(f'    {line_no}th line: Executing statement...', f'\n        {line}',
