@@ -7,7 +7,7 @@ with open('README.md', 'r') as fh:
 
 setuptools.setup(
     name='doCal',
-    version='0.3.0',
+    version='0.3.1',
     author='K1DV5',
     author_email='kidusadugna@gmail.com',
     description='Mathcad-like functionality for Pweave and related tools',
