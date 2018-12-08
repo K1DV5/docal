@@ -32,7 +32,7 @@ try:
 except ImportError:
     DEFAULT_SCRIPT = None
     DICT = {}
-from .calculation import cal, _assort_input
+from .calculation import cal
 from .parsing import UNIT_PF, eqn, format_quantity
 # to log info about what it's doing with timestamps
 START_TIME = datetime.now()
@@ -163,14 +163,8 @@ class document:
                         print(f'    {line_no}th line: Evaluating and converting equation line to LaTeX form...',
                               str(datetime.time(datetime.now())),
                               f'\n        {line}')
-                        main_var, unp_vars, irrelevant, unit = _assort_input(line.strip())[:4]
+                        # the cal function will execute it so no need for exec
                         sent.append(cal(line))
-                        # carry out normal op in main script
-                        exec(line, DICT)
-                        # for later unit retrieval
-                        if unit:
-                            for var in unp_vars:
-                                exec(f'{var}{UNIT_PF} = "{unit}"', DICT)
                     else:
                         # if it does not appear like an equation or a comment, just execute it
                         print(f'    {line_no}th line: Executing statement...', f'\n        {line}',
