@@ -7,7 +7,7 @@ module and returns the procedure of the calsulations
 
 import ast # to know deduce which steps are needed
 from .document import DICT
-from .parsing import latexify, eqn, format_quantity, DEFAULT_MAT_SIZE
+from .parsing import latexify, eqn, format_quantity, DEFAULT_MAT_SIZE, UNIT_PF
 
 
 def _calculate(expr, steps, mat_size):
@@ -126,5 +126,12 @@ def cal(input_str):
         procedure.append('    = ' + step)
 
     output = eqn(*procedure, norm=False, disp=displ)
+
+    # carry out normal op in main script
+    exec(input_str, DICT)
+    # for later unit retrieval
+    if unit:
+        for var in unp_vars:
+            exec(f'{var}{UNIT_PF} = "{unit}"', DICT)
 
     return output
