@@ -37,62 +37,60 @@ from .parsing import UNIT_PF, eqn, format_quantity
 # to log info about what it's doing with timestamps
 START_TIME = datetime.now()
 
+# the tag pattern
+PATTERN = re.compile(r'(?s)([^\w\\])#(\w+)(\W?)')
+# the inline calculation pattern like #{x+5}
+INLINE_CALC = re.compile(r'(?<![\w\\])#\{(.*?)\}')
+# surrounding of the content sent for reversing (something that
+# doesn't change the actual content of the document, and works inside lines)
+SURROUNDING = ['{} {{ {}', '{} }} {}']
+# warning for tag place protection in document:
+WARNING = ('BELOW IS AN AUTO GENERATED LIST OF TAGS. '
+           'DO NOT DELETE IT IF REVERSING IS DESIRED!!!\n%')
+# necessary for the calculations, must be matched
+PARENS = ['()', '[]', '{}']
+# temp folder for converted files
+TEMP_DIR = path.join(environ['TMP'], 'docal_tmp')
+
+def _prepare_infile(infile):
+    '''convert the input file to a tex file for easier manipulation which
+    will then optionally be converted back to the input file. Currently
+    works with word (.docx) files'''
+
+    # file taken as input file when not explicitly set:
+    if infile:
+        infile = path.abspath(infile)
+    else:
+        infile = DEFAULT_SCRIPT.replace('.py', '.tex')
+    if infile.endswith('.docx'):
+        temp_file = path.join(
+            TEMP_DIR, path.basename(infile)[:infile.rfind('.')])
+        run(['pandoc', infile, '-t', 'latex', '-o',
+             temp_file, '--extract-media', TEMP_DIR])
+        with open(temp_file) as file:
+            original = file.read()
+        file_contents = original.replace('\\#\\#', '#')
+        with open(temp_file, 'w') as file:
+            file.write(file_contents)
+    else:
+        temp_file = 0
+        with open(infile) as file:
+            file_contents = file.read()
+
+    return infile, temp_file, file_contents
+
 
 class document:
     '''contains the document handle'''
 
-    def _prepare_infile(self, infile):
-        '''convert the input file to a tex file for easier manipulation which
-        will then optionally be converted back to the input file. Currently
-        works with word (.docx) files'''
-
-        # file taken as input file when not explicitly set:
-        if infile:
-            self.infile = path.abspath(infile)
-        else:
-            self.infile = DEFAULT_SCRIPT.replace('.py', '.tex')
-        if self.infile.endswith('.docx'):
-            self.temp_dir = path.join(environ['TMP'], 'docal_tmp')
-            self.temp_file = path.join(
-                self.temp_dir, path.basename(infile)[:infile.rfind('.')])
-            run(['pandoc', self.infile, '-t', 'latex', '-o',
-                 self.temp_file, '--extract-media', self.temp_dir])
-            with open(self.temp_file) as file:
-                original = file.read()
-            self.file_contents = original.replace('\\#\\#', '#')
-            with open(self.temp_file, 'w') as file:
-                file.write(self.file_contents)
-        else:
-            self.temp_file = 0
-            with open(self.infile) as file:
-                self.file_contents = file.read()
-
     def __init__(self, infile=None):
         '''initialize'''
         # convert if necessary
-        self._prepare_infile(infile)
-        # the tag pattern
-        self.pattern = re.compile(r'(?s)([^\w\\])#(\w+)(\W?)')
-        # the inline calculation pattern like #{x+5}
-        self.inline_calc = re.compile(r'(?<![\w\\])#\{(.*?)\}')
+        self.infile, self.temp_file, self.file_contents = _prepare_infile(infile)
         # the calculation parts
         self.contents = {}
-        if self.infile.endswith('.tex'):
-            separator = re.search(
-                r'\\begin\s*{\s*document\s*}', self.file_contents)
-            self.preamble = self.file_contents[:separator.span()[0]]
-            self.body = self.file_contents[separator.span()[0]:]
-        else:
-            self.preamble = ''
-            self.body = self.file_contents
-        # surrounding of the content sent for reversing (something that
-        # doesn't change the actual content of the document, and works inside lines)
-        self.surrounding = ['{} {{ {}', '{} }} {}']
-        # warning for tag place protection in document:
-        self.warning = ('BELOW IS AN AUTO GENERATED LIST OF TAGS. '
-                        'DO NOT DELETE IT IF REVERSING IS DESIRED!!!\n%')
         # the collection of tags at the bottom of the file for reversing
-        self.tagline = re.search(fr'\n% *{re.escape(self.warning)} *[\[[a-zA-Z0-9_ ]+\]\]',
+        self.tagline = re.search(fr'\n% *{re.escape(WARNING)} *[\[[a-zA-Z0-9_ ]+\]\]',
                                  self.file_contents)
         if self.tagline:
             start = self.tagline.group(0).find('[[') + 2
@@ -100,11 +98,10 @@ class document:
             self.tags = self.tagline.group(0)[start:end].split()
         else:
             self.tags = [tag.group(2)
-                         for tag in self.pattern.finditer(self.file_contents)]
+                         for tag in PATTERN.finditer(self.file_contents)]
         # where the argument of the send function will go to
         self.current_tag = self.tags[0] if self.tags else None
-        # necessary for the calculations
-        self.parens = ['()', '[]', '{}']
+        # temp storage for assignment statements where there are unmatched parens
         self.incomplete_assign = ''
 
     def _process_comment(self, line):
@@ -115,14 +112,14 @@ class document:
         print(f'    Processing comment line to a paragraph...',
               str(datetime.time(datetime.now())),
               f'\n        {line}')
-        line = line.lstrip()[1:].strip()
+        line = line.lstrip()[1:].lstrip()
         if line.startswith('$'):
             # inline calculations, accepted in #{...}
             calcs = [format_quantity(eval(x.group(1), DICT))
-                     for x in list(self.inline_calc.finditer(line))]
+                     for x in list(INLINE_CALC.finditer(line))]
             line = re.sub(r'(?a)#(\w+)',
                           lambda x: 'TMP0'.join(x.group(1).split('_')) + 'TMP0', line)
-            line = self.inline_calc.sub('TMP0CALC000', line)
+            line = INLINE_CALC.sub('TMP0CALC000', line)
             if line.startswith('$$'):
                 line = eqn(*line[2:].split('|'))
             else:
@@ -134,8 +131,8 @@ class document:
                 augmented = re.sub(r'(?a)\\mathrm\s*\{\s*TMP0CALC000\s*\}',
                                    calc.replace('\\', r'\\'), augmented, 1)
         else:
-            augmented = self.pattern.sub(self._repl_bare, line)
-            augmented = self.inline_calc.sub(lambda x:
+            augmented = PATTERN.sub(self._repl_bare, line)
+            augmented = INLINE_CALC.sub(lambda x:
                                              eqn(str(eval(x.group(1), DICT)),
                                                  disp=False), augmented)
 
@@ -147,11 +144,11 @@ class document:
         '''
         if self.incomplete_assign or \
                 any([line.count(par[0]) != line.count(par[1])
-                     for par in self.parens]):
+                     for par in PARENS]):
             self.incomplete_assign += '\n' + line
             if all([self.incomplete_assign.count(par[0]) ==
                     self.incomplete_assign.count(par[1])
-                    for par in self.parens]):
+                    for par in PARENS]):
                 line = self.incomplete_assign
                 self.incomplete_assign = ''
             else:
@@ -259,11 +256,11 @@ class document:
 
         if surround:
             return (start
-                    + self.surrounding[0]
+                    + SURROUNDING[0]
                     + (start if start == '\n' else '')
                     + result
                     + (end if end == '\n' else '')
-                    + self.surrounding[1]
+                    + SURROUNDING[1]
                     + end)
 
         return start + result + end
@@ -281,24 +278,24 @@ class document:
         # replace the sent regions with their respective tags
         for tag in self.tags:
             file_str = re.sub(r'(?s)'
-                              + re.escape(self.surrounding[0])
+                              + re.escape(SURROUNDING[0])
                               + '.*?'
-                              + re.escape(self.surrounding[1]),
+                              + re.escape(SURROUNDING[1]),
                               '#' + tag, file_str, 1)
         # for inplace editing
         self.file_contents = file_str
         return file_str
 
     def _subs_in_place(self):
-        file_str = self.file_contents + f'\n\n% {self.warning} [['
+        file_str = self.file_contents + f'\n\n% {WARNING} [['
         for tag in self.tags:
             file_str += tag + ' '
-        file_str = self.pattern.sub(self._repl_surround, file_str)
+        file_str = PATTERN.sub(self._repl_surround, file_str)
         file_str = file_str.rstrip('\n') + ']]'
         return file_str
 
     def _subs_separate(self):
-        return self.pattern.sub(self._repl_bare, self.file_contents)
+        return PATTERN.sub(self._repl_bare, self.file_contents)
 
     def _prepare(self, outfile, revert):  # outfile needed for conditional
         '''prepare what will be written to the final file'''
