@@ -38,7 +38,6 @@ from .parsing import UNIT_PF, eqn, format_quantity
 START_TIME = datetime.now()
 
 
-
 class document:
     '''contains the document handle'''
 
@@ -50,7 +49,6 @@ class document:
         # file taken as input file when not explicitly set:
         if infile:
             self.infile = path.abspath(infile)
-            DICT = globals()
         else:
             self.infile = DEFAULT_SCRIPT.replace('.py', '.tex')
         if self.infile.endswith('.docx'):
@@ -75,6 +73,8 @@ class document:
         self._prepare_infile(infile)
         # the tag pattern
         self.pattern = re.compile(r'(?s)([^\w\\])#(\w+)(\W?)')
+        # the inline calculation pattern like #{x+5}
+        self.inline_calc = re.compile(r'(?<![\w\\])#\{(.*?)\}')
         # the calculation parts
         self.contents = {}
         if self.infile.endswith('.tex'):
@@ -103,8 +103,74 @@ class document:
                          for tag in self.pattern.finditer(self.file_contents)]
         # where the argument of the send function will go to
         self.current_tag = self.tags[0] if self.tags else None
+        # necessary for the calculations
+        self.parens = ['()', '[]', '{}']
+        self.incomplete_assign = ''
 
-    def _exec_and_fmt(self, content):
+    def _process_comment(self, line):
+        '''
+        convert comments to latex paragraphs
+        '''
+
+        print(f'    Processing comment line to a paragraph...',
+              str(datetime.time(datetime.now())),
+              f'\n        {line}')
+        line = line.lstrip()[1:].strip()
+        if line.startswith('$'):
+            # inline calculations, accepted in #{...}
+            calcs = [format_quantity(eval(x.group(1), DICT))
+                     for x in list(self.inline_calc.finditer(line))]
+            line = re.sub(r'(?a)#(\w+)',
+                          lambda x: 'TMP0'.join(x.group(1).split('_')) + 'TMP0', line)
+            line = self.inline_calc.sub('TMP0CALC000', line)
+            if line.startswith('$$'):
+                line = eqn(*line[2:].split('|'))
+            else:
+                line = eqn(line[1:], disp=False)
+            augmented = re.sub(r'(?a)\\mathrm\s*\{\s*(\w+)TMP0\s*\}',
+                               lambda x: format_quantity(
+                                   DICT['_'.join(x.group(1).split('TMP0'))]), line)
+            for calc in calcs:
+                augmented = re.sub(r'(?a)\\mathrm\s*\{\s*TMP0CALC000\s*\}',
+                                   calc.replace('\\', r'\\'), augmented, 1)
+        else:
+            augmented = self.pattern.sub(self._repl_bare, line)
+            augmented = self.inline_calc.sub(lambda x:
+                                             eqn(str(eval(x.group(1), DICT)),
+                                                 disp=False), augmented)
+
+        return augmented
+
+    def _process_assignment(self, line):
+        '''
+        evaluate assignments and convert to latex form
+        '''
+        if self.incomplete_assign or \
+                any([line.count(par[0]) != line.count(par[1])
+                     for par in self.parens]):
+            self.incomplete_assign += '\n' + line
+            if all([self.incomplete_assign.count(par[0]) ==
+                    self.incomplete_assign.count(par[1])
+                    for par in self.parens]):
+                line = self.incomplete_assign
+                self.incomplete_assign = ''
+            else:
+                line = None
+        if line:
+            if not line.rstrip().endswith(';'):
+                print(f'    Evaluating and converting equation line to LaTeX form...',
+                      str(datetime.time(datetime.now())),
+                      f'\n        {line}')
+                # the cal function will execute it so no need for exec
+                return cal(line)
+
+            # if it does not appear like an equation or a comment, just execute it
+            print(f'    Executing statement...', f'\n        {line}',
+                  str(datetime.time(datetime.now())))
+            exec(line, DICT)
+        return ''
+
+    def _process_content(self, content):
         '''execute the actual content of the string in the context of the main script
         and return what will be sent to the document'''
 
@@ -112,67 +178,23 @@ class document:
         hash_line = re.match(r'\s*#\s*\n', content)
         if hash_line:
             print('    Sending the content without modifying...',
-                str(datetime.time(datetime.now())))
+                  str(datetime.time(datetime.now())))
             return content[hash_line.span()[1]:]
         sent = []
-        parens = ['()', '[]', '{}']
-        incomplete = ''
-        inline_calc = re.compile(r'(?<![\w\\])#\{(.*?)\}')
-        for line_no, line in enumerate(content.split('\n')):
+        for line in content.split('\n'):
             # a real comment starts with ## and does nothing
             if line.lstrip().startswith('##'):
                 pass
             # if the first non whitespace char is # and not ## send as is
             # with the variables referenced with #var substituted
             elif line.lstrip().startswith('#'):
-                print(f'    {line_no}th line: Processing comment line to a paragraph...',
-                      str(datetime.time(datetime.now())),
-                      f'\n        {line}')
-                line = line.lstrip()[1:].strip()
-                if line.startswith('$'):
-                    # inline calculations, accepted in #{...}
-                    calcs = [format_quantity(eval(x.group(1), DICT)) for x in list(inline_calc.finditer(line))]
-                    line = re.sub(r'(?a)#(\w+)',
-                                  lambda x: 'TMP0'.join(x.group(1).split('_')) + 'TMP0', line)
-                    line = inline_calc.sub('TMP0CALC000', line)
-                    if line.startswith('$$'):
-                        line = eqn(*line[2:].split('|'))
-                    else:
-                        line = eqn(line[1:], disp=False)
-                    augmented = re.sub(r'(?a)\\mathrm\s*\{\s*(\w+)TMP0\s*\}',
-                            lambda x: format_quantity(
-                                DICT['_'.join(x.group(1).split('TMP0'))]), line)
-                    for calc in calcs:
-                        augmented = re.sub(r'(?a)\\mathrm\s*\{\s*TMP0CALC000\s*\}', calc.replace('\\', r'\\'), augmented, 1)
-                    sent.append(augmented)
-                else:
-                    augmented = self.pattern.sub(self._repl_bare, line)
-                    augmented = inline_calc.sub(lambda x: eqn(str(eval(x.group(1), DICT)), disp=False), augmented)
-                    sent.append(augmented)
+                sent.append(self._process_comment(line))
             # if it is an assignment, take it as a calculation to send unless it ends with a ;
-            elif re.search(r'[^=]=[^=]', incomplete + line): 
-                if incomplete or any([line.count(par[0]) != line.count(par[1]) for par in parens]):
-                    incomplete += '\n' + line
-                    if all([incomplete.count(par[0]) == incomplete.count(par[1]) for par in parens]):
-                        line = incomplete
-                        incomplete = ''
-                    else:
-                        line = None
-                if line:
-                    if not line.rstrip().endswith(';'):
-                        print(f'    {line_no}th line: Evaluating and converting equation line to LaTeX form...',
-                              str(datetime.time(datetime.now())),
-                              f'\n        {line}')
-                        # the cal function will execute it so no need for exec
-                        sent.append(cal(line))
-                    else:
-                        # if it does not appear like an equation or a comment, just execute it
-                        print(f'    {line_no}th line: Executing statement...', f'\n        {line}',
-                              str(datetime.time(datetime.now())))
-                        exec(line, DICT)
+            elif re.search(r'[^=]=[^=]', self.incomplete_assign + line):
+                sent.append(self._process_assignment(line))
             elif line:
                 # if it does not appear like an equation or a comment, just execute it
-                print(f'    {line_no}th line: Executing statement...', f'\n        {line}',
+                print(f'    Executing statement...', f'\n        {line}',
                       str(datetime.time(datetime.now())))
                 exec(line, DICT)
             else:
@@ -190,8 +212,8 @@ class document:
             if tag not in self.contents.keys():
                 self.contents[tag] = []
             print(f'[{tag}]: Processing contents...',
-                    str(datetime.time(datetime.now())))
-            self.contents[tag].append(self._exec_and_fmt(content))
+                  str(datetime.time(datetime.now())))
+            self.contents[tag].append(self._process_content(content))
             if tag != self.current_tag:
                 self.current_tag = tag
         else:
