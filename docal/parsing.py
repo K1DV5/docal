@@ -338,9 +338,11 @@ class _LatexVisitor(ast.NodeVisitor):
         number = n.n
         if number != 0 and (abs(number) > 1000 or abs(number) < 0.1):
             # in scientific notation
-            return re.sub(r'([0-9]+)E([-+])([0-9]+)',
-                            r'\1\\left(10^{\2'+r'\g<3>'.lstrip('0')+r'}\\right)',
-                            f'{number:.2E}').replace('+', '')
+            num_ls = f'{number:.2E}'.split('E')
+            # remove the preceding zeros and + in the powers like +07 to just 7
+            num_ls[1] = num_ls[1][0].lstrip('+') + num_ls[1][1:].lstrip('0')
+            # make them appear as powers of 10
+            return num_ls[0] + '\\left(10^{' + num_ls[1] + '}\\right)'
         if number == int(number):
             return str(int(number))
         return str(round(number, 3))
