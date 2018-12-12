@@ -14,22 +14,22 @@ sending them, which makes it ideal to make academic and scientific reports.
 
 ### Requirements
 
-**Quick note**: in this document, shell means `cmd` (command prompt) or `powershell`
-for Windows users and `sh` or `bash` for Linux and MacOS users.
+**Quick note**: in this document, shell means `cmd` (command prompt) or
+`powershell` for Windows users and `sh` or `bash` for Linux and MacOS users.
 
-A basic understanding of Python in general is necessary to have a smooth experience here.
-If you want to work with a little more advanvced stuff, like arrays and matrices, more knowledge
-about python is necessary.
+A basic understanding of Python in general is necessary to have a smooth
+experience here.  If you want to work with a little more advanvced stuff, like
+arrays and matrices, more knowledge about python is necessary.
 
-It must be obvious by now but you should have Python installed on your system. You
-can check that by opening your shell (see above) and typing the command
+It must be obvious by now but you should have Python installed on your system.
+You can check that by opening your shell (see above) and typing the command
 `python` and hitting Enter. If it writes the version number and other info
 about your python installation, you already have it installed. If the version
 number starts with 2, you should probably install python 3 (the latest). If you
-have python 3 or above, you\'re good to go. If either you don\'t have Python 3 or
-you don\'t have Python at all, you should go to [Python\'s
-homepage](https://www.python.org) and install it, making sure to check the box \"add
-python to path\" during installation.
+have python 3 or above, you\'re good to go. If either you don\'t have Python 3
+or you don\'t have Python at all, you should go to [Python\'s
+homepage](https://www.python.org) and install it, making sure to check the box
+\"add python to path\" during installation.
 
 If you want to work with word documents, you should have
 [Pandoc](https://pandoc.org) installed on your system (and in your path).
@@ -38,8 +38,10 @@ given, it internally converts it to tex, modifies it and converts it back to
 word, using pandoc.
 
 ### Install
-To install this package, (after making sure that you have a working internet connection)
-type the following command and hit Enter.
+
+To install this package, (after making sure that you have a working internet
+connection) type the following command and hit Enter.
+
 ```shell
 pip install docal
 ```
@@ -71,11 +73,12 @@ pip install .
 
 ### Syntax
 
-The syntax is simple. Just write the equations one line at a time. What you write in the
-syntax is a valid python file, (it is just a script with a lot of assignments and comments).
-The following should be a good starting point.
+The syntax is simple. Just write the equations one line at a time. What you
+write in the syntax is a valid python file, (it is just a script with a lot of
+assignments and comments).  The following should be a good starting point.
 
 ```python
+## foo.py
 ## necessary for scientific functions
 from math import *
 
@@ -102,8 +105,8 @@ z_2 = sqrt(x_2**2 + y_2**2) #m,13
 
 Now, looking at the above example line by line,
 
-* The first line serves as a real comment that does not do anything in python
-  or in docal.
+* The first part (starting with double hash signs) serves as a real comment
+  that does not do anything in python or in docal.
 * The second is a python import statement, to make things such as sqrt, sin, pi
   available.
 * The line that only contains a hashtag is treated as a message that what
@@ -127,3 +130,20 @@ The output of the above example, inserted into a plain word file, containing
 only two tags, \#\#foo and \#\#bar will look like the following figure.
 
 ![Word document output](https://github.com/K1DV5/doCal/raw/master/src/common/images/word-out.jpg "Word document output")
+
+## Known Issues
+
+* You cannot use python statements that need indenting. This is because docal
+  reads the script line by line and uses exec to make the necessary
+  assignments, and since you can't continue an already indented code with exec,
+  that will result in an error. If you have an idea to overcome this problem,
+  feel free to contact me.
+
+## TODO
+
+### Long term
+
+* Add unit awareness. Currently the units don't take part in the number
+  manipulations. They just appear besides the values when a variable is
+  referenced. This means the numbers will be the same with or without the
+  units.
