@@ -6,20 +6,23 @@ module and returns the procedure of the calsulations
 '''
 
 import ast # to know deduce which steps are needed
-from __main__ import __dict__
-from .formatting import format_quantity
-from .parsing import latexify, eqn
+from .document import DICT
+from .parsing import latexify, eqn, format_quantity, DEFAULT_MAT_SIZE, UNIT_PF
 
-DEFAULT_MAT_SIZE = 5
 
-def _calculate(expr, mat_size):
+def _calculate(expr, steps, mat_size):
     '''carryout the necesary calculations and assignments'''
 
-    expr_1_lx = latexify(expr, mul_symbol='.', mat_size=mat_size)
-    expr_2_lx = latexify(expr, mul_symbol='*', subs=True, mat_size=mat_size)
-    expr_3_lx = format_quantity(eval(expr, __dict__), mat_size)
+    result = []
+    for step in steps:
+        if step == 0:
+            result.append(latexify(expr, mul_symbol='.', mat_size=mat_size))
+        elif step == 1:
+            result.append(latexify(expr, mul_symbol='*', subs=True, mat_size=mat_size))
+        elif step == 2:
+            result.append(format_quantity(eval(expr, DICT), mat_size))
 
-    return [expr_1_lx, expr_2_lx, expr_3_lx]
+    return result
 
 def figure_out_steps(expr_dump):
     '''used when nothing about the steps comes from the user to prevent repetition
@@ -40,35 +43,6 @@ def figure_out_steps(expr_dump):
 
     return steps
 
-
-def steps_vs_mat_size(num_str, expr_str):
-    '''receive a number string and figure out which is supposed to be
-    configured between steps and matrix size. If the number is to configure
-    the matrix size, figure out which steps to take from the equation, else
-    take the default matrix size.'''
-
-    # the minimum matrix size is 4*4 and min array size is 4.
-    min_mat = 44
-    min_arr = 4
-    as_num = int(num_str)
-    if len(num_str) == 1:
-        if as_num > min_arr:
-            steps = figure_out_steps(expr_str)
-            mat_size = as_num
-        else:
-            steps = [as_num]
-            mat_size = DEFAULT_MAT_SIZE
-    else:
-        if as_num > min_mat:
-            steps = figure_out_steps(expr_str)
-            mat_size = (int(num_str[0]), int(num_str[1]))
-        else:
-            steps = [int(num) for num in num_str]
-            mat_size = DEFAULT_MAT_SIZE
-
-    return steps, mat_size
-
-
 def _assort_input(input_str):
     '''look above'''
 
@@ -80,22 +54,29 @@ def _assort_input(input_str):
         equation = input_parts[0]
         additionals = input_parts[1]
 
-    var_name, expression = [part.strip() for part in equation.split('=')]
+    var_name, expression = [part.strip() for part in equation.split('=', 1)]
+    unp_vars = [n.id for n in list(ast.walk(ast.parse(var_name).body[0].value)) if isinstance(n, ast.Name)]
     expr_dump = ast.dump(ast.parse(expression))
 
-    if additionals.isdigit():
-        steps, mat_size = steps_vs_mat_size(additionals, expression)
-        unit = ''
-    elif ',' in additionals:
-        parts = [part.strip() for part in additionals.split(',')]
-        if not parts[0].isdigit():
-            parts.reverse()
-        steps, mat_size = steps_vs_mat_size(parts[0], expr_dump)
-        unit = parts[1]
-    else:
-        steps = figure_out_steps(expr_dump)
-        mat_size = DEFAULT_MAT_SIZE
-        unit = additionals
+    steps = figure_out_steps(expr_dump)
+    mat_size = DEFAULT_MAT_SIZE
+    unit = ''
+    mode = 'default'
+    if additionals:
+        for a in [a.strip() for a in additionals.split(',')]:
+            if a.isdigit():
+                steps = [int(num) - 1 for num in a]
+            elif a.startswith('m') and a[1:].isdigit():
+                if len(a) == 2:
+                    mat_size = int(a[1])
+                else:
+                    mat_size = (int(a[1]), int(a[2]))
+            elif a == '$':
+                mode = 'inline'
+            elif a == '$$':
+                mode = 'display'
+            else:
+                unit = a
 
     if unit:
         if unit == 'deg':
@@ -103,7 +84,7 @@ def _assort_input(input_str):
         else:
             unit = f" \, \mathrm{{{latexify(unit, mul_symbol=' ', div_symbol='/')}}}"
 
-    return var_name, expression, unit, steps, mat_size
+    return var_name, unp_vars, expression, unit, steps, mat_size, mode
 
 def cal(input_str):
     '''
@@ -125,20 +106,32 @@ def cal(input_str):
     \\end{align}
     '''
 
-    var_name, expr, unit, steps, mat_size = _assort_input(input_str)
-    result = _calculate(expr, mat_size)
+    var_name, unp_vars, expr, unit, steps, mat_size, mode = _assort_input(input_str)
+    result = _calculate(expr, steps, mat_size)
     var_lx = latexify(var_name)
-    result[2] += unit
+    result[-1] += unit
 
-    if len(steps) == 1 and steps[0] == 0 or steps[0] == 2:
+    if mode == 'inline':
         displ = False
-    else:
+    elif mode == 'display':
         displ = True
+    else:
+        if len(steps) == 1 and steps[0] == 0:
+            displ = False
+        else:
+            displ = True
 
-    procedure = [f'{var_lx} = {result[steps[0]]}']
-    for step in [result[step] for step in steps[1:]]:
+    procedure = [f'{var_lx} = {result[0]}']
+    for step in result[1:]:
         procedure.append('    = ' + step)
 
     output = eqn(*procedure, norm=False, disp=displ)
+
+    # carry out normal op in main script
+    exec(input_str, DICT)
+    # for later unit retrieval
+    if unit:
+        for var in unp_vars:
+            exec(f'{var}{UNIT_PF} = "{unit}"', DICT)
 
     return output
