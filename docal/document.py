@@ -347,8 +347,10 @@ class document:
             # use pandoc to yield the desired file
             with open(self.temp_file, 'w') as tmp:
                 tmp.write(file_contents)
-            run(['pandoc', '-f', 'latex', self.temp_file,
+            pandoc = run(['pandoc', '-f', 'latex', self.temp_file,
                  '-o', outfile, '--reference-doc', self.infile])
+            if pandoc.returncode != 0:
+                raise UserWarning(f'{path.basename(outfile)} is currently open in another application, possibly Word')
             remove(self.temp_file)
         else:
             with open(outfile, 'w') as file:
