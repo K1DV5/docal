@@ -129,7 +129,7 @@ Now, looking at the above example line by line,
 The output of the above example, inserted into a plain word file, containing
 only two tags, \#\#foo and \#\#bar will look like the following figure.
 
-![Word document output](https://github.com/K1DV5/doCal/raw/master/src/common/images/word-out.jpg "Word document output")
+![Word document output](https://github.com/K1DV5/doCal/blob/master/common/images/word-out.jpg "Word document output")
 
 ## Known Issues
 
