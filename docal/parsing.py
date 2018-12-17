@@ -167,8 +167,8 @@ class _LatexVisitor(ast.NodeVisitor):
             right = fr'\left({ self.visit(n.right) }\right)'
         else:
             right = self.visit(n.right)
-        if isinstance(n.op, ast.Mult) and isinstance(n.right, ast.Name):
-            if not self.subs:
+        if isinstance(n.op, ast.Mult):
+            if any([isinstance(n.right, t) for t in [ast.Name, ast.List, ast.Call]]):
                 return fr'{self.visit(n.left)} \, {self.visit(n.right)}'
         elif isinstance(n.op, ast.Mult) and isinstance(n.right, ast.Num):
             return fr'{self.visit(n.left)} \times {self.visit(n.right)}'
