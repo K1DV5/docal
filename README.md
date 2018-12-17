@@ -75,8 +75,72 @@ pip install .
 
 The syntax is simple. Just write the equations one line at a time. What you
 write in the syntax is a valid python file, (it is just a script with a lot of
-assignments and comments).  The following should be a good starting point.
+assignments and comments).
 
+#### Comments that take whole lines
+
+These comments are converted to paragraphs or equations, depending on what
+comes immediately after the hash sign.  If the hash sign is followed by a
+single dollar sign (\$), the rest of that line is expected to be a python
+equation, and will be converted to an inline LaTeX equation. If what comes
+after the dollar sign is two dollar signs, the rest of that line will be
+converted to a displayed (block) equation in the document. Remember, these
+equations are still in comments, and thus do not do anything except appear as
+equations.  If the hash sign is followed by just running text, it is converted
+to a paragraph text. In all cases, when a hash character immediately followed
+by a variable name like \#x, the value of that variable will be substituted at
+that place. When a hash character immediately followed by an expression
+surrounded by squirrely braces like \#{x + 2} is encountered, what is inside
+the braces will be evaluated and substituted at that place.
+
+#### Equations (python assignments)
+
+These are the main focus points of this module. Obviously, they are evaluated
+as normal in the script so that the value of the variable can be reused as
+always, but when they appear in the document, they are displayed as equation
+blocks that can have up to three steps (that show the procedures).  If it is a
+simple assignment, like `x = 10`, they appear only having a single step,
+because there is no procedure to show. If the assignment contains something to
+be evaluated but no variable reference like `x = 10 + 5 / 2` or if it contains
+a single variable reference like `x = x_prime` then the procedure will have
+only two steps, first the equation and second the results. If the equation has
+both things to be evaluated and variable references, like `x = 5*x_prime + 10`
+then it will have three steps: the equation itself, the equation with variable
+references substituted by their values, and the result. These equations can be
+customized using comments at their ends (see below).
+
+#### Comments after equations (assignments)
+
+These comments are taken to be customization options for the equations.
+Multiple options can be separated by commas. The first option is units. if you
+write something that looks like a unit (names or expressions of names) like
+`N/m**2` they are correctly displayed as units next to the result and whenever
+that variable is referenced, next to its value. The next option is the display
+type of the steps. If the option is a single dollar sign, the equation will be
+inline and if it has more than a single step, the steps appear next to each
+other. If it is double dollar signs, the equation(s) will be displayed as block
+(centered) equations. Another option is step overrides. If it is a sequence of
+digits like `12`, then only the steps corresponding to that number will be
+displayed (for this case steps 1 and 2). The last option is matrix and array
+cut-off size. Matrices are cut off and displayed with dots in them if their
+sizes are grester than 10 by 10 and arrays are cut off if they have more than
+10 elements. To override this number, the option is the letter m followed by a
+number like `m6`. If the option starts with a hash sign like `#this is a note`,
+what follows will be a little note that will be displayed next to the last
+step.
+
+#### Comments that begin with double hash signs
+
+If you begin a comment line witn double hash signs, like `## comment` it is
+taken as a real comment. It will not do anything.
+
+## Example
+
+Let's say you have a word document `foo.docx` with contents like this.
+
+![Word document input](common/images/word-in.jpg?raw=true "Word document input")
+
+And you write the calculations in the file `foo.py` next to `foo.docx`
 ```python
 ## foo.py
 ## necessary for scientific functions
@@ -103,31 +167,11 @@ z_2 = sqrt(x_2**2 + y_2**2) #m,13
 # is longer than that of the second which is #z_2 long.
 ```
 
-Now, looking at the above example line by line,
-
-* The first part (starting with double hash signs) serves as a real comment
-  that does not do anything in python or in docal.
-* The second is a python import statement, to make things such as sqrt, sin, pi
-  available.
-* The line that only contains a hashtag is treated as a message that what
-  follows, until the next tag or the end should be sent to the document and at
-  this particular place. That\'s why tags are necessary in the document. It
-  looks for those tags in the document and replaces them with the modified
-  versions of the calculations and paragraphs below it.
-* The lines starting with single hash characters are taken as parts of running
-  text (paragraphs).
-* The lines with equal signs are treated as calculations. when they end with
-  comments, the part after the hash character is treated as options for that
-  calculation. (in the first three cases, we want to display the unit m
-  displayed besides the variables that we assign to. And in the last equation,
-  the additional 13 is taken as thouth the user wants only the first and the
-  last steps displayed.)
-* The last two comments (treated as paragraphs), have tags in them, which are
-  interpreted as variable references and thus are substituted by formatted
-  values of those variables.
-
-The output of the above example, inserted into a plain word file, containing
-only two tags, \#\#foo and \#\#bar will look like the following figure.
+Now, If we run the command
+```shell
+docal foo.py foo.docx
+```
+A third file, named `foo-out.docx` will appear. And it will look like this.
 
 ![Word document output](common/images/word-out.jpg?raw=true "Word document output")
 

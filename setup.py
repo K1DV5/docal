@@ -10,7 +10,7 @@ setuptools.setup(
     version='0.3.1',
     author='K1DV5',
     author_email='kidusadugna@gmail.com',
-    description='Mathcad-like functionality for Pweave and related tools',
+    description='Inject Python calculations into Word and LaTeX documents with ease!',
     long_description_content_type='text/markdown',
     long_description=long_description,
     url='https://github.com/K1DV5/doCal',
