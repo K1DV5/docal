@@ -192,6 +192,12 @@ class document:
                 print(f'    Executing statement...', f'\n        {line}',
                       str(datetime.time(datetime.now())))
                 exec(line, DICT)
+                if line.startswith('del '):
+                    # also delete associated unit strings
+                    variables = [v.strip() for v in line[len('del '):].split(',')]
+                    for v in variables:
+                        if v + UNIT_PF in DICT:
+                            del DICT[v + UNIT_PF]
             else:
                 sent.append('')
         sent = '\n'.join(sent)

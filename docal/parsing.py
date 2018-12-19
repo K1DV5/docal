@@ -293,7 +293,7 @@ class _LatexVisitor(ast.NodeVisitor):
             if isinstance(n.op, ast.Div):
                 return fr'\frac{{{left}}}{{{right}}}'
             elif isinstance(n.op, ast.FloorDiv):
-                return fr'\left\lfloor\frac{{{n.left}}}{{{right}}}\right\rfloor'
+                return fr'\left\lfloor\frac{{{left}}}{{{right}}}\right\rfloor'
         return fr'{left} {self.visit(n.op)} {right}'
 
     def prec_BinOp(self, n):
