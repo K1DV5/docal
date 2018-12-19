@@ -33,7 +33,7 @@ except ImportError:
     DEFAULT_SCRIPT = None
     DICT = {}
 from .calculation import cal
-from .parsing import UNIT_PF, eqn, format_quantity
+from .parsing import UNIT_PF, eqn, latexify
 # to log info about what it's doing with timestamps
 START_TIME = datetime.now()
 
@@ -113,7 +113,7 @@ class document:
         line = line.lstrip()[1:].strip()
         if line.startswith('$'):
             # inline calculations, accepted in #{...}
-            calcs = [format_quantity(eval(x.group(1), DICT))
+            calcs = [latexify(eval(x.group(1), DICT))
                      for x in self.inline_calc.finditer(line)]
             line = re.sub(r'(?a)#(\w+)',
                           lambda x: 'TMP0'.join(x.group(1).split('_')) + 'TMP0', line)
@@ -123,7 +123,7 @@ class document:
             else:
                 line = eqn(line[1:], disp=False)
             augmented = re.sub(r'(?a)\\mathrm\s*\{\s*(\w+)TMP0\s*\}',
-                               lambda x: format_quantity(
+                               lambda x: latexify(
                                    DICT['_'.join(x.group(1).split('TMP0'))]), line)
             for calc in calcs:
                 augmented = re.sub(r'(?a)\\mathrm\s*\{\s*TMP0CALC000\s*\}',
@@ -247,7 +247,7 @@ class document:
         elif tag in DICT.keys():
             unit_name = tag + UNIT_PF
             unit = DICT[unit_name] if unit_name in DICT.keys() else ''
-            result = eqn(format_quantity(
+            result = eqn(latexify(
                 DICT[tag]) + unit, norm=False, disp=False)
         else:
             raise UserWarning(f"There is nothing to send to tag '{tag}'.")

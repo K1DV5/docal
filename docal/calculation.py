@@ -7,7 +7,7 @@ module and returns the procedure of the calsulations
 
 import ast  # to know deduce which steps are needed
 from .document import DICT
-from .parsing import latexify, eqn, format_quantity, DEFAULT_MAT_SIZE, UNIT_PF
+from .parsing import latexify, eqn, DEFAULT_MAT_SIZE, UNIT_PF
 
 
 def _calculate(expr, steps, mat_size):
@@ -16,12 +16,11 @@ def _calculate(expr, steps, mat_size):
     result = []
     for step in steps:
         if step == 0:
-            result.append(latexify(expr, mul_symbol='.', mat_size=mat_size))
+            result.append(latexify(expr, mat_size=mat_size))
         elif step == 1:
-            result.append(latexify(expr, mul_symbol='*',
-                                   subs=True, mat_size=mat_size))
+            result.append(latexify(expr, subs=True, mat_size=mat_size))
         elif step == 2:
-            result.append(format_quantity(eval(expr, DICT), mat_size))
+            result.append(latexify(eval(expr, DICT), mat_size))
 
     return result
 
