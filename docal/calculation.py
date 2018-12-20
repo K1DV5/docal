@@ -130,8 +130,8 @@ def cal(input_str):
     # carry out normal op in main script
     exec(input_str, DICT)
     # for later unit retrieval
-    if unit:
-        for var in unp_vars:
+    for var in unp_vars:
+        if unit or var + UNIT_PF in DICT:
             exec(f'{var}{UNIT_PF} = "{unit}"', DICT)
 
     return output
