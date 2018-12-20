@@ -7,7 +7,7 @@ https://stackoverflow.com/questions/3867028/converting-a-python-numeric-expressi
 
 import ast
 import re
-from .document import DICT
+from .document import DICT, color
 
 DEFAULT_MAT_SIZE = 10
 
@@ -46,6 +46,7 @@ def _prep4lx(quantity, mat_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
 
     return ast.parse(str(quantity)).body[0].value
 
+
 def _fit_array(array, max_size=5):
     '''
     shorten the given 1 dimensional matrix/array by substituting ellipsis (...)
@@ -70,7 +71,7 @@ def _fit_big_matrix(matrix, size):
     last_row = matrix[-1, :cols - 2].tolist()
     if not isinstance(last_row[0], list):
         last_row = [[e] for e in last_row]
-    last_element = matrix[-1,-1]
+    last_element = matrix[-1, -1]
     for index, element in enumerate(mat):
         element += ['\\cdots', last_col[index][0]]
     mat.append(['\\vdots'] * (cols - 2) + ['\\ddots', '\\vdots'])
@@ -91,6 +92,7 @@ def _fit_wide_matrix(matrix, max_cols):
 
     return mat
 
+
 def _fit_long_matrix(matrix, max_rows):
     '''
     shorten the matrix by substituting vertical ... in the columns
@@ -103,7 +105,7 @@ def _fit_long_matrix(matrix, max_rows):
     return mat
 
 
-def _fit_matrix(matrix, max_size=(5,5)):
+def _fit_matrix(matrix, max_size=(5, 5)):
     '''
     if there is a need, make the given matrix smaller
     '''
@@ -247,7 +249,8 @@ class _LatexVisitor(ast.NodeVisitor):
                     return f'\\left({qty} {unit}\\right)'
                 return qty + unit
             except KeyError:
-                print(f"WARNING: The variable '{n.id}' has not been defined.")
+                print(color('WARNING', 'yellow'),
+                      f" The variable '{color(n.id, 'red')}' has not been defined.")
         return self.format_name(n.id)
 
     def prec_Name(self, n):
@@ -318,9 +321,9 @@ class _LatexVisitor(ast.NodeVisitor):
         # they are numbers
         if hasattr(n, 'is_in_index') and n.is_in_index:
             return ', '.join([str(int(i.n) + 1)
-                if isinstance(i, ast.Num)
-                else self.visit(i)
-                for i in n.elts])
+                              if isinstance(i, ast.Num)
+                              else self.visit(i)
+                              for i in n.elts])
         return '\\left(' + ', '.join([self.visit(element) for element in n.elts]) + '\\right)'
 
     def prec_Tuple(self, n):
@@ -345,9 +348,9 @@ class _LatexVisitor(ast.NodeVisitor):
     def visit_Slice(self, n):
         # same thing with adding one
         lower, upper = [str(int(i.n) + 1)
-                if isinstance(i, ast.Num)
-                else self.visit(i)
-                for i in [n.lower, n.upper]]
+                        if isinstance(i, ast.Num)
+                        else self.visit(i)
+                        for i in [n.lower, n.upper]]
         # join the upper and lower limits with -
         return self.visit(lower) + '-' + self.visit(upper)
 
