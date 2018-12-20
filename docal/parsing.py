@@ -265,26 +265,27 @@ class _LatexVisitor(ast.NodeVisitor):
         return self.prec(n.op)
 
     def visit_BinOp(self, n):
+        tmp_right = n.right
         if self.subs:
+            # shallow visit to know what the name contains (without the units)
             if isinstance(n.right, ast.Name):
-                n.right = self.visit_Name(n.right, True)
+                tmp_right = self.visit_Name(n.right, True)
             elif isinstance(n.right, ast.Attribute):
-                n.right = self.visit_Attribute(n.right, True)
+                tmp_right = self.visit_Attribute(n.right, True)
         if self.prec(n.op) > self.prec(n.left):
             left = fr'\left({ self.visit(n.left) }\right)'
         else:
             left = self.visit(n.left)
-        if self.prec(n.op) > self.prec(n.right):
+        if self.prec(n.op) > self.prec(tmp_right):
+            # not forgetting the units, so n.right
             right = fr'\left({ self.visit(n.right) }\right)'
         else:
             right = self.visit(n.right)
         if isinstance(n.op, ast.Mult):
             # things that don't need multiplication sign before them
             no_need = [ast.Name, ast.Tuple, ast.Call, ast.List, ast.Attribute]
-            if any([isinstance(n.right, t) for t in no_need]):
+            if any([isinstance(tmp_right, t) for t in no_need]):
                 return fr'{left} \, {right}'
-        elif isinstance(n.op, ast.Mult) and isinstance(n.right, ast.Num):
-            return fr'{left} \times {right}'
         elif isinstance(n.op, ast.Pow):
             # so that it can be surrounded with parens if it has units
             n.left.is_in_power = True
