@@ -5,9 +5,9 @@ does the calculations needed, sets the appropriate variables in the main
 module and returns the procedure of the calsulations
 '''
 
-import ast # to know deduce which steps are needed
+import ast  # to know deduce which steps are needed
 from .document import DICT
-from .parsing import latexify, eqn, format_quantity, DEFAULT_MAT_SIZE, UNIT_PF
+from .parsing import latexify, eqn, DEFAULT_MAT_SIZE, UNIT_PF
 
 
 def _calculate(expr, steps, mat_size):
@@ -16,13 +16,14 @@ def _calculate(expr, steps, mat_size):
     result = []
     for step in steps:
         if step == 0:
-            result.append(latexify(expr, mul_symbol='.', mat_size=mat_size))
+            result.append(latexify(expr, mat_size=mat_size))
         elif step == 1:
-            result.append(latexify(expr, mul_symbol='*', subs=True, mat_size=mat_size))
+            result.append(latexify(expr, subs=True, mat_size=mat_size))
         elif step == 2:
-            result.append(format_quantity(eval(expr, DICT), mat_size))
+            result.append(latexify(eval(expr, DICT), mat_size))
 
     return result
+
 
 def figure_out_steps(expr_dump):
     '''used when nothing about the steps comes from the user to prevent repetition
@@ -43,10 +44,12 @@ def figure_out_steps(expr_dump):
 
     return steps
 
+
 def _assort_input(input_str):
     '''look above'''
 
-    input_parts = [part.strip() for part in input_str.strip().split('#')]
+    # only split once, because the # char is used for notes below
+    input_parts = [part.strip() for part in input_str.strip().split('#', 1)]
     if len(input_parts) == 1:
         additionals = ''
         equation = input_str
@@ -55,28 +58,34 @@ def _assort_input(input_str):
         additionals = input_parts[1]
 
     var_name, expression = [part.strip() for part in equation.split('=', 1)]
-    unp_vars = [n.id for n in list(ast.walk(ast.parse(var_name).body[0].value)) if isinstance(n, ast.Name)]
+    unp_vars = [n.id
+                for n in ast.walk(ast.parse(var_name).body[0].value)
+                if isinstance(n, ast.Name)]
     expr_dump = ast.dump(ast.parse(expression))
 
     steps = figure_out_steps(expr_dump)
     mat_size = DEFAULT_MAT_SIZE
     unit = ''
     mode = 'default'
-    if additionals:
-        for a in [a.strip() for a in additionals.split(',')]:
-            if a.isdigit():
-                steps = [int(num) - 1 for num in a]
-            elif a.startswith('m') and a[1:].isdigit():
-                if len(a) == 2:
-                    mat_size = int(a[1])
-                else:
-                    mat_size = (int(a[1]), int(a[2]))
-            elif a == '$':
-                mode = 'inline'
-            elif a == '$$':
-                mode = 'display'
+    note = ''
+
+    for a in [a.strip() for a in additionals.split(',')]:
+        if a.isdigit():
+            steps = [int(num) - 1 for num in a]
+        # only the first # is used to split the line (see above) so others
+        elif a.startswith('#'):
+            note = a[1:]
+        elif a.startswith('m') and a[1:].isdigit():
+            if len(a) == 2:
+                mat_size = int(a[1])
             else:
-                unit = a
+                mat_size = (int(a[1]), int(a[2]))
+        elif a == '$':
+            mode = 'inline'
+        elif a == '$$':
+            mode = 'display'
+        else:
+            unit = a
 
     if unit:
         if unit == 'deg':
@@ -84,32 +93,23 @@ def _assort_input(input_str):
         else:
             unit = f" \, \mathrm{{{latexify(unit, mul_symbol=' ', div_symbol='/')}}}"
 
-    return var_name, unp_vars, expression, unit, steps, mat_size, mode
+    if note:
+        note = f'\\quad\\text{{{note}}}'
+
+    return var_name, unp_vars, expression, unit, steps, mat_size, mode, note
+
 
 def cal(input_str):
     '''
     evaluate all the calculations, carry out the appropriate assignments,
     and return all the procedures
-    (which can be inserted in a pweave or pythontex document with print())
 
-    >>> cal('t_f = 56 #1')
-    $t_{f} = 56$
-
-    >>> print(cal('r_d = sqrt(t_f/56)+78'))
-    <BLANKLINE>
-    \\begin{align}
-    \\begin{split}
-    r_{d}       &= \\frac{\\sqrt{14}}{28} \\cdot \\sqrt{t_{f}} + 78\\\\
-                &= \\frac{\\sqrt{14}}{28} \\times \\sqrt{56} + 78\\\\
-                &= 79\\\\
-    \\end{split}
-    \\end{align}
     '''
-
-    var_name, unp_vars, expr, unit, steps, mat_size, mode = _assort_input(input_str)
+    var_name, unp_vars, expr, unit, steps, mat_size, mode, note = _assort_input(
+        input_str)
     result = _calculate(expr, steps, mat_size)
     var_lx = latexify(var_name)
-    result[-1] += unit
+    result[-1] += unit + note
 
     if mode == 'inline':
         displ = False
@@ -130,8 +130,8 @@ def cal(input_str):
     # carry out normal op in main script
     exec(input_str, DICT)
     # for later unit retrieval
-    if unit:
-        for var in unp_vars:
+    for var in unp_vars:
+        if unit or var + UNIT_PF in DICT:
             exec(f'{var}{UNIT_PF} = "{unit}"', DICT)
 
     return output

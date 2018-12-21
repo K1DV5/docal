@@ -7,7 +7,7 @@ https://stackoverflow.com/questions/3867028/converting-a-python-numeric-expressi
 
 import ast
 import re
-from .document import DICT
+from .document import DICT, color
 
 DEFAULT_MAT_SIZE = 10
 
@@ -30,6 +30,106 @@ PRIMES = {'prime': "'", '2prime': "''", '3prime': "'''"}
 UNIT_PF = '___0UNIT0'
 
 
+def _prep4lx(quantity, mat_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
+    '''
+    parse the given quantity to an AST object so it can be integrated in _LatexVisitor
+    '''
+
+    quantity_type = str(type(quantity))
+    ndquantities = ['array', 'Array', 'matrix', 'Matrix']
+
+    if any([typ in quantity_type for typ in ndquantities]):
+        if isinstance(mat_size, int):
+            mat_size = (mat_size, mat_size)
+
+        quantity = _fit_matrix(quantity, mat_size)
+
+    return ast.parse(str(quantity)).body[0].value
+
+
+def _fit_array(array, max_size=5):
+    '''
+    shorten the given 1 dimensional matrix/array by substituting ellipsis (...)
+    '''
+
+    if len(array) > max_size:
+        array = [*array[:max_size - 2], '\\vdots', array[-1]]
+
+    return array
+
+
+def _fit_big_matrix(matrix, size):
+    '''
+    shrink a big matrix by substituting vertical, horizontal and diagonal ...
+    '''
+
+    rows, cols = size
+    mat = matrix[:rows - 2, :cols - 2].tolist()
+    last_col = matrix[:rows - 2, -1].tolist()
+    if not isinstance(last_col[0], list):
+        last_col = [[e] for e in last_col]
+    last_row = matrix[-1, :cols - 2].tolist()
+    if not isinstance(last_row[0], list):
+        last_row = [[e] for e in last_row]
+    last_element = matrix[-1, -1]
+    for index, element in enumerate(mat):
+        element += ['\\cdots', last_col[index][0]]
+    mat.append(['\\vdots'] * (cols - 2) + ['\\ddots', '\\vdots'])
+    mat.append(last_row[0] + ['\\cdots', last_element])
+
+    return mat
+
+
+def _fit_wide_matrix(matrix, max_cols):
+    '''
+    make the wide matrix narrower by substituting horizontal ... in the rows
+    '''
+
+    mat = matrix[:, :max_cols - 2].tolist()
+    last_col = matrix[:, -1].tolist()
+    for index, element in enumerate(mat):
+        element += ['\\cdots', last_col[index][0]]
+
+    return mat
+
+
+def _fit_long_matrix(matrix, max_rows):
+    '''
+    shorten the matrix by substituting vertical ... in the columns
+    '''
+
+    mat = matrix[:max_rows - 2, :].tolist()
+    mat += [['\\vdots'] * matrix.shape[1]]
+    mat += matrix[-1, :].tolist()
+
+    return mat
+
+
+def _fit_matrix(matrix, max_size=(5, 5)):
+    '''
+    if there is a need, make the given matrix smaller
+    '''
+
+    shape = matrix.shape
+    # array -> short
+    if len(shape) == 1 and shape[0] > max_size[0]:
+        mat_ls = _fit_array(matrix, max_size[0])
+    # too big -> small
+    elif matrix.shape[0] > max_size[0] and matrix.shape[1] > max_size[1]:
+        mat_ls = _fit_big_matrix(matrix, max_size)
+    # too long -> small
+    elif matrix.shape[0] > max_size[0] and matrix.shape[1] < max_size[1]:
+        mat_ls = _fit_long_matrix(matrix, max_size[0])
+    # too wide -> small
+    elif matrix.shape[0] < max_size[0] and matrix.shape[1] > max_size[1]:
+        mat_ls = _fit_wide_matrix(matrix, max_size[1])
+    # already small so :)
+    else:
+        mat_ls = matrix.tolist()
+
+    return mat_ls
+
+
 class _LatexVisitor(ast.NodeVisitor):
 
     def __init__(self, mul_symbol, div_symbol, subs, mat_size):
@@ -42,7 +142,7 @@ class _LatexVisitor(ast.NodeVisitor):
         return getattr(self, 'prec_'+n.__class__.__name__, getattr(self, 'generic_prec'))(n)
 
     # attributes (foo.bar)
-    def visit_Attribute(self, n):
+    def visit_Attribute(self, n, raw=False):
         # if the value is desired
         if self.subs:
             # if it is a variable take its name
@@ -57,8 +157,10 @@ class _LatexVisitor(ast.NodeVisitor):
             # if it is inside another attribute, return the string representation
             if hasattr(n, 'is_in_attr') and n.is_in_attr:
                 return f'{base}.{attr}'
-            # get the value
-            return format_quantity(eval(f'{base}.{attr}', DICT), self.mat_size)
+            if raw:
+                return _prep4lx(eval(f'{base}.{attr}', DICT), self.mat_size)
+            # get, prep and visit the value
+            return self.visit(_prep4lx(eval(f'{base}.{attr}', DICT), self.mat_size))
         # only get the part after the dot
         return self.format_name(n.attr)
 
@@ -128,11 +230,17 @@ class _LatexVisitor(ast.NodeVisitor):
         return name
 
     # variables
-    def visit_Name(self, n):
+    def visit_Name(self, n, raw=False):
         if self.subs:
             # substitute the value of the variable by formatted value
             try:
-                qty = format_quantity(DICT[n.id], self.mat_size)
+                # if the raw ast object is needed (for BinOp)
+                if raw:
+                    return _prep4lx(DICT[n.id], self.mat_size)
+                # to prevent infinite recursion:
+                if str(DICT[n.id]) == n.id:
+                    return self.format_name(str(DICT[n.id]))
+                qty = self.visit(_prep4lx(DICT[n.id], self.mat_size))
                 unit = DICT[n.id + UNIT_PF] \
                     if n.id + UNIT_PF in DICT.keys() else ''
                 # if the quantity is raised to some power and has a unit,
@@ -141,7 +249,8 @@ class _LatexVisitor(ast.NodeVisitor):
                     return f'\\left({qty} {unit}\\right)'
                 return qty + unit
             except KeyError:
-                print(f"WARNING: The variable '{n.id}' has not been defined.")
+                print(color('WARNING', 'yellow'),
+                      f" The variable '{color(n.id, 'red')}' has not been defined.")
         return self.format_name(n.id)
 
     def prec_Name(self, n):
@@ -159,28 +268,36 @@ class _LatexVisitor(ast.NodeVisitor):
         return self.prec(n.op)
 
     def visit_BinOp(self, n):
+        tmp_right = n.right
+        if self.subs:
+            # shallow visit to know what the name contains (without the units)
+            if isinstance(n.right, ast.Name):
+                tmp_right = self.visit_Name(n.right, True)
+            elif isinstance(n.right, ast.Attribute):
+                tmp_right = self.visit_Attribute(n.right, True)
         if self.prec(n.op) > self.prec(n.left):
             left = fr'\left({ self.visit(n.left) }\right)'
         else:
             left = self.visit(n.left)
-        if self.prec(n.op) > self.prec(n.right):
+        if self.prec(n.op) > self.prec(tmp_right):
+            # not forgetting the units, so n.right
             right = fr'\left({ self.visit(n.right) }\right)'
         else:
             right = self.visit(n.right)
-        if isinstance(n.op, ast.Mult) and isinstance(n.right, ast.Name):
-            if not self.subs:
-                return fr'{self.visit(n.left)} \, {self.visit(n.right)}'
-        elif isinstance(n.op, ast.Mult) and isinstance(n.right, ast.Num):
-            return fr'{self.visit(n.left)} \times {self.visit(n.right)}'
+        if isinstance(n.op, ast.Mult):
+            # things that don't need multiplication sign before them
+            no_need = [ast.Name, ast.Tuple, ast.Call, ast.List, ast.Attribute]
+            if any([isinstance(tmp_right, t) for t in no_need]):
+                return fr'{left} \, {right}'
         elif isinstance(n.op, ast.Pow):
             # so that it can be surrounded with parens if it has units
             n.left.is_in_power = True
-            return fr'{self.visit(n.left)}^{{{self.visit(n.right)}}}'
+            return fr'{left}^{{{right}}}'
         elif self.div_symbol == 'frac':
             if isinstance(n.op, ast.Div):
-                return fr'\frac{{{ self.visit(n.left) }}}{{{ self.visit(n.right) }}}'
+                return fr'\frac{{{left}}}{{{right}}}'
             elif isinstance(n.op, ast.FloorDiv):
-                return fr'\left\lfloor\frac{{{ self.visit(n.left) }}}{{{ self.visit(n.right) }}}\right\rfloor'
+                return fr'\left\lfloor\frac{{{left}}}{{{right}}}\right\rfloor'
         return fr'{left} {self.visit(n.op)} {right}'
 
     def prec_BinOp(self, n):
@@ -204,9 +321,9 @@ class _LatexVisitor(ast.NodeVisitor):
         # they are numbers
         if hasattr(n, 'is_in_index') and n.is_in_index:
             return ', '.join([str(int(i.n) + 1)
-                if isinstance(i, ast.Num)
-                else self.visit(i)
-                for i in n.elts])
+                              if isinstance(i, ast.Num)
+                              else self.visit(i)
+                              for i in n.elts])
         return '\\left(' + ', '.join([self.visit(element) for element in n.elts]) + '\\right)'
 
     def prec_Tuple(self, n):
@@ -231,9 +348,9 @@ class _LatexVisitor(ast.NodeVisitor):
     def visit_Slice(self, n):
         # same thing with adding one
         lower, upper = [str(int(i.n) + 1)
-                if isinstance(i, ast.Num)
-                else self.visit(i)
-                for i in [n.lower, n.upper]]
+                        if isinstance(i, ast.Num)
+                        else self.visit(i)
+                        for i in [n.lower, n.upper]]
         # join the upper and lower limits with -
         return self.visit(lower) + '-' + self.visit(upper)
 
@@ -345,7 +462,7 @@ class _LatexVisitor(ast.NodeVisitor):
             return num_ls[0] + '\\left(10^{' + num_ls[1] + '}\\right)'
         if number == int(number):
             return str(int(number))
-        return str(round(number, 3))
+        return str(round(number, 2))
 
     def prec_Num(self, n):
         return 1000
@@ -358,10 +475,19 @@ class _LatexVisitor(ast.NodeVisitor):
 
 
 def latexify(expr, mul_symbol='*', div_symbol='frac', subs=False, mat_size=5):
-    if expr:
-        pt = ast.parse(expr.strip())
-        return _LatexVisitor(mul_symbol, div_symbol, subs, mat_size).visit(pt.body[0].value)
-    return ''
+    '''
+    convert the given expr to a latex string using _LatexVisitor
+    '''
+
+    if isinstance(expr, str):
+        if expr:
+            pt = ast.parse(expr.strip()).body[0].value
+        else:
+            return ''
+    else:
+        pt = _prep4lx(expr)
+
+    return _LatexVisitor(mul_symbol, div_symbol, subs, mat_size).visit(pt)
 
 
 def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True):
@@ -393,106 +519,3 @@ def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True)
     if surr:
         return surroundings[0] + joint.join(equations) + surroundings[1]
     return joint.join(equations)
-
-def _format_number(number):
-    '''make the number part of a quantity more readable'''
-
-    number = latexify(str(number))
-
-    return number
-
-
-def _format_array(array, max_size=5):
-    '''look above'''
-
-    if len(array) > max_size:
-        array = [*array[:max_size - 2], '\\vdots', array[-1]]
-
-    return array
-
-
-def _format_big_matrix(matrix, size):
-    '''look above'''
-
-    rows, cols = size
-    mat = matrix[:rows - 2, :cols - 2].tolist()
-    last_col = matrix[:rows - 2, -1].tolist()
-    if not isinstance(last_col[0], list):
-        last_col = [[e] for e in last_col]
-    last_row = matrix[-1, :cols - 2].tolist()
-    if not isinstance(last_row[0], list):
-        last_row = [[e] for e in last_row]
-    last_element = matrix[-1,-1]
-    for index, element in enumerate(mat):
-        element += ['\\cdots', last_col[index][0]]
-    mat.append(['\\vdots'] * (cols - 2) + ['\\ddots', '\\vdots'])
-    mat.append(last_row[0] + ['\\cdots', last_element])
-
-    return mat
-
-
-def _format_wide_matrix(matrix, max_cols):
-    '''look above'''
-
-    mat = matrix[:, :max_cols - 2].tolist()
-    last_col = matrix[:, -1].tolist()
-    for index, element in enumerate(mat):
-        element += ['\\cdots', last_col[index][0]]
-
-    return mat
-
-def _format_long_matrix(matrix, max_rows):
-    '''look above'''
-
-    mat = matrix[:max_rows - 2, :].tolist()
-    mat += [['\\vdots'] * matrix.shape[1]]
-    mat += matrix[-1, :].tolist()
-
-    return mat
-
-
-def _format_matrix(matrix, max_size=(5,5)):
-    '''look above'''
-
-    shape = matrix.shape
-    # array -> short
-    if len(shape) == 1 and shape[0] > max_size[0]:
-        mat_ls = _format_array(matrix, max_size[0])
-    # too big -> small
-    elif matrix.shape[0] > max_size[0] and matrix.shape[1] > max_size[1]:
-        mat_ls = _format_big_matrix(matrix, max_size)
-    # too long -> small
-    elif matrix.shape[0] > max_size[0] and matrix.shape[1] < max_size[1]:
-        mat_ls = _format_long_matrix(matrix, max_size[0])
-    # too wide -> small
-    elif matrix.shape[0] < max_size[0] and matrix.shape[1] > max_size[1]:
-        mat_ls = _format_wide_matrix(matrix, max_size[1])
-    # already small so :)
-    else:
-        mat_ls = matrix.tolist()
-
-    return latexify(str(mat_ls))
-
-
-def format_quantity(quantity, mat_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
-    '''returns a nicely latex formatted string of the quantity'''
-
-    if isinstance(mat_size, int):
-        size_mat = (mat_size, mat_size)
-        size_arr = mat_size
-    else:
-        size_mat = mat_size
-        size_arr = mat_size[0]
-
-    quantity_type = str(type(quantity))
-
-    if any([isinstance(quantity, typ) for typ in [float, int]]):
-        formatted = _format_number(quantity)
-
-    elif 'array' in quantity_type or 'Array' in quantity_type or 'matrix' in quantity_type or 'Matrix' in quantity_type:
-        formatted = _format_matrix(quantity, size_mat)
-
-    else:
-        formatted = eqn(str(quantity), surr=False)
-
-    return formatted
