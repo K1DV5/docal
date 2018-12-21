@@ -30,11 +30,11 @@ from datetime import datetime
 try:
     from colorama import init as color_init
     color_init()
-    COLORS = {'cyan': '36',
-              'red': '31',
-              'green': '32',
-              'yellow': '33',
-              'purple': '35'}
+    COLORS = {'cyan': '36;1',
+              'red': '31;1',
+              'green': '32;1',
+              'yellow': '33;1',
+              'purple': '35;1'}
 
     def color(text, clr):
         '''surround the text with the appropriate ANSI escape sequences
@@ -42,6 +42,7 @@ try:
         return f'\033[{COLORS[clr]}m{text}\033[0m'
 except ImportError:
     print('colorama not installed, using default color...\n')
+
     def color(text, clr):
         return text
 # for working with the document's variables and filename
@@ -86,17 +87,25 @@ class document:
             self.infile = path.abspath(infile)
         else:
             self.infile = DEFAULT_SCRIPT.replace('.py', '.tex')
-        if self.infile.endswith('.docx'):
-            self.temp_file = path.join(
-                self.temp_dir, path.splitext(path.basename(infile))[0])
-            run(['pandoc', self.infile, '-t', 'latex', '-o',
-                 self.temp_file, '--extract-media', self.temp_dir])
-            with open(self.temp_file) as file:
-                self.file_contents = file.read().replace('\\#\\#', '#')
-        else:
-            self.temp_file = 0
-            with open(self.infile) as file:
-                self.file_contents = file.read()
+        try:
+            if self.infile.endswith('.docx'):
+                self.temp_file = path.join(
+                    self.temp_dir, path.splitext(path.basename(infile))[0])
+                pandoc = run(['pandoc', self.infile, '-t', 'latex', '-o',
+                              self.temp_file, '--extract-media', self.temp_dir])
+                if pandoc.returncode != 0:
+                    raise FileNotFoundError('pandoc error')
+                with open(self.temp_file) as file:
+                    self.file_contents = file.read().replace('\\#\\#', '#')
+            else:
+                self.temp_file = 0
+                with open(self.infile) as file:
+                    self.file_contents = file.read()
+        except FileNotFoundError:
+            print(color('ERROR:', 'red'),
+                  f'{color(path.basename(self.infile), "cyan")} cannot be found.')
+            exit()
+
 
     def __init__(self, infile=None):
         '''initialize'''
@@ -237,7 +246,9 @@ class document:
             if tag != self.current_tag:
                 self.current_tag = tag
         else:
-            raise UserWarning(f'Tag "{tag}" is not present in the document')
+            print(color('ERROR:', 'red'),
+                  f'Tag "{color(tag, "cyan")}" is not present in the document')
+            exit()
 
     def send(self, content):
         '''add the content to the tag, which will be sent to the document.
@@ -275,7 +286,9 @@ class document:
             result = eqn(latexify(
                 DICT[tag]) + unit, norm=False, disp=False)
         else:
-            raise UserWarning(f"There is nothing to send to tag '{tag}'.")
+            print(color('ERROR:', 'red'),
+                  f"'{color(tag, 'cyan')}' is an undefined variable or an unused tag.")
+            exit()
 
         if surround:
             return (start
@@ -363,8 +376,9 @@ class document:
         else:
             outfile = outfile_or_revert
 
-        print(f'{color("Writing output to", "green")} {color(outfile, "cyan")}{color("...", "green")}', color(
-            datetime.now(), "purple"))
+        print((f'{color("Writing output to", "green")} '
+               f'{color(outfile, "cyan")}{color("...", "green")}'),
+              color(datetime.now(), "purple"))
 
         file_contents = self._prepare(outfile, revert)
 
@@ -376,11 +390,14 @@ class document:
             pandoc = run(['pandoc', '-f', 'latex', self.temp_file,
                           '-o', outfile, '--reference-doc', self.infile])
             if pandoc.returncode != 0:
-                raise UserWarning(color(
-                    f'{path.basename(outfile)}) is currently open in another application, possibly Word', 'red'))
+                print(color('ERROR:', 'red'),
+                      color((f'{path.basename(outfile)} is currently open'
+                             'in another application), possibly Word'), 'red'))
+                exit()
             remove(self.temp_file)
         else:
             with open(outfile, 'w') as file:
                 file.write(file_contents)
 
-        print(f'\n{color("SUCCESS!!!", "green")}     (finished in {color(str(datetime.now() - START_TIME), "purple")})')
+        print((f'\n{color("SUCCESS!!!", "green")}     '
+               f'(finished in {color(str(datetime.now() - START_TIME), "purple")})'))

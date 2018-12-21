@@ -22,7 +22,7 @@ def next_to(script):
 def main():
     arglen = len(argv)
     if arglen == 1:
-        print(color('ERROR:', 'red'), 'Input a script name')
+        print(color('ERROR:', 'red'), 'No script name given.')
         exit()
     elif arglen == 2:
         script = argv[1]
