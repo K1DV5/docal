@@ -2,15 +2,27 @@
 script handler
 '''
 from sys import argv
+from os import path
+from glob import glob
 from docal import document
+from docal.parsing import color
+
 
 def main():
     arglen = len(argv)
     if arglen == 1:
-        raise UserWarning('Input a script name')
+        print(color('ERROR:', 'red'), 'Input a script name')
+        exit()
     elif arglen == 2:
         script = argv[1]
-        infile = script[:script.rfind('.') + 1] + 'tex'
+        # find either a tex or docx file next to the script
+        next_to = [f for f in glob(path.splitext(script)[0] + '.*')
+                if path.splitext(f)[1] in ['.tex', '.docx']]
+        if next_to:
+            infile = next_to[0]
+        else:
+            print(color('ERROR:', 'red'), 'Cannot find a word or tex file here')
+            exit()
         outfile = None
     elif arglen == 3:
         script = argv[1]
@@ -26,9 +38,9 @@ def main():
 
     d = document(infile)
     d.send(instructions)
-    if outfile:
-        d.write(outfile)
-    else:
+    if outfile == '0':
         d.write(0)
+    else:
+        d.write(outfile)
 
 main()
