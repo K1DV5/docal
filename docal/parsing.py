@@ -241,7 +241,7 @@ class _LatexVisitor(ast.NodeVisitor):
                 if str(DICT[n.id]) == n.id:
                     return self.format_name(str(DICT[n.id]))
                 qty = self.visit(_prep4lx(DICT[n.id], self.mat_size))
-                unit = DICT[n.id + UNIT_PF] \
+                unit = fr'\, \mathrm{{{latexify(DICT[n.id + UNIT_PF], div_symbol="/")}}}' \
                     if n.id + UNIT_PF in DICT.keys() else ''
                 # if the quantity is raised to some power and has a unit,
                 # surround it with parens
@@ -292,7 +292,7 @@ class _LatexVisitor(ast.NodeVisitor):
         elif isinstance(n.op, ast.Pow):
             # so that it can be surrounded with parens if it has units
             n.left.is_in_power = True
-            return fr'{left}^{{{right}}}'
+            return fr'{self.visit(n.left)}^{{{right}}}'
         elif self.div_symbol == 'frac':
             if isinstance(n.op, ast.Div):
                 return fr'\frac{{{left}}}{{{right}}}'

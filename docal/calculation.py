@@ -87,12 +87,6 @@ def _assort_input(input_str):
         else:
             unit = a
 
-    if unit:
-        if unit == 'deg':
-            unit = '^\\circ'
-        else:
-            unit = f" \, \mathrm{{{latexify(unit, mul_symbol=' ', div_symbol='/')}}}"
-
     if note:
         note = f'\\quad\\text{{{note}}}'
 
@@ -109,7 +103,13 @@ def cal(input_str):
         input_str)
     result = _calculate(expr, steps, mat_size)
     var_lx = latexify(var_name)
-    result[-1] += unit + note
+    if unit == 'deg':
+        unit_lx = '^\\circ'
+    elif unit:
+        unit_lx = f" \, \mathrm{{{latexify(unit, mul_symbol=' ', div_symbol='/')}}}"
+    else:
+        unit_lx = f" \, \mathrm{{{unitize(expr)}}}"
+    result[-1] += unit_lx + note
 
     if mode == 'inline':
         displ = False
@@ -131,7 +131,86 @@ def cal(input_str):
     exec(input_str, DICT)
     # for later unit retrieval
     for var in unp_vars:
-        if unit or var + UNIT_PF in DICT:
-            exec(f'{var}{UNIT_PF} = "{unit}"', DICT)
+        exec(f'{var}{UNIT_PF} = "{unit}"', DICT)
 
     return output
+
+class UnitHandler(ast.NodeVisitor):
+    '''
+    simplify the given expression as a combination of units
+    '''
+    def __init__(self, norm=False):
+        self.norm = norm
+
+    def visit_Name(self, n):
+        if self.norm:
+            unit = n
+        else:
+            un = DICT[n.id + UNIT_PF]
+            unit = ast.parse(un if un else '_').body[0].value
+        if isinstance(unit, ast.Name):
+            if hasattr(n, 'upper') and not n.upper:
+                return [[], [unit.id]]
+            else:
+                return [[unit.id], []]
+        else:
+            unit.upper = n.upper
+            self.norm = True
+            l = self.visit(unit)
+            self.norm = False
+            return l
+
+    def visit_BinOp(self, n):
+        if hasattr(n, 'upper') and not n.upper:
+            upper = False
+        else:
+            upper = True
+        n.left.upper = upper
+        if isinstance(n.op, ast.Pow):
+            ls = [[], []]
+            for i in range(n.right.n):
+                ls[0] += self.visit(n.left)[0]
+                ls[1] += self.visit(n.left)[1]
+            return ls
+        elif isinstance(n.op, ast.Mult):
+            n.right.upper = upper
+            ls = self.visit(n.left)
+            ls[0] += self.visit(n.right)[0]
+            ls[1] += self.visit(n.right)[1]
+            return ls
+        elif isinstance(n.op, ast.Div):
+            n.right.upper = not upper
+            ls = self.visit(n.left)
+            ls[1] += self.visit(n.right)[1]
+            ls[0] += self.visit(n.right)[0]
+            return ls
+        elif isinstance(n.op, ast.Add) or isinstance(n.op, ast.Sub):
+            n.right.upper = upper
+            l = self.visit(n.left)
+            r = self.visit(n.right)
+            if (len(l[0]) == len(r[0]) and all([e in r[0] for e in l[0]])) \
+                    and (len(l[1]) == len(r[1]) and all([e in r[1] for e in l[1]])):
+                return l
+            print('error')
+            return [[], []]
+
+    def generic_visit(self, n):
+        return [[], []]
+
+
+def unitize(s, norm=False):
+    pu = ast.parse(s).body[0].value if s else ast.Name(id='_', ctx=ast.Load())
+    ls = UnitHandler(norm).visit(pu)
+    num = list(set([e + '**' + str(ls[0].count(e))
+                    if ls[0].count(e) > 1
+                    else e for e in ls[0]]))
+    den = list(set([e + '**' + str(ls[1].count(e))
+                    if ls[1].count(e) > 1
+                    else e for e in ls[1]]))
+    for u in num:
+        if u in den:
+            num.remove(u)
+            den.remove(u)
+    s_num = f'({"*".join(num)})' if num else '_'
+    s_den = f'/({"*".join(den)})' if den else ''
+    return latexify(s_num + s_den, div_symbol='/')

@@ -282,7 +282,7 @@ class document:
             result = '\n'.join(self.contents[tag])
         elif tag in DICT.keys():
             unit_name = tag + UNIT_PF
-            unit = DICT[unit_name] if unit_name in DICT.keys() else ''
+            unit = fr' \, \mathrm{{{latexify(DICT[unit_name], div_symbol="/")}}}' if unit_name in DICT.keys() else ''
             result = eqn(latexify(
                 DICT[tag]) + unit, norm=False, disp=False)
         else:
