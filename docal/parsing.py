@@ -245,7 +245,7 @@ class _LatexVisitor(ast.NodeVisitor):
                     if n.id + UNIT_PF in DICT.keys() else ''
                 # if the quantity is raised to some power and has a unit,
                 # surround it with parens
-                if hasattr(n, 'is_in_power') and n.is_in_power and unit:
+                if hasattr(n, 'is_in_power') and n.is_in_power and unit and unit != '_':
                     return f'\\left({qty} {unit}\\right)'
                 return qty + unit
             except KeyError:

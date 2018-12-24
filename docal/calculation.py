@@ -2,12 +2,21 @@
 module procedure
 
 does the calculations needed, sets the appropriate variables in the main
-module and returns the procedure of the calsulations
+module and returns the procedure of the calculations
 '''
 
 import ast  # to know deduce which steps are needed
 from .document import DICT
 from .parsing import latexify, eqn, DEFAULT_MAT_SIZE, UNIT_PF
+
+# units that are not base units
+DERIVED = {
+    'N': 'kg*m/s**2',
+    'Pa': 'kg/(m*s**2)',
+    'J': 'kg*m**2/s**2',
+    'W': 'kg*m**2/s**3'
+}
+DERIVED = {u: ast.parse(DERIVED[u]).body[0].value for u in DERIVED}
 
 
 def _calculate(expr, steps, mat_size):
@@ -93,7 +102,7 @@ def _assort_input(input_str):
     return var_name, unp_vars, expression, unit, steps, mat_size, mode, note
 
 
-def cal(input_str):
+def cal(input_str: str) -> str:
     '''
     evaluate all the calculations, carry out the appropriate assignments,
     and return all the procedures
@@ -139,10 +148,12 @@ def cal(input_str):
 
     return output
 
+
 class UnitHandler(ast.NodeVisitor):
     '''
     simplify the given expression as a combination of units
     '''
+
     def __init__(self, norm=False):
         self.norm = norm
 
@@ -150,19 +161,26 @@ class UnitHandler(ast.NodeVisitor):
         if self.norm:
             unit = n
         else:
-            un = DICT[n.id + UNIT_PF]
-            unit = ast.parse(un if un else '_').body[0].value
+            if n.id + UNIT_PF in DICT:
+                un = DICT[n.id + UNIT_PF]
+            else:
+                un = '_'
+            unit = ast.parse(un).body[0].value
         if isinstance(unit, ast.Name):
-            if hasattr(n, 'upper') and not n.upper:
+            if unit.id in DERIVED:
+                unit = DERIVED[unit.id]
+            elif hasattr(n, 'upper') and not n.upper:
                 return [{}, {unit.id: 1}]
             else:
                 return [{unit.id: 1}, {}]
-        else:
-            unit.upper = n.upper
-            self.norm = True
-            l = self.visit(unit)
-            self.norm = False
-            return l
+        unit.upper = n.upper if hasattr(n, 'upper') else True
+        # store and temporarily disregard the state self.norm
+        prev_norm = self.norm
+        self.norm = True
+        l = self.visit(unit)
+        # revert to the previous state
+        self.norm = prev_norm
+        return l
 
     def visit_Call(self, n):
         if isinstance(n.func, ast.Attribute):
@@ -174,7 +192,7 @@ class UnitHandler(ast.NodeVisitor):
         if func == 'sqrt':
             return self.visit(ast.BinOp(left=n.args[0], op=ast.Pow(), right=ast.Num(n=1/2)))
         return [{}, {}]
-        
+
     def visit_BinOp(self, n):
         if hasattr(n, 'upper') and not n.upper:
             upper = False
@@ -236,30 +254,77 @@ class UnitHandler(ast.NodeVisitor):
                 else:
                     left[1][u] = right[1][u]
             return left
-        elif isinstance(n.op, ast.Add):
+        elif isinstance(n.op, ast.Add) or isinstance(n.op, ast.Sub):
             n.right.upper = upper
-            left = cancel(left)
-            right = cancel(self.visit(n.right))
-            if (len(left[0]) == len(right[0]) and all([(e in right[0] and left[0][e] == right[0][e]) for e in left[0]])) \
-                    and (len(left[1]) == len(right[1]) and all([(e in right[1] and left[1][e] == right[1][e]) for e in left[1]])):
+            left = reduce(left)
+            right = reduce(self.visit(n.right))
+            if are_equivalent(left, right):
                 return left
             print('error')
             return [{}, {}]
+
     def visit_UnaryOp(self, n):
         return self.visit(n.operand)
+
     def generic_visit(self, n):
         return [{}, {}]
 
 
-def unitize(s, norm=False):
-    ls = cancel(UnitHandler(norm).visit(ast.parse(s).body[0].value))
-    upper = ls[0]
-    lower = ls[1]
-    s_upper = f'({"*".join([u if upper[u] == 1 else u + "**" + str(upper[u]) for u in upper])})' if upper else "_"
-    s_lower = f'/({"*".join([u if lower[u] == 1 else u + "**" + str(lower[u]) for u in lower])})' if lower else ""
+def unitize(s: str) -> str:
+    '''
+    look for units of the variable names in the expression, cancel-out units
+    that can be canceled out and return an expression of units that can be
+    converted into latex using latexify
+    '''
+
+    def unit_handler(pu, norm):
+        return UnitHandler(norm).visit(pu)
+    ls = reduce(unit_handler(ast.parse(s).body[0].value, False))
+
+    # the var names that are of units in the main dict that are not _
+    in_use = {DICT[u] for u in DICT
+              if u.endswith(UNIT_PF) and DICT[u] != '_'}
+    # var names in in_use whose values contain one of the DERIVED units
+    in_use = [u for u in in_use
+              if any([n.id in DERIVED
+                      for n in [n for n in ast.walk(ast.parse(u).body[0].value)
+                                if isinstance(n, ast.Name)]])]
+    # if this unit is equivalent to one of them, return that
+    for unit in in_use:
+        if are_equivalent(unit_handler(ast.parse(unit).body[0].value, True), ls):
+            return unit
+
+    upper = "*".join([u if ls[0][u] == 1 else f'{u}**{ls[0][u]}'
+                      for u in ls[0]])
+    lower = "*".join([u if ls[1][u] == 1 else f'{u}**{ls[1][u]}'
+                      for u in ls[1]])
+
+    s_upper = f'({upper})' if ls[0] else "_"
+    s_lower = f'/({lower})' if ls[1] else ""
     return s_upper + s_lower
 
-def cancel(ls):
+
+def are_equivalent(unit1: dict, unit2: dict) -> bool:
+    '''
+    return True if the units are equivalent, False otherwise
+    '''
+
+    unit1, unit2 = reduce(unit1), reduce(unit2)
+    conditions = [
+        # the numerators have the same elements
+        set(unit1[0]) == set(unit2[0]) and \
+        # each item's value (power) is the same in both
+        all([unit1[0][e] == unit2[0][e] for e in unit1[0]]),
+        # the denominators have the same elements
+        set(unit1[1]) == set(unit2[1]) and \
+        # and each item's value (power) is the same in both
+        all([unit1[1][e] == unit2[1][e] for e in unit1[1]]),
+    ]
+
+    return all(conditions)
+
+
+def reduce(ls: list) -> list:
     '''
     cancel out units that appear in both the numerator and denominator, those
     that have no name (_) and those with power of 0
@@ -284,4 +349,3 @@ def cancel(ls):
         if lower[u] == 0 or u == '_':
             del lower[u]
     return [upper, lower]
-
