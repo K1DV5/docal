@@ -103,12 +103,16 @@ def cal(input_str):
         input_str)
     result = _calculate(expr, steps, mat_size)
     var_lx = latexify(var_name)
+    if not unit:
+        unit = unitize(expr)
     if unit == 'deg':
         unit_lx = '^\\circ'
-    elif unit:
-        unit_lx = f" \, \mathrm{{{latexify(unit, mul_symbol=' ', div_symbol='/')}}}"
+    elif unit == 'degC':
+        unit_lx = '^\\circ C'
+    elif unit == 'degF':
+        unit_lx = '^\\circ F'
     else:
-        unit_lx = f" \, \mathrm{{{unitize(expr)}}}"
+        unit_lx = f" \, \mathrm{{{latexify(unit, div_symbol='/')}}}"
     result[-1] += unit_lx + note
 
     if mode == 'inline':
@@ -150,9 +154,9 @@ class UnitHandler(ast.NodeVisitor):
             unit = ast.parse(un if un else '_').body[0].value
         if isinstance(unit, ast.Name):
             if hasattr(n, 'upper') and not n.upper:
-                return [[], [unit.id]]
+                return [{}, {unit.id: 1}]
             else:
-                return [[unit.id], []]
+                return [{unit.id: 1}, {}]
         else:
             unit.upper = n.upper
             self.norm = True
@@ -160,57 +164,124 @@ class UnitHandler(ast.NodeVisitor):
             self.norm = False
             return l
 
+    def visit_Call(self, n):
+        if isinstance(n.func, ast.Attribute):
+            func = n.func.attr
+        elif isinstance(n.func, ast.Name):
+            func = n.func.id
+        else:
+            func = self.visit(n.func)
+        if func == 'sqrt':
+            return self.visit(ast.BinOp(left=n.args[0], op=ast.Pow(), right=ast.Num(n=1/2)))
+        return [{}, {}]
+        
     def visit_BinOp(self, n):
         if hasattr(n, 'upper') and not n.upper:
             upper = False
         else:
             upper = True
         n.left.upper = upper
+        left = self.visit(n.left)
         if isinstance(n.op, ast.Pow):
-            ls = [[], []]
-            for i in range(n.right.n):
-                ls[0] += self.visit(n.left)[0]
-                ls[1] += self.visit(n.left)[1]
-            return ls
+            if isinstance(n.right, ast.BinOp):
+                if isinstance(n.right.left, ast.Num) and isinstance(n.right, ast.Num):
+                    if isinstance(n.right.op, ast.Add):
+                        p = n.right.left.n + n.right.n
+                    elif isinstance(n.right.op, ast.Sub):
+                        p = n.right.left.n - n.right.n
+                    elif isinstance(n.right.op, ast.Mult):
+                        p = n.right.left.n * n.right.n
+                    elif isinstance(n.right.op, ast.Div):
+                        p = n.right.left.n / n.right.n
+                    elif isinstance(n.right.op, ast.Pow):
+                        p = n.right.left.n ** n.right.n
+            elif isinstance(n.right, ast.UnaryOp):
+                if isinstance(n.operand, ast.Num):
+                    if isinstance(n.op, ast.USub):
+                        p = - n.operand.n
+                    elif isinstance(n.op, ast.UAdd):
+                        p = n.operand.n
+            elif isinstance(n.right, ast.Num):
+                p = n.right.n
+            for u in left[0]:
+                left[0][u] *= p
+            for u in left[1]:
+                left[1][u] *= p
+            return left
         elif isinstance(n.op, ast.Mult):
             n.right.upper = upper
-            ls = self.visit(n.left)
-            ls[0] += self.visit(n.right)[0]
-            ls[1] += self.visit(n.right)[1]
-            return ls
+            right = self.visit(n.right)
+            for u in right[0]:
+                if u in left[0]:
+                    left[0][u] += right[0][u]
+                else:
+                    left[0][u] = right[0][u]
+            for u in right[1]:
+                if u in left[1]:
+                    left[1][u] += right[1][u]
+                else:
+                    left[1][u] = right[1][u]
+            return left
         elif isinstance(n.op, ast.Div):
             n.right.upper = not upper
-            ls = self.visit(n.left)
-            ls[1] += self.visit(n.right)[1]
-            ls[0] += self.visit(n.right)[0]
-            return ls
-        elif isinstance(n.op, ast.Add) or isinstance(n.op, ast.Sub):
+            right = self.visit(n.right)
+            for u in right[0]:
+                if u in left[0]:
+                    left[0][u] += right[0][u]
+                else:
+                    left[0][u] = right[0][u]
+            for u in right[1]:
+                if u in left[1]:
+                    left[1][u] += right[1][u]
+                else:
+                    left[1][u] = right[1][u]
+            return left
+        elif isinstance(n.op, ast.Add):
             n.right.upper = upper
-            l = self.visit(n.left)
-            r = self.visit(n.right)
-            if (len(l[0]) == len(r[0]) and all([e in r[0] for e in l[0]])) \
-                    and (len(l[1]) == len(r[1]) and all([e in r[1] for e in l[1]])):
-                return l
+            left = cancel(left)
+            right = cancel(self.visit(n.right))
+            if (len(left[0]) == len(right[0]) and all([(e in right[0] and left[0][e] == right[0][e]) for e in left[0]])) \
+                    and (len(left[1]) == len(right[1]) and all([(e in right[1] and left[1][e] == right[1][e]) for e in left[1]])):
+                return left
             print('error')
-            return [[], []]
-
+            return [{}, {}]
+    def visit_UnaryOp(self, n):
+        return self.visit(n.operand)
     def generic_visit(self, n):
-        return [[], []]
+        return [{}, {}]
 
 
 def unitize(s, norm=False):
-    pu = ast.parse(s).body[0].value if s else ast.Name(id='_', ctx=ast.Load())
-    ls = UnitHandler(norm).visit(pu)
-    num = list(set([e + '**' + str(ls[0].count(e))
-                    if ls[0].count(e) > 1
-                    else e for e in ls[0]]))
-    den = list(set([e + '**' + str(ls[1].count(e))
-                    if ls[1].count(e) > 1
-                    else e for e in ls[1]]))
-    for u in num:
-        if u in den:
-            num.remove(u)
-            den.remove(u)
-    s_num = f'({"*".join(num)})' if num else '_'
-    s_den = f'/({"*".join(den)})' if den else ''
-    return latexify(s_num + s_den, div_symbol='/')
+    ls = cancel(UnitHandler(norm).visit(ast.parse(s).body[0].value))
+    upper = ls[0]
+    lower = ls[1]
+    s_upper = f'({"*".join([u if upper[u] == 1 else u + "**" + str(upper[u]) for u in upper])})' if upper else "_"
+    s_lower = f'/({"*".join([u if lower[u] == 1 else u + "**" + str(lower[u]) for u in lower])})' if lower else ""
+    return s_upper + s_lower
+
+def cancel(ls):
+    '''
+    cancel out units that appear in both the numerator and denominator, those
+    that have no name (_) and those with power of 0
+    '''
+    upper = {**ls[0]}
+    lower = {**ls[1]}
+    for u in ls[0]:
+        if u in ls[1]:
+            if upper[u] > lower[u]:
+                upper[u] -= lower[u]
+                del lower[u]
+            elif upper[u] < lower[u]:
+                lower[u] -= upper[u]
+                del upper[u]
+            else:
+                del upper[u]
+                del lower[u]
+    for u in {**upper}:
+        if upper[u] == 0 or u == '_':
+            del upper[u]
+    for u in {**lower}:
+        if lower[u] == 0 or u == '_':
+            del lower[u]
+    return [upper, lower]
+
