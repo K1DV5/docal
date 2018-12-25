@@ -106,7 +106,6 @@ class document:
                   f'{color(path.basename(self.infile), "cyan")} cannot be found.')
             exit()
 
-
     def __init__(self, infile=None):
         '''initialize'''
 
@@ -128,6 +127,8 @@ class document:
         self.current_tag = self.tags[0] if self.tags else None
         # temp storage for assignment statements where there are unmatched parens
         self.incomplete_assign = ''
+        # temp storage for block statements like if and for
+        self.incomplete_stmt = ''
 
     def _process_comment(self, line):
         '''
@@ -204,30 +205,41 @@ class document:
             return content[hash_line.span()[1]:]
         sent = []
         for line in content.split('\n'):
-            # a real comment starts with ## and does nothing
-            if line.lstrip().startswith('##'):
-                pass
-            # if the first non whitespace char is # and not ## send as is
-            # with the variables referenced with #var substituted
-            elif line.lstrip().startswith('#'):
-                sent.append(self._process_comment(line))
-            # if it is an assignment, take it as a calculation to send unless it ends with a ;
-            elif re.search(r'[^=]=[^=]', self.incomplete_assign + line):
-                sent.append(self._process_assignment(line))
-            elif line:
-                # if it does not appear like an equation or a comment, just execute it
-                print(color('    Executing statement...', 'green'), f'\n        {line}',
-                      color(str(datetime.time(datetime.now())), 'purple'))
-                exec(line, DICT)
-                if line.startswith('del '):
-                    # also delete associated unit strings
-                    variables = [v.strip()
-                                 for v in line[len('del '):].split(',')]
-                    for v in variables:
-                        if v + UNIT_PF in DICT:
-                            del DICT[v + UNIT_PF]
-            else:
-                sent.append('')
+            if any([line and line[0].isspace(),
+                    line.rstrip().endswith(':'),
+                    not line and self.incomplete_stmt]):
+                self.incomplete_stmt += '\n' + line
+                line = None
+            if line is not None:
+                if self.incomplete_stmt:
+                    print(color('    Executing statement...', 'green'), f'\n        {self.incomplete_stmt}',
+                          color(str(datetime.time(datetime.now())), 'purple'))
+                    exec(self.incomplete_stmt, DICT)
+                    self.incomplete_stmt = ''
+                # a real comment starts with ## and does nothing
+                if line.lstrip().startswith('##'):
+                    pass
+                # if the first non whitespace char is # and not ## send as is
+                # with the variables referenced with #var substituted
+                elif line.lstrip().startswith('#'):
+                    sent.append(self._process_comment(line))
+                # if it is an assignment, take it as a calculation to send unless it ends with a ;
+                elif re.search(r'[^=]=[^=]', self.incomplete_assign + line):
+                    sent.append(self._process_assignment(line))
+                elif line:
+                    # if it does not appear like an equation or a comment, just execute it
+                    print(color('    Executing statement...', 'green'), f'\n        {line}',
+                          color(str(datetime.time(datetime.now())), 'purple'))
+                    exec(line, DICT)
+                    if line.startswith('del '):
+                        # also delete associated unit strings
+                        variables = [v.strip()
+                                     for v in line[len('del '):].split(',')]
+                        for v in variables:
+                            if v + UNIT_PF in DICT:
+                                del DICT[v + UNIT_PF]
+                else:
+                    sent.append('')
         sent = '\n'.join(sent)
         return sent
 
@@ -282,7 +294,8 @@ class document:
             result = '\n'.join(self.contents[tag])
         elif tag in DICT.keys():
             unit_name = tag + UNIT_PF
-            unit = fr' \, \mathrm{{{latexify(DICT[unit_name], div_symbol="/")}}}' if unit_name in DICT.keys() else ''
+            unit = fr' \, \mathrm{{{latexify(DICT[unit_name], div_symbol="/")}}}' if unit_name in DICT.keys(
+            ) and DICT[unit_name] and DICT[unit_name] != '_' else ''
             result = eqn(latexify(
                 DICT[tag]) + unit, norm=False, disp=False)
         else:

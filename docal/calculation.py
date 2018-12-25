@@ -133,8 +133,10 @@ def cal(input_str: str) -> str:
         unit_lx = '^\\circ C'
     elif unit == 'degF':
         unit_lx = '^\\circ F'
-    else:
+    elif unit and unit != '_':
         unit_lx = f" \, \mathrm{{{latexify(unit, div_symbol='/')}}}"
+    else:
+        unit_lx = ''
     result[-1] += unit_lx + note
 
     if mode == 'inline':
@@ -227,11 +229,11 @@ class UnitHandler(ast.NodeVisitor):
                     elif isinstance(n.right.op, ast.Pow):
                         p = n.right.left.n ** n.right.n
             elif isinstance(n.right, ast.UnaryOp):
-                if isinstance(n.operand, ast.Num):
-                    if isinstance(n.op, ast.USub):
-                        p = - n.operand.n
-                    elif isinstance(n.op, ast.UAdd):
-                        p = n.operand.n
+                if isinstance(n.right.operand, ast.Num):
+                    if isinstance(n.right.op, ast.USub):
+                        p = - n.right.operand.n
+                    elif isinstance(n.right.op, ast.UAdd):
+                        p = n.right.operand.n
             elif isinstance(n.right, ast.Num):
                 p = n.right.n
             for u in left[0]:

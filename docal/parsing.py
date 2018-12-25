@@ -242,7 +242,7 @@ class _LatexVisitor(ast.NodeVisitor):
                     return self.format_name(str(DICT[n.id]))
                 qty = self.visit(_prep4lx(DICT[n.id], self.mat_size))
                 unit = fr'\, \mathrm{{{latexify(DICT[n.id + UNIT_PF], div_symbol="/")}}}' \
-                    if n.id + UNIT_PF in DICT.keys() else ''
+                    if n.id + UNIT_PF in DICT.keys() and DICT[n.id + UNIT_PF] and DICT[n.id + UNIT_PF] != '_' else ''
                 # if the quantity is raised to some power and has a unit,
                 # surround it with parens
                 if hasattr(n, 'is_in_power') and n.is_in_power and unit and unit != '_':
@@ -259,7 +259,8 @@ class _LatexVisitor(ast.NodeVisitor):
     def visit_UnaryOp(self, n):
         if isinstance(n.op, ast.USub):
             n.operand.is_in_unaryop = True
-        if self.prec(n.op) >= self.prec(n.operand) or (hasattr(n, 'is_in_unaryop') and n.is_in_unaryop):
+        if self.prec(n.op) >= self.prec(n.operand) \
+                or (hasattr(n, 'is_in_unaryop') and n.is_in_unaryop):
             return fr'{ self.visit(n.op) } \left({ self.visit(n.operand) }\right)'
         else:
             return fr'{ self.visit(n.op) } { self.visit(n.operand) }'
@@ -469,6 +470,9 @@ class _LatexVisitor(ast.NodeVisitor):
         return str(round(number, 2))
 
     def prec_Num(self, n):
+        if hasattr(n, 'is_in_power') and n.is_in_power \
+                and n.n != 0 and (abs(n.n) > 1000 or abs(n.n) < 0.1):
+            return 300
         return 1000
 
     def generic_visit(self, n):
