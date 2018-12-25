@@ -498,7 +498,7 @@ def latexify(expr, mul_symbol='*', div_symbol='frac', subs=False, mat_size=5):
     return _LatexVisitor(mul_symbol, div_symbol, subs, mat_size).visit(pt)
 
 
-def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True):
+def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True, vert: bool = True):
     '''main api for equations'''
 
     eqn_len = len(equation_list)
@@ -509,8 +509,9 @@ def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True)
         if eqn_len > 1:
             surroundings = [
                 '\\begin{align}\n\\begin{split}\n', '\n\\end{split}\n\\end{align}']
-            equals = ' &= '
-            joint = '\\\\\n'
+            if vert:
+                joint = '\\\\\n'
+                equals = ' &= '
         else:
             surroundings = ['\\begin{equation}\n', '\n\\end{equation}']
     else:

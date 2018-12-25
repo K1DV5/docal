@@ -77,6 +77,7 @@ def _assort_input(input_str):
     mat_size = DEFAULT_MAT_SIZE
     unit = ''
     mode = 'default'
+    vert = True
     note = ''
 
     for a in [a.strip() for a in additionals.split(',')]:
@@ -94,13 +95,17 @@ def _assort_input(input_str):
             mode = 'inline'
         elif a == '$$':
             mode = 'display'
+        elif a == '|':
+            vert = True
+        elif a == '-':
+            vert = False
         else:
             unit = a
 
     if note:
         note = f'\\quad\\text{{{note}}}'
 
-    return var_name, unp_vars, expression, unit, steps, mat_size, mode, note
+    return var_name, unp_vars, expression, unit, steps, mat_size, mode, vert, note
 
 
 def cal(input_str: str) -> str:
@@ -109,7 +114,7 @@ def cal(input_str: str) -> str:
     and return all the procedures
 
     '''
-    var_name, unp_vars, expr, unit, steps, mat_size, mode, note = _assort_input(
+    var_name, unp_vars, expr, unit, steps, mat_size, mode, vert, note = _assort_input(
         input_str)
     result = _calculate(expr, steps, mat_size)
     var_lx = latexify(var_name)
@@ -153,7 +158,7 @@ def cal(input_str: str) -> str:
     for step in result[1:]:
         procedure.append('    = ' + step)
 
-    output = eqn(*procedure, norm=False, disp=displ)
+    output = eqn(*procedure, norm=False, disp=displ, vert=vert)
 
     # carry out normal op in main script
     exec(input_str, DICT)
