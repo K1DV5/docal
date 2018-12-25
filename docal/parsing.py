@@ -268,6 +268,7 @@ class _LatexVisitor(ast.NodeVisitor):
         return self.prec(n.op)
 
     def visit_BinOp(self, n):
+        # to know what the names and attributes contain underneath
         tmp_right = n.right
         if self.subs:
             # shallow visit to know what the name contains (without the units)
@@ -285,9 +286,12 @@ class _LatexVisitor(ast.NodeVisitor):
         else:
             right = self.visit(n.right)
         if isinstance(n.op, ast.Mult):
-            # things that don't need multiplication sign before them
-            no_need = [ast.Name, ast.Tuple, ast.Call, ast.List, ast.Attribute]
-            if any([isinstance(tmp_right, t) for t in no_need]):
+            # unless the right term is a Num or BinOp whose operation is power
+            no_need = not any([isinstance(tmp_right, ast.BinOp)
+                               and isinstance(tmp_right.op, ast.Pow)
+                               and isinstance(tmp_right.left, ast.Num),
+                               isinstance(tmp_right, ast.Num)])
+            if no_need:
                 return fr'{left} \, {right}'
         elif isinstance(n.op, ast.Pow):
             # so that it can be surrounded with parens if it has units

@@ -6,7 +6,7 @@ module and returns the procedure of the calculations
 '''
 
 import ast  # to know deduce which steps are needed
-from .document import DICT
+from .document import DICT, color
 from .parsing import latexify, eqn, DEFAULT_MAT_SIZE, UNIT_PF
 
 # units that are not base units
@@ -14,7 +14,8 @@ DERIVED = {
     'N': 'kg*m/s**2',
     'Pa': 'kg/(m*s**2)',
     'J': 'kg*m**2/s**2',
-    'W': 'kg*m**2/s**3'
+    'W': 'kg*m**2/s**3',
+    'Hz': '_/s',
 }
 DERIVED = {u: ast.parse(DERIVED[u]).body[0].value for u in DERIVED}
 
@@ -112,7 +113,19 @@ def cal(input_str: str) -> str:
         input_str)
     result = _calculate(expr, steps, mat_size)
     var_lx = latexify(var_name)
-    if not unit:
+    # detect if the user is trying to give a different unit and give warning
+    if unit:
+        # in their dict forms
+        compared = [UnitHandler(True).visit(ast.parse(unit).body[0].value),
+                    UnitHandler(False).visit(ast.parse(expr).body[0].value)]
+        # when the calculated already has a unit
+        compared = [compared, [compared[1], [{}, {}]]]
+        # if it is detected, warn the user but accept it anyway
+        if not are_equivalent(*compared[1]) and not are_equivalent(*compared[0]):
+            print('            ', color('WARNING:', 'yellow'),
+                  'The input unit is not equivalent to the calculated one.',
+                  color('Overriding...', 'yellow'))
+    else:
         unit = unitize(expr)
     if unit == 'deg':
         unit_lx = '^\\circ'
@@ -289,6 +302,8 @@ def unitize(s: str) -> str:
               if any([n.id in DERIVED
                       for n in [n for n in ast.walk(ast.parse(u).body[0].value)
                                 if isinstance(n, ast.Name)]])]
+    # search in reverse order to choose the most recently used unit
+    in_use.reverse()
     # if this unit is equivalent to one of them, return that
     for unit in in_use:
         if are_equivalent(unit_handler(ast.parse(unit).body[0].value, True), ls):
