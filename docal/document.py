@@ -52,7 +52,7 @@ except ImportError:
     DEFAULT_SCRIPT = None
     DICT = {}
 from .calculation import cal
-from .parsing import UNIT_PF, eqn, latexify
+from .parsing import UNIT_PF, PARENS, eqn, latexify
 # to log info about what it's doing with timestamps
 START_TIME = datetime.now()
 
@@ -70,8 +70,6 @@ class document:
     # warning for tag place protection in document:
     warning = ('BELOW IS AN AUTO GENERATED LIST OF TAGS. '
                'DO NOT DELETE IT IF REVERSING IS DESIRED!!!\n%')
-    # necessary for the calculations
-    parens = ['()', '[]', '{}']
     # temp folder for converted files
     temp_dir = path.join(environ['TMP'], 'docal_tmp')
     # If it does not exist, create it
@@ -114,7 +112,8 @@ class document:
         # the calculation parts
         self.contents = {}
         # the collection of tags at the bottom of the file for reversing
-        self.tagline = re.search(fr'\n% *{re.escape(self.warning)} *[\[[a-zA-Z0-9_ ]+\]\]',
+        self.tagline = re.search(fr'\n% *{re.escape(self.warning)}'
+                                 '*[\[[a-zA-Z0-9_ ]+\]\]',
                                  self.file_contents)
         if self.tagline:
             start = self.tagline.group(0).find('[[') + 2
@@ -144,7 +143,9 @@ class document:
             calcs = [latexify(eval(x.group(1), DICT))
                      for x in self.inline_calc.finditer(line)]
             line = re.sub(r'(?a)#(\w+)',
-                          lambda x: 'TMP0'.join(x.group(1).split('_')) + 'TMP0', line)
+                          lambda x: 'TMP0'.join(
+                              x.group(1).split('_')) + 'TMP0',
+                          line)
             line = self.inline_calc.sub('TMP0CALC000', line)
             if line.startswith('$$'):
                 line = eqn(*line[2:].split('|'))
@@ -152,7 +153,8 @@ class document:
                 line = eqn(line[1:], disp=False)
             augmented = re.sub(r'(?a)\\mathrm\s*\{\s*(\w+)TMP0\s*\}',
                                lambda x: latexify(
-                                   DICT['_'.join(x.group(1).split('TMP0'))]), line)
+                                   DICT['_'.join(x.group(1).split('TMP0'))]),
+                               line)
             for calc in calcs:
                 augmented = re.sub(r'(?a)\\mathrm\s*\{\s*TMP0CALC000\s*\}',
                                    calc.replace('\\', r'\\'), augmented, 1)
@@ -170,18 +172,19 @@ class document:
         '''
         if self.incomplete_assign or \
                 any([line.count(par[0]) != line.count(par[1])
-                     for par in self.parens]):
+                     for par in PARENS]):
             self.incomplete_assign += '\n' + line
             if all([self.incomplete_assign.count(par[0]) ==
                     self.incomplete_assign.count(par[1])
-                    for par in self.parens]):
+                    for par in PARENS]):
                 line = self.incomplete_assign
                 self.incomplete_assign = ''
             else:
                 line = None
         if line:
             if not line.rstrip().endswith(';'):
-                print(color('    Evaluating and converting equation line to LaTeX form...', 'green'),
+                print(color('    Evaluating and converting equation line to'
+                            'LaTeX form...', 'green'),
                       color(str(datetime.time(datetime.now())), 'purple'),
                       f'\n        {line}')
                 # the cal function will execute it so no need for exec
@@ -194,8 +197,8 @@ class document:
         return ''
 
     def _process_content(self, content):
-        '''execute the actual content of the string in the context of the main script
-        and return what will be sent to the document'''
+        '''execute the actual content of the string in the context of the main
+        script and return what will be sent to the document'''
 
         # if the first non-blank line is only #, do not modify
         hash_line = re.match(r'\s*#\s*\n', content)
@@ -205,14 +208,16 @@ class document:
             return content[hash_line.span()[1]:]
         sent = []
         for line in content.split('\n'):
-            if any([line and line[0].isspace(),
-                    line.rstrip().endswith(':'),
+            if any([line and not self.incomplete_assign and line[0].isspace(),
+                    line and not line[0].isspace() and line[0] != '#'
+                    and line.rstrip().endswith(':'),
                     not line and self.incomplete_stmt]):
                 self.incomplete_stmt += '\n' + line
                 line = None
             if line is not None:
                 if self.incomplete_stmt:
-                    print(color('    Executing statement...', 'green'), f'\n        {self.incomplete_stmt}',
+                    print(color('    Executing statement...', 'green'),
+                          f'\n        {self.incomplete_stmt}',
                           color(str(datetime.time(datetime.now())), 'purple'))
                     exec(self.incomplete_stmt, DICT)
                     self.incomplete_stmt = ''
@@ -223,12 +228,15 @@ class document:
                 # with the variables referenced with #var substituted
                 elif line.lstrip().startswith('#'):
                     sent.append(self._process_comment(line))
-                # if it is an assignment, take it as a calculation to send unless it ends with a ;
+                # if it is an assignment, take it as a calculation to send
+                # unless it ends with a ;
                 elif re.search(r'[^=]=[^=]', self.incomplete_assign + line):
                     sent.append(self._process_assignment(line))
                 elif line:
-                    # if it does not appear like an equation or a comment, just execute it
-                    print(color('    Executing statement...', 'green'), f'\n        {line}',
+                    # if it does not appear like an equation or a comment,
+                    # just execute it
+                    print(color('    Executing statement...', 'green'),
+                          f'\n        {line}',
                           color(str(datetime.time(datetime.now())), 'purple'))
                     exec(line, DICT)
                     if line.startswith('del '):
@@ -252,7 +260,9 @@ class document:
         if tag in self.tags:
             if tag not in self.contents.keys():
                 self.contents[tag] = []
-            print(f'[{color(tag, "cyan")}]: {color("Processing contents...", "green")}',
+            msgs = [color(tag, "cyan"), color(
+                "Processing contents...", "green")]
+            print(f'[{msgs[0]}]: {msgs[1]}',
                   color(str(datetime.time(datetime.now())), 'purple'))
             self.contents[tag].append(self._process_content(content))
             if tag != self.current_tag:
@@ -294,8 +304,9 @@ class document:
             result = '\n'.join(self.contents[tag])
         elif tag in DICT.keys():
             unit_name = tag + UNIT_PF
-            unit = fr' \, \mathrm{{{latexify(DICT[unit_name], div_symbol="/")}}}' if unit_name in DICT.keys(
-            ) and DICT[unit_name] and DICT[unit_name] != '_' else ''
+            unit = fr' \, \mathrm{{{latexify(DICT[unit_name], div_symbol="/")}}}'\
+                if unit_name in DICT.keys() and DICT[unit_name] \
+                and DICT[unit_name] != '_' else ''
             result = eqn(latexify(
                 DICT[tag]) + unit, norm=False, disp=False)
         else:
