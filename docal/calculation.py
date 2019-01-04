@@ -7,7 +7,7 @@ module and returns the procedure of the calculations
 
 import ast  # to know deduce which steps are needed
 from .document import DICT, color
-from .parsing import latexify, eqn, DEFAULT_MAT_SIZE, UNIT_PF
+from .parsing import latexify, eqn, DEFAULT_MAT_SIZE, UNIT_PF, PARENS
 
 # units that are not base units
 DERIVED = {
@@ -67,11 +67,26 @@ def _assort_input(input_str):
         equation = input_parts[0]
         additionals = input_parts[1]
 
-    var_name, expression = [part.strip() for part in equation.split('=', 1)]
+    if '=' in equation:
+        eq_place = equation.rfind('=')
+        while True:
+            if all([equation[eq_place:].count(p[0]) == equation[eq_place:].count(p[1])
+                    for p in PARENS]):
+                break
+            else:
+                eq_place = equation.rfind('=', 0, eq_place)
+        var_name = equation[:eq_place].strip()
+        expression = equation[eq_place + 1:].strip()
+    else:
+        print(color('ERROR:', 'red'),
+              'This is not an equation.')
+        exit()
+
+    parsed_eq = ast.parse(equation).body[0]
     unp_vars = [n.id
-                for n in ast.walk(ast.parse(var_name).body[0].value)
+                for n in ast.walk(ast.parse(var_name).body[0])
                 if isinstance(n, ast.Name)]
-    expr_dump = ast.dump(ast.parse(expression))
+    expr_dump = ast.dump(parsed_eq.value)
 
     steps = figure_out_steps(expr_dump)
     mat_size = DEFAULT_MAT_SIZE
