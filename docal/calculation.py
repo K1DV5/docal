@@ -5,7 +5,7 @@ does the calculations needed, sets the appropriate variables in the main
 module and returns the procedure of the calculations
 '''
 
-import ast  # to know deduce which steps are needed
+import ast  # to know which steps are needed
 from .document import DICT, color
 from .parsing import latexify, eqn, DEFAULT_MAT_SIZE, UNIT_PF, PARENS
 
@@ -153,13 +153,7 @@ def cal(input_str: str) -> str:
                   color('Overriding...', 'yellow'))
     else:
         unit = unitize(expr)
-    if unit == 'deg':
-        unit_lx = '^\\circ'
-    elif unit == 'degC':
-        unit_lx = '^\\circ C'
-    elif unit == 'degF':
-        unit_lx = '^\\circ F'
-    elif unit and unit != '_':
+    if unit and unit != '_':
         unit_lx = f" \, \mathrm{{{latexify(unit, div_symbol='/')}}}"
     else:
         unit_lx = ''
@@ -301,7 +295,8 @@ class UnitHandler(ast.NodeVisitor):
             right = reduce(self.visit(n.right))
             if are_equivalent(left, right):
                 return left
-            print('error')
+            print('            ', color('WARNING:', 'yellow'),
+                  'The units of the two sides are not equivalent.')
             return [{}, {}]
 
     def visit_UnaryOp(self, n):
