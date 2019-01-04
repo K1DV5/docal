@@ -95,7 +95,7 @@ def _prep4lx(quantity, mat_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
 
         quantity = _fit_matrix(quantity, mat_size)
 
-    return ast.parse(str(quantity)).body[0].value
+    return ast.parse(str(quantity)).body[0]
 
 
 def _fit_array(array, max_size=5):
@@ -192,6 +192,12 @@ class _LatexVisitor(ast.NodeVisitor):
     def prec(self, n):
         return getattr(self, 'prec_'+n.__class__.__name__, getattr(self, 'generic_prec'))(n)
 
+    def visit_Expr(self, n):
+        return self.visit(n.value)
+
+    def visit_Assign(self, n):
+        return ' = '.join([self.visit(t) for t in n.targets + [n.value]])
+
     # attributes (foo.bar)
     def visit_Attribute(self, n, shallow=False):
         # if the value is desired
@@ -253,8 +259,8 @@ class _LatexVisitor(ast.NodeVisitor):
             # substitute the value of the variable by formatted value
             try:
                 # if the raw ast object is needed (for BinOp)
-                if raw:
-                    return _prep4lx(DICT[n.id], self.mat_size)
+                if shallow:
+                    return _prep4lx(DICT[n.id], self.mat_size).value
                 # to prevent infinite recursion:
                 if str(DICT[n.id]) == n.id:
                     return format_name(str(DICT[n.id]))
@@ -512,8 +518,8 @@ def latexify(expr, mul_symbol='*', div_symbol='frac', subs=False, mat_size=5):
     '''
 
     if isinstance(expr, str):
-        if expr:
-            pt = ast.parse(expr.strip()).body[0].value
+        if expr.strip():
+            pt = ast.parse(expr.strip()).body[0]
         else:
             return ''
     else:
@@ -522,7 +528,8 @@ def latexify(expr, mul_symbol='*', div_symbol='frac', subs=False, mat_size=5):
     return _LatexVisitor(mul_symbol, div_symbol, subs, mat_size).visit(pt)
 
 
-def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True, vert: bool = True):
+def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True,
+        vert: bool = True) -> str:
     '''main api for equations'''
 
     eqn_len = len(equation_list)
@@ -542,12 +549,31 @@ def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True,
         surroundings = ['\\(\\displaystyle ', ' \\)']
 
     if norm:
-        equations = [equals.join([latexify(expr.strip())
-                                  for expr in equation.split('=')])
-                     for equation in equation_list]
+        equations = []
+        for i, eq in enumerate(equation_list):
+            balanced = []
+            incomplete = ''
+            for e in eq.split('='):
+                if incomplete or \
+                        any([e.count(par[0]) != e.count(par[1])
+                             for par in PARENS]):
+                    incomplete += ('=' if incomplete else '') + e
+                    if all([incomplete.count(par[0]) ==
+                            incomplete.count(par[1])
+                            for par in PARENS]):
+                        e = incomplete
+                        incomplete = ''
+                    else:
+                        e = None
+                if e is not None:
+                    balanced.append(e)
+            equations.append(balanced)
+        equations = [' = '.join([latexify(e) for e in eq])
+                     for eq in equations]
     else:
-        equations = [equation.replace('=', equals)
-                     for equation in equation_list]
+        equations = list(equation_list)
+    for i, e in enumerate(equations):
+        equations[i] = equals.join(e.rsplit('=', 1))
 
     if surr:
         return surroundings[0] + joint.join(equations) + surroundings[1]
