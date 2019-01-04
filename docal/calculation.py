@@ -95,27 +95,33 @@ def _assort_input(input_str):
     vert = True
     note = ''
 
-    for a in [a.strip() for a in additionals.split(',')]:
-        if a.isdigit():
-            steps = [int(num) - 1 for num in a]
-        # only the first # is used to split the line (see above) so others
-        elif a.startswith('#'):
-            note = a[1:]
-        elif a.startswith('m') and a[1:].isdigit():
-            if len(a) == 2:
-                mat_size = int(a[1])
+    if additionals:
+        for a in [a.strip() for a in additionals.split(',')]:
+            if a.isdigit():
+                steps = [int(num) - 1 for num in a]
+            # only the first # is used to split the line (see above) so others
+            elif a.startswith('#'):
+                note = a[1:]
+            elif a.startswith('m') and a[1:].isdigit():
+                if len(a) == 2:
+                    mat_size = int(a[1])
+                else:
+                    mat_size = (int(a[1]), int(a[2]))
+            elif a == '$':
+                mode = 'inline'
+            elif a == '$$':
+                mode = 'display'
+            elif a == '|':
+                vert = True
+            elif a == '-':
+                vert = False
             else:
-                mat_size = (int(a[1]), int(a[2]))
-        elif a == '$':
-            mode = 'inline'
-        elif a == '$$':
-            mode = 'display'
-        elif a == '|':
-            vert = True
-        elif a == '-':
-            vert = False
-        else:
-            unit = a
+                try:
+                    compile(a, '', 'eval')
+                    unit = a
+                except SyntaxError:
+                    print('            ', color('WARNING:', 'yellow'),
+                          f"Unknown option '{a}' found, ignoring...")
 
     if note:
         note = f'\\quad\\text{{{note}}}'
