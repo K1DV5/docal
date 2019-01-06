@@ -29,22 +29,23 @@ from datetime import datetime
 # for colored output
 try:
     from colorama import init as color_init
-    color_init()
-    COLORS = {'cyan': '36;1',
-              'red': '31;1',
-              'green': '32;1',
-              'yellow': '33;1',
-              'purple': '35;1'}
-
-    def color(text, clr):
-        '''surround the text with the appropriate ANSI escape sequences
-        so that they can be printed in color'''
-        return f'\033[{COLORS[clr]}m{text}\033[0m'
 except ImportError:
     print('colorama not installed, using default color...\n')
 
     def color(text, clr):
         return text
+else:
+    color_init()
+    COLORS = {'cyan': '36;1',
+              'red': '31;1',
+              'green': '32;1',
+              'yellow': '33;1',
+              'magenta': '35;1'}
+
+    def color(text, clr):
+        '''surround the text with the appropriate ANSI escape sequences
+        so that they can be printed in color'''
+        return f'\033[{COLORS[clr]}m{text}\033[0m'
 # for working with the document's variables and filename
 try:
     from __main__ import __file__ as DEFAULT_SCRIPT, __dict__ as DICT
@@ -135,7 +136,7 @@ class document:
         '''
 
         print(color('    Processing comment line to a paragraph...', 'green'),
-              color(str(datetime.time(datetime.now())), 'purple'),
+              color(str(datetime.time(datetime.now())), 'magenta'),
               f'\n        {line}')
         line = line.lstrip()[1:].strip()
         if line.startswith('$'):
@@ -185,14 +186,14 @@ class document:
             if not line.rstrip().endswith(';'):
                 print(color('    Evaluating and converting equation line to'
                             'LaTeX form...', 'green'),
-                      color(str(datetime.time(datetime.now())), 'purple'),
+                      color(str(datetime.time(datetime.now())), 'magenta'),
                       f'\n        {line}')
                 # the cal function will execute it so no need for exec
                 return cal(line)
 
             # if it does not appear like an equation or a comment, just execute it
             print(color('    Executing statement...', 'green'), f'\n        {line}',
-                  color(str(datetime.time(datetime.now())), 'purple'))
+                  color(str(datetime.time(datetime.now())), 'magenta'))
             exec(line, DICT)
         return ''
 
@@ -204,7 +205,7 @@ class document:
         hash_line = re.match(r'\s*#\s*\n', content)
         if hash_line:
             print(color('    Sending the content without modifying...', 'green'),
-                  color(str(datetime.time(datetime.now())), 'purple'))
+                  color(str(datetime.time(datetime.now())), 'magenta'))
             return content[hash_line.span()[1]:]
         sent = []
         for line in content.split('\n'):
@@ -218,7 +219,7 @@ class document:
                 if self.incomplete_stmt:
                     print(color('    Executing statement...', 'green'),
                           f'\n        {self.incomplete_stmt}',
-                          color(str(datetime.time(datetime.now())), 'purple'))
+                          color(str(datetime.time(datetime.now())), 'magenta'))
                     exec(self.incomplete_stmt, DICT)
                     self.incomplete_stmt = ''
                 # a real comment starts with ## and does nothing
@@ -237,7 +238,7 @@ class document:
                     # just execute it
                     print(color('    Executing statement...', 'green'),
                           f'\n        {line}',
-                          color(str(datetime.time(datetime.now())), 'purple'))
+                          color(str(datetime.time(datetime.now())), 'magenta'))
                     exec(line, DICT)
                     if line.startswith('del '):
                         # also delete associated unit strings
@@ -263,7 +264,7 @@ class document:
             msgs = [color(tag, "cyan"), color(
                 "Processing contents...", "green")]
             print(f'[{msgs[0]}]: {msgs[1]}',
-                  color(str(datetime.time(datetime.now())), 'purple'))
+                  color(str(datetime.time(datetime.now())), 'magenta'))
             self.contents[tag].append(self._process_content(content))
             if tag != self.current_tag:
                 self.current_tag = tag
@@ -402,7 +403,7 @@ class document:
 
         print((f'{color("Writing output to", "green")} '
                f'{color(outfile, "cyan")}{color("...", "green")}'),
-              color(datetime.now(), "purple"))
+              color(datetime.now(), "magenta"))
 
         file_contents = self._prepare(outfile, revert)
 
@@ -424,4 +425,4 @@ class document:
                 file.write(file_contents)
 
         print((f'\n{color("SUCCESS!!!", "green")}     '
-               f'(finished in {color(str(datetime.now() - START_TIME), "purple")})'))
+               f'(finished in {color(str(datetime.now() - START_TIME), "magenta")})'))
