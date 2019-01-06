@@ -49,4 +49,8 @@ def main():
     d.send(instructions)
     d.write(outfile)
 
-main()
+try:
+    main()
+except Exception as exc:
+    print(color('ERROR:', 'red'), f'[{exc.__class__.__name__}]', exc.args[0])
+    exit()
