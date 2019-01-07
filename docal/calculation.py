@@ -5,7 +5,7 @@ does the calculations needed, sets the appropriate variables in the main
 module and returns the procedure of the calculations
 '''
 
-import ast  # to know which steps are needed
+import ast
 from .document import DICT, color
 from .parsing import latexify, eqn, DEFAULT_MAT_SIZE, UNIT_PF, PARENS
 
@@ -66,45 +66,47 @@ def _assort_input(input_str):
                 for n in ast.walk(ast.parse(var_name).body[0])
                 if isinstance(n, ast.Name)]
 
-    steps = []
-    mat_size = DEFAULT_MAT_SIZE
-    unit = ''
-    mode = 'default'
-    vert = True
-    note = ''
+    options = {
+        'steps': [],
+        'mat_size': DEFAULT_MAT_SIZE,
+        'unit': '',
+        'mode': 'default',
+        'vert': True,
+        'note': ''
+            }
 
     if additionals:
         for a in [a.strip() for a in additionals.split(',')]:
             if a.isdigit():
-                steps = [int(num) - 1 for num in a]
+                options['steps'] = [int(num) - 1 for num in a]
             # only the first # is used to split the line (see above) so others
             elif a.startswith('#'):
-                note = a[1:]
+                options['note'] = a[1:]
             elif a.startswith('m') and a[1:].isdigit():
                 if len(a) == 2:
-                    mat_size = int(a[1])
+                    options['mat_size'] = int(a[1])
                 else:
-                    mat_size = (int(a[1]), int(a[2]))
+                    options['mat_size'] = (int(a[1]), int(a[2]))
             elif a == '$':
-                mode = 'inline'
+                options['mode'] = 'inline'
             elif a == '$$':
-                mode = 'display'
+                options['mode'] = 'display'
             elif a == '|':
-                vert = True
+                options['vert'] = True
             elif a == '-':
-                vert = False
+                options['vert'] = False
             else:
                 try:
                     compile(a, '', 'eval')
-                    unit = a
+                    options['unit'] = a
                 except SyntaxError:
                     print('            ', color('WARNING:', 'yellow'),
                           f"Unknown option '{a}' found, ignoring...")
 
-    if note:
-        note = f'\\quad\\text{{{note}}}'
+    if options['note']:
+        options['note'] = f'\\quad\\text{{{options["note"]}}}'
 
-    return var_name, unp_vars, expression, unit, steps, mat_size, mode, vert, note
+    return var_name, unp_vars, expression, options
 
 
 def cal(input_str: str) -> str:
@@ -113,14 +115,13 @@ def cal(input_str: str) -> str:
     and return all the procedures
 
     '''
-    var_name, unp_vars, expr, unit, steps, mat_size, mode, vert, note = _assort_input(
-        input_str)
-    result = _calculate(expr, steps, mat_size)
+    var_name, unp_vars, expr, options = _assort_input(input_str)
+    result = _calculate(expr, options['steps'], options['mat_size'])
     var_lx = latexify(var_name)
     # detect if the user is trying to give a different unit and give warning
-    if unit:
+    if options['unit']:
         # in their dict forms
-        compared = [UnitHandler(True).visit(ast.parse(unit).body[0].value),
+        compared = [UnitHandler(True).visit(ast.parse(options['unit']).body[0].value),
                     UnitHandler(False).visit(ast.parse(expr).body[0].value)]
         # when the calculated already has a unit
         compared = [compared, [compared[1], [{}, {}]]]
@@ -130,19 +131,19 @@ def cal(input_str: str) -> str:
                   'The input unit is not equivalent to the calculated one.',
                   color('Overriding...', 'yellow'))
     else:
-        unit = unitize(expr)
-    if unit and unit != '_':
-        unit_lx = f" \, \mathrm{{{latexify(unit, div_symbol='/')}}}"
+        options['unit'] = unitize(expr)
+    if options['unit'] and options['unit'] != '_':
+        unit_lx = f" \, \mathrm{{{latexify(options['unit'], div_symbol='/')}}}"
     else:
         unit_lx = ''
-    result[-1] += unit_lx + note
+    result[-1] += unit_lx + options['note']
 
-    if mode == 'inline':
+    if options['mode'] == 'inline':
         displ = False
-    elif mode == 'display':
+    elif options['mode'] == 'display':
         displ = True
     else:
-        if len(steps) == 1 and steps[0] == 0:
+        if len(options['steps']) == 1 and options['steps'][0] == 0:
             displ = False
         else:
             displ = True
@@ -151,13 +152,13 @@ def cal(input_str: str) -> str:
     for step in result[1:]:
         procedure.append('    = ' + step)
 
-    output = eqn(*procedure, norm=False, disp=displ, vert=vert)
+    output = eqn(*procedure, norm=False, disp=displ, vert=options['vert'])
 
     # carry out normal op in main script
     exec(input_str, DICT)
     # for later unit retrieval
     for var in unp_vars:
-        exec(f'{var}{UNIT_PF} = "{unit}"', DICT)
+        exec(f'{var}{UNIT_PF} = "{options["unit"]}"', DICT)
 
     return output
 
