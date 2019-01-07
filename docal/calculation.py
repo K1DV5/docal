@@ -20,20 +20,43 @@ DERIVED = {
 DERIVED = {u: ast.parse(DERIVED[u]).body[0].value for u in DERIVED}
 
 
-def _calculate(expr, steps, mat_size):
+def _calculate(expr, options: dict):
     '''carryout the necesary calculations and assignments'''
 
     result = [
-        latexify(expr, mat_size=mat_size),
-        latexify(expr, subs=True, mat_size=mat_size),
-        latexify(eval(expr, DICT), mat_size)
+        latexify(expr, mat_size=options['mat_size']),
+        latexify(expr, subs=True, mat_size=options['mat_size']),
+        latexify(eval(expr, DICT), options['mat_size'])
     ]
 
-    if steps:
-        return [result[s] for s in steps]
-    # remove repeated steps (retaining order)
-    return list(dict.fromkeys(result))
+    if options['steps']:
+        result = [result[s] for s in options['steps']]
+    else: # remove repeated steps (retaining order)
+        if isinstance(ast.parse(expr).body[0].value, ast.Name):
+            result = [result[0], result[2]]
+        else:
+            result = list(dict.fromkeys(result))
+    # detect if the user is trying to give a different unit and give warning
+    if options['unit']:
+        # in their dict forms
+        compared = [UnitHandler(True).visit(ast.parse(options['unit']).body[0].value),
+                    UnitHandler(False).visit(ast.parse(expr).body[0].value)]
+        # when the calculated already has a unit
+        compared = [compared, [compared[1], [{}, {}]]]
+        # if it is detected, warn the user but accept it anyway
+        if not are_equivalent(*compared[1]) and not are_equivalent(*compared[0]):
+            print('            ', color('WARNING:', 'yellow'),
+                  'The input unit is not equivalent to the calculated one.',
+                  color('Overriding...', 'yellow'))
+    else:
+        options['unit'] = unitize(expr)
+    if options['unit'] and options['unit'] != '_':
+        unit_lx = f" \, \mathrm{{{latexify(options['unit'], div_symbol='/')}}}"
+    else:
+        unit_lx = ''
+    result[-1] += unit_lx + options['note']
 
+    return result
 
 def _assort_input(input_str):
     '''look above'''
@@ -116,27 +139,8 @@ def cal(input_str: str) -> str:
 
     '''
     var_name, unp_vars, expr, options = _assort_input(input_str)
-    result = _calculate(expr, options['steps'], options['mat_size'])
+    result = _calculate(expr, options)
     var_lx = latexify(var_name)
-    # detect if the user is trying to give a different unit and give warning
-    if options['unit']:
-        # in their dict forms
-        compared = [UnitHandler(True).visit(ast.parse(options['unit']).body[0].value),
-                    UnitHandler(False).visit(ast.parse(expr).body[0].value)]
-        # when the calculated already has a unit
-        compared = [compared, [compared[1], [{}, {}]]]
-        # if it is detected, warn the user but accept it anyway
-        if not are_equivalent(*compared[1]) and not are_equivalent(*compared[0]):
-            print('            ', color('WARNING:', 'yellow'),
-                  'The input unit is not equivalent to the calculated one.',
-                  color('Overriding...', 'yellow'))
-    else:
-        options['unit'] = unitize(expr)
-    if options['unit'] and options['unit'] != '_':
-        unit_lx = f" \, \mathrm{{{latexify(options['unit'], div_symbol='/')}}}"
-    else:
-        unit_lx = ''
-    result[-1] += unit_lx + options['note']
 
     if options['mode'] == 'inline':
         displ = False
