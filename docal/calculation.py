@@ -23,36 +23,16 @@ DERIVED = {u: ast.parse(DERIVED[u]).body[0].value for u in DERIVED}
 def _calculate(expr, steps, mat_size):
     '''carryout the necesary calculations and assignments'''
 
-    result = []
-    for step in steps:
-        if step == 0:
-            result.append(latexify(expr, mat_size=mat_size))
-        elif step == 1:
-            result.append(latexify(expr, subs=True, mat_size=mat_size))
-        elif step == 2:
-            result.append(latexify(eval(expr, DICT), mat_size))
+    result = [
+        latexify(expr, mat_size=mat_size),
+        latexify(expr, subs=True, mat_size=mat_size),
+        latexify(eval(expr, DICT), mat_size)
+    ]
 
-    return result
-
-
-def figure_out_steps(expr_dump):
-    '''used when nothing about the steps comes from the user to prevent repetition
-    when the calculation is sent to the pdf. return necessary steps based on the
-    expression content.'''
-
-    # there are no calls or ops in the expression
-    if not (any([typ in expr_dump for typ in ['Call', 'BinOp', 'UnaryOp']])):
-        if 'Name' in expr_dump:
-            steps = [0, 2]
-        else:
-            steps = [2]
-    else:
-        if 'Name' in expr_dump:
-            steps = [0, 1, 2]
-        else:
-            steps = [0, 2]
-
-    return steps
+    if steps:
+        return [result[s] for s in steps]
+    # remove repeated steps (retaining order)
+    return list(dict.fromkeys(result))
 
 
 def _assort_input(input_str):
@@ -82,13 +62,11 @@ def _assort_input(input_str):
               'This is not an equation.')
         exit()
 
-    parsed_eq = ast.parse(equation).body[0]
     unp_vars = [n.id
                 for n in ast.walk(ast.parse(var_name).body[0])
                 if isinstance(n, ast.Name)]
-    expr_dump = ast.dump(parsed_eq.value)
 
-    steps = figure_out_steps(expr_dump)
+    steps = []
     mat_size = DEFAULT_MAT_SIZE
     unit = ''
     mode = 'default'
