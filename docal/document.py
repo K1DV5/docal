@@ -65,8 +65,8 @@ class document:
     pattern = re.compile(r'(?s)([^\w\\]|^)#(\w+?)(\W|$)')
     # the inline calculation pattern like #{x+5}
     inline_calc = re.compile(r'(?<![\w\\])#\{(.*?)\}')
-    # surrounding of the content sent for reversing (something that
-    # doesn't change the actual content of the document, and works inside lines)
+    # surrounding of the content sent for reversing (something that doesn't
+    # change the actual content of the document, and works inside lines)
     surrounding = ['{} {{ {}', '{} }} {}']
     # warning for tag place protection in document:
     warning = ('BELOW IS AN AUTO GENERATED LIST OF TAGS. '
@@ -210,10 +210,10 @@ class document:
         sent = []
         for line in content.split('\n'):
             if any([line and not self.incomplete_assign and line[0].isspace(),
-                    line and not line[0].isspace() and line[0] != '#'
+                    line and not line[0].isspace() and not line.startswith('#')
                     and line.rstrip().endswith(':'),
                     not line and self.incomplete_stmt]):
-                self.incomplete_stmt += '\n' + line
+                self.incomplete_stmt += line + '\n'
                 line = None
             if line is not None:
                 if self.incomplete_stmt:

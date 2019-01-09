@@ -98,13 +98,13 @@ def _prep4lx(quantity, mat_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
     return ast.parse(str(quantity)).body[0]
 
 
-def _fit_array(array, max_size=5):
+def _fit_array(array, mat_size=DEFAULT_MAT_SIZE):
     '''
     shorten the given 1 dimensional matrix/array by substituting ellipsis (...)
     '''
 
-    if len(array) > max_size:
-        array = [*array[:max_size - 2], '\\vdots', array[-1]]
+    if len(array) > mat_size:
+        array = [*array[:mat_size - 2], '\\vdots', array[-1]]
 
     return array
 
@@ -394,7 +394,7 @@ class _LatexVisitor(ast.NodeVisitor):
 
     def visit_Str(self, n):
         # if whole string contains only word characters
-        if re.match('\w*', n.s).span()[1] == len(n.s):
+        if re.match(r'\w*', n.s).span()[1] == len(n.s):
             return format_name(n.s)
         # or if it seems like an equation
         elif re.search(r'[^=]=[^w]', n.s):
@@ -523,7 +523,7 @@ def latexify(expr, mul_symbol='*', div_symbol='frac', subs=False, mat_size=5):
         else:
             return ''
     else:
-        pt = _prep4lx(expr)
+        pt = _prep4lx(expr, mat_size)
 
     return _LatexVisitor(mul_symbol, div_symbol, subs, mat_size).visit(pt)
 

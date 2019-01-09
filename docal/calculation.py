@@ -26,12 +26,12 @@ def _calculate(expr, options: dict):
     result = [
         latexify(expr, mat_size=options['mat_size']),
         latexify(expr, subs=True, mat_size=options['mat_size']),
-        latexify(eval(expr, DICT), options['mat_size'])
+        latexify(eval(expr, DICT), mat_size=options['mat_size'])
     ]
 
     if options['steps']:
         result = [result[s] for s in options['steps']]
-    else: # remove repeated steps (retaining order)
+    else:  # remove repeated steps (retaining order)
         if isinstance(ast.parse(expr).body[0].value, ast.Name):
             result = [result[0], result[2]]
         else:
@@ -51,12 +51,60 @@ def _calculate(expr, options: dict):
     else:
         options['unit'] = unitize(expr)
     if options['unit'] and options['unit'] != '_':
-        unit_lx = f" \, \mathrm{{{latexify(options['unit'], div_symbol='/')}}}"
+        unit_lx = fr" \,\mathrm{{{latexify(options['unit'], div_symbol='/')}}}"
     else:
         unit_lx = ''
     result[-1] += unit_lx + options['note']
 
     return result
+
+
+def _process_options(additionals):
+
+    options = {
+        'steps': [],
+        'mat_size': DEFAULT_MAT_SIZE,
+        'unit': '',
+        'mode': 'default',
+        'vert': True,
+        'note': ''
+            }
+
+    if additionals:
+        for a in [a.strip() for a in additionals.split(',')]:
+            if a.isdigit():
+                options['steps'] = [int(num) - 1 for num in a]
+            # only the first # is used to split the line (see above) so others
+            elif a.startswith('#'):
+                options['note'] = a[1:]
+            elif a.startswith('m') and a[1:].isdigit():
+                if len(a) == 2:
+                    options['mat_size'] = int(a[1])
+                else:
+                    options['mat_size'] = (int(a[1]), int(a[2]))
+            elif a == '$':
+                options['mode'] = 'inline'
+            elif a == '$$':
+                options['mode'] = 'display'
+            elif a == '|':
+                options['vert'] = True
+            elif a == '-':
+                options['vert'] = False
+            else:
+                # if it is a valid python expression, take it as a unit
+                try:
+                    compile(a, '', 'eval')
+                except SyntaxError:
+                    print('            ', color('WARNING:', 'yellow'),
+                          f"Unknown option '{a}' found, ignoring...")
+                else:
+                    options['unit'] = a
+
+    if options['note']:
+        options['note'] = f'\\quad\\text{{{options["note"]}}}'
+
+    return options
+
 
 def _assort_input(input_str):
     '''look above'''
@@ -89,47 +137,7 @@ def _assort_input(input_str):
                 for n in ast.walk(ast.parse(var_name).body[0])
                 if isinstance(n, ast.Name)]
 
-    options = {
-        'steps': [],
-        'mat_size': DEFAULT_MAT_SIZE,
-        'unit': '',
-        'mode': 'default',
-        'vert': True,
-        'note': ''
-            }
-
-    if additionals:
-        for a in [a.strip() for a in additionals.split(',')]:
-            if a.isdigit():
-                options['steps'] = [int(num) - 1 for num in a]
-            # only the first # is used to split the line (see above) so others
-            elif a.startswith('#'):
-                options['note'] = a[1:]
-            elif a.startswith('m') and a[1:].isdigit():
-                if len(a) == 2:
-                    options['mat_size'] = int(a[1])
-                else:
-                    options['mat_size'] = (int(a[1]), int(a[2]))
-            elif a == '$':
-                options['mode'] = 'inline'
-            elif a == '$$':
-                options['mode'] = 'display'
-            elif a == '|':
-                options['vert'] = True
-            elif a == '-':
-                options['vert'] = False
-            else:
-                try:
-                    compile(a, '', 'eval')
-                    options['unit'] = a
-                except SyntaxError:
-                    print('            ', color('WARNING:', 'yellow'),
-                          f"Unknown option '{a}' found, ignoring...")
-
-    if options['note']:
-        options['note'] = f'\\quad\\text{{{options["note"]}}}'
-
-    return var_name, unp_vars, expression, options
+    return var_name, unp_vars, expression, additionals
 
 
 def cal(input_str: str) -> str:
@@ -138,7 +146,8 @@ def cal(input_str: str) -> str:
     and return all the procedures
 
     '''
-    var_name, unp_vars, expr, options = _assort_input(input_str)
+    var_name, unp_vars, expr, additionals = _assort_input(input_str)
+    options = _process_options(additionals)
     result = _calculate(expr, options)
     var_lx = latexify(var_name)
 
@@ -195,10 +204,10 @@ class UnitHandler(ast.NodeVisitor):
         # store and temporarily disregard the state self.norm
         prev_norm = self.norm
         self.norm = True
-        l = self.visit(unit)
+        ls = self.visit(unit)
         # revert to the previous state
         self.norm = prev_norm
-        return l
+        return ls
 
     def visit_Call(self, n):
         if isinstance(n.func, ast.Attribute):
@@ -231,6 +240,9 @@ class UnitHandler(ast.NodeVisitor):
                         p = n.right.left.n / n.right.n
                     elif isinstance(n.right.op, ast.Pow):
                         p = n.right.left.n ** n.right.n
+                else:
+                    # XXX
+                    p = 1
             elif isinstance(n.right, ast.UnaryOp):
                 if isinstance(n.right.operand, ast.Num):
                     if isinstance(n.right.op, ast.USub):
@@ -239,6 +251,9 @@ class UnitHandler(ast.NodeVisitor):
                         p = n.right.operand.n
             elif isinstance(n.right, ast.Num):
                 p = n.right.n
+            else:
+                # XXX
+                p = 1
             for u in left[0]:
                 left[0][u] *= p
             for u in left[1]:
