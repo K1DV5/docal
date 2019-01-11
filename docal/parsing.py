@@ -549,32 +549,39 @@ def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True,
         surroundings = ['\\(\\displaystyle ', ' \\)']
 
     if norm:
-        equations = []
-        for i, eq in enumerate(equation_list):
-            balanced = []
-            incomplete = ''
-            for e in eq.split('='):
-                if incomplete or \
-                        any([e.count(par[0]) != e.count(par[1])
-                             for par in PARENS]):
-                    incomplete += ('=' if incomplete else '') + e
-                    if all([incomplete.count(par[0]) ==
-                            incomplete.count(par[1])
-                            for par in PARENS]):
-                        e = incomplete
-                        incomplete = ''
-                    else:
-                        e = None
-                if e is not None:
-                    balanced.append(e)
-            equations.append(balanced)
-        equations = [' = '.join([latexify(e) for e in eq])
-                     for eq in equations]
+        equations = [equals.join([latexify(e) for e in split_eq(eq)])
+                     for eq in equation_list]
     else:
-        equations = list(equation_list)
-    for i, e in enumerate(equations):
-        equations[i] = equals.join(e.rsplit('=', 1))
+        equations = [equals.join(split_eq(eq)) for eq in equation_list]
 
     if surr:
         return surroundings[0] + joint.join(equations) + surroundings[1]
     return joint.join(equations)
+
+
+def split_eq(eqn: str, last=True) -> list:
+    '''split a given equation at the main equal signs and not at the ones
+    used for other purposes like giving a kwarg'''
+
+    balanced = []
+    incomplete = ''
+    for e in eqn.split('='):
+        e = e.strip()
+        # if there is an incomplete or the parens are not balanced, add it to
+        # the incomplete
+        if any([e.count(par[0]) != e.count(par[1]) for par in PARENS]) \
+            or incomplete and any([incomplete.count(par[0]) != incomplete.count(par[1])
+                for par in PARENS]):
+            incomplete += ('=' if incomplete else '') + e
+            # if the incomplete is balanced, add it to balanced and empty it
+            if incomplete and all([incomplete.count(par[0]) == incomplete.count(par[1])
+                    for par in PARENS]):
+                balanced.append(incomplete)
+                incomplete = ''
+        else:
+            balanced.append(e)
+    if last:
+        # if splitting only at the last = is wanted, join the others
+        balanced = ['='.join(balanced[:-1]), balanced[-1]]
+
+    return balanced
