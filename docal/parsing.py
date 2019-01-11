@@ -240,6 +240,19 @@ class _LatexVisitor(ast.NodeVisitor):
             return f'{{{args}}}^{{-1}}'
         elif func == 'transpose':
             return f'{{{args}}}^{{T}}'
+        elif func == 'sum':
+            if isinstance(n.args[0], ast.Name):
+                n.args[0] = self.visit_Name(n.args[0], True)
+            if isinstance(n.args[0], ast.List) or isinstance(n.args[0], ast.Tuple):
+                return fr'\sum_{{i = 1}}^{{{len(n.args[0].elts)}}} {args}'
+            else:
+                return fr'\sum \left({args}\right)'
+        elif func == 'log':
+            return fr'\ln {args}'
+        elif func == 'log10':
+            return fr'\log {args}'
+        elif func == 'log2':
+            return fr'\log_2 {args}'
         elif func in ignored:
             return self.visit(n.args[0])
         return fr'\operatorname{{{func}}}\left({args}\right)'
@@ -398,7 +411,12 @@ class _LatexVisitor(ast.NodeVisitor):
             return format_name(n.s)
         # or if it seems like an equation
         elif re.search(r'[^=]=[^w]', n.s):
-            return eqn(n.s)
+            try:
+                # can't use latexify because the equations may be
+                # python illegal and latex legal like 3*4 = 5/6
+                return eqn(n.s, surr=False, vert=False)
+            except SyntaxError:  # if the equation is just beyond understanding
+                pass
         return n.s
 
     def prec_Str(self, n):
