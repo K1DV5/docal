@@ -138,7 +138,7 @@ taken as a real comment. It will not do anything.
 
 Let's say you have a word document `foo.docx` with contents like this.
 
-![Word document input](common/images/word-in.jpg?raw=true "Word document input")
+![Word document input](https://github.com/K1DV5/doCal/raw/dev/common/images/word-in.jpg "Word document input")
 
 And you write the calculations in the file `foo.py` next to `foo.docx`
 ```python
