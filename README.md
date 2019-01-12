@@ -173,7 +173,7 @@ docal foo.py foo.docx
 ```
 A third file, named `foo-out.docx` will appear. And it will look like this.
 
-![Word document output](common/images/word-out.jpg?raw=true "Word document output")
+![Word document output](https://github.com/K1DV5/doCal/raw/master/common/images/word-out.jpg "Word document output")
 
 ## Known Issues
 
