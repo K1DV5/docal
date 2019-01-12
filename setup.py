@@ -7,7 +7,7 @@ with open('README.md', 'r') as fh:
 
 setuptools.setup(
     name='doCal',
-    version='0.3.1',
+    version='0.3.2',
     author='K1DV5',
     author_email='kidusadugna@gmail.com',
     description='Inject Python calculations into Word and LaTeX documents with ease!',

@@ -9,6 +9,9 @@ import ast
 import re
 from .document import DICT, color
 
+# those that must be matched in equations
+PARENS = ['()', '[]', '{}']
+
 DEFAULT_MAT_SIZE = 10
 
 GREEK_LETTERS = [
@@ -26,8 +29,56 @@ MATH_ACCENTS = [
 
 PRIMES = {'prime': "'", '2prime': "''", '3prime': "'''"}
 
+# things that are transformed, used for units and such
+TRANSFORMED = {
+    'degC': '^\\circ \\mathrm{C}',
+    'degF': '^\\circ \\mathrm{F}',
+    'deg': '^\\circ'
+}
+
 # what will be appended after the names to store units for those names
 UNIT_PF = '___0UNIT0'
+
+
+def format_name(name_str: str) -> str:
+    '''
+    Turn a variable name into a latex term that has sub/superscripts, accents,
+    upright if needed, and prime signs
+    '''
+    parts = name_str.strip(' _').split('_')
+    parts_final = parts[:]
+    accent_locations = []
+    for index, part in enumerate(parts):
+        # no modification is wanted if the first character is 0
+        if part.startswith('0') and len(part) > 1:
+            parts_final[index] = fr'\mathrm{{{part[1:]}}}'
+        # convert to latex commands
+        elif part in GREEK_LETTERS:
+            parts_final[index] = '{\\' + part + '}'
+        # maybe if it is something that is simpler to write than its value
+        elif part in TRANSFORMED:
+            parts_final[index] = TRANSFORMED[part]
+        # enclose the previous item in accent commands
+        elif part in MATH_ACCENTS:
+            # (to choose which to surround)
+            which = index - 2 if not parts[index - 1] else index - 1
+            parts_final[which] = '{\\' + \
+                f'{part}{{{parts_final[which]}}}}}'
+            accent_locations.append(index)
+        # convert primes
+        elif part in PRIMES.keys():
+            which = index - 2 if not parts[index - 1] else index - 1
+            parts_final[which] = '{' + \
+                parts_final[which] + PRIMES[part] + "}"
+            accent_locations.append(index)
+        elif len(part) > 1:
+            parts_final[index] = fr'\mathrm{{{parts_final[index]}}}'
+    # remove the accents
+    parts_final = [part for index, part in enumerate(parts_final)
+                   if index not in accent_locations]
+    name = '_'.join(parts_final).replace('__', '^')
+
+    return name
 
 
 def _prep4lx(quantity, mat_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
@@ -44,16 +95,16 @@ def _prep4lx(quantity, mat_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
 
         quantity = _fit_matrix(quantity, mat_size)
 
-    return ast.parse(str(quantity)).body[0].value
+    return ast.parse(str(quantity)).body[0]
 
 
-def _fit_array(array, max_size=5):
+def _fit_array(array, mat_size=DEFAULT_MAT_SIZE):
     '''
     shorten the given 1 dimensional matrix/array by substituting ellipsis (...)
     '''
 
-    if len(array) > max_size:
-        array = [*array[:max_size - 2], '\\vdots', array[-1]]
+    if len(array) > mat_size:
+        array = [*array[:mat_size - 2], '\\vdots', array[-1]]
 
     return array
 
@@ -141,8 +192,14 @@ class _LatexVisitor(ast.NodeVisitor):
     def prec(self, n):
         return getattr(self, 'prec_'+n.__class__.__name__, getattr(self, 'generic_prec'))(n)
 
+    def visit_Expr(self, n):
+        return self.visit(n.value)
+
+    def visit_Assign(self, n):
+        return ' = '.join([self.visit(t) for t in n.targets + [n.value]])
+
     # attributes (foo.bar)
-    def visit_Attribute(self, n, raw=False):
+    def visit_Attribute(self, n, shallow=False):
         # if the value is desired
         if self.subs:
             # if it is a variable take its name
@@ -157,12 +214,12 @@ class _LatexVisitor(ast.NodeVisitor):
             # if it is inside another attribute, return the string representation
             if hasattr(n, 'is_in_attr') and n.is_in_attr:
                 return f'{base}.{attr}'
-            if raw:
-                return _prep4lx(eval(f'{base}.{attr}', DICT), self.mat_size)
+            if shallow:
+                return _prep4lx(eval(f'{base}.{attr}', DICT), self.mat_size).value
             # get, prep and visit the value
             return self.visit(_prep4lx(eval(f'{base}.{attr}', DICT), self.mat_size))
         # only get the part after the dot
-        return self.format_name(n.attr)
+        return format_name(n.attr)
 
     def prec_Attribute(self, n):
         return 1000
@@ -183,6 +240,19 @@ class _LatexVisitor(ast.NodeVisitor):
             return f'{{{args}}}^{{-1}}'
         elif func == 'transpose':
             return f'{{{args}}}^{{T}}'
+        elif func == 'sum':
+            if isinstance(n.args[0], ast.Name):
+                n.args[0] = self.visit_Name(n.args[0], True)
+            if isinstance(n.args[0], ast.List) or isinstance(n.args[0], ast.Tuple):
+                return fr'\sum_{{i = 1}}^{{{len(n.args[0].elts)}}} {args}'
+            else:
+                return fr'\sum \left({args}\right)'
+        elif func == 'log':
+            return fr'\ln {args}'
+        elif func == 'log10':
+            return fr'\log {args}'
+        elif func == 'log2':
+            return fr'\log_2 {args}'
         elif func in ignored:
             return self.visit(n.args[0])
         return fr'\operatorname{{{func}}}\left({args}\right)'
@@ -196,62 +266,30 @@ class _LatexVisitor(ast.NodeVisitor):
     def prec_Lambda(self, n):
         return self.prec(n.body)
 
-    def format_name(self, name_str):
-        parts = name_str.strip(' _').split('_')
-        parts_final = parts[:]
-        accent_locations = []
-        for index, part in enumerate(parts):
-            # no modification is wanted if the first character is 0
-            if part.startswith('0') and len(part) > 1:
-                parts_final[index] = fr'\mathrm{{{part[1:]}}}'
-            # convert to latex commands
-            elif part in GREEK_LETTERS:
-                parts_final[index] = '{\\' + part + '}'
-            # enclose the previous item in accent commands
-            elif part in MATH_ACCENTS:
-                # (to choose which to surround)
-                which = index - 2 if not parts[index - 1] else index - 1
-                parts_final[which] = '{\\' + \
-                    f'{part}{{{parts_final[which]}}}}}'
-                accent_locations.append(index)
-            # convert primes
-            elif part in PRIMES.keys():
-                which = index - 2 if not parts[index - 1] else index - 1
-                parts_final[which] = '{' + \
-                    parts_final[which] + PRIMES[part] + "}"
-                accent_locations.append(index)
-            elif len(part) > 1:
-                parts_final[index] = fr'\mathrm{{{parts_final[index]}}}'
-        # remove the accents
-        parts_final = [part for index, part in enumerate(parts_final)
-                       if index not in accent_locations]
-        name = '_'.join(parts_final).replace('__', '^')
-
-        return name
-
     # variables
-    def visit_Name(self, n, raw=False):
+    def visit_Name(self, n, shallow=False):
         if self.subs:
             # substitute the value of the variable by formatted value
             try:
                 # if the raw ast object is needed (for BinOp)
-                if raw:
-                    return _prep4lx(DICT[n.id], self.mat_size)
+                if shallow:
+                    return _prep4lx(DICT[n.id], self.mat_size).value
                 # to prevent infinite recursion:
                 if str(DICT[n.id]) == n.id:
-                    return self.format_name(str(DICT[n.id]))
+                    return format_name(str(DICT[n.id]))
                 qty = self.visit(_prep4lx(DICT[n.id], self.mat_size))
-                unit = DICT[n.id + UNIT_PF] \
-                    if n.id + UNIT_PF in DICT.keys() else ''
+                unit = fr'\, \mathrm{{{latexify(DICT[n.id + UNIT_PF], div_symbol="/")}}}' \
+                    if n.id + UNIT_PF in DICT.keys() and DICT[n.id + UNIT_PF] \
+                    and DICT[n.id + UNIT_PF] != '_' else ''
                 # if the quantity is raised to some power and has a unit,
-                # surround it with parens
-                if hasattr(n, 'is_in_power') and n.is_in_power and unit:
+                # surround it with PARENS
+                if hasattr(n, 'is_in_power') and n.is_in_power and unit and unit != '_':
                     return f'\\left({qty} {unit}\\right)'
                 return qty + unit
             except KeyError:
                 print(color('WARNING', 'yellow'),
                       f" The variable '{color(n.id, 'red')}' has not been defined.")
-        return self.format_name(n.id)
+        return format_name(n.id)
 
     def prec_Name(self, n):
         return 1000
@@ -259,7 +297,8 @@ class _LatexVisitor(ast.NodeVisitor):
     def visit_UnaryOp(self, n):
         if isinstance(n.op, ast.USub):
             n.operand.is_in_unaryop = True
-        if self.prec(n.op) >= self.prec(n.operand) or (hasattr(n, 'is_in_unaryop') and n.is_in_unaryop):
+        if self.prec(n.op) >= self.prec(n.operand) \
+                or (hasattr(n, 'is_in_unaryop') and n.is_in_unaryop):
             return fr'{ self.visit(n.op) } \left({ self.visit(n.operand) }\right)'
         else:
             return fr'{ self.visit(n.op) } { self.visit(n.operand) }'
@@ -268,6 +307,7 @@ class _LatexVisitor(ast.NodeVisitor):
         return self.prec(n.op)
 
     def visit_BinOp(self, n):
+        # to know what the names and attributes contain underneath
         tmp_right = n.right
         if self.subs:
             # shallow visit to know what the name contains (without the units)
@@ -285,14 +325,17 @@ class _LatexVisitor(ast.NodeVisitor):
         else:
             right = self.visit(n.right)
         if isinstance(n.op, ast.Mult):
-            # things that don't need multiplication sign before them
-            no_need = [ast.Name, ast.Tuple, ast.Call, ast.List, ast.Attribute]
-            if any([isinstance(tmp_right, t) for t in no_need]):
+            # unless the right term is a Num or BinOp whose operation is power
+            no_need = not any([isinstance(tmp_right, ast.BinOp)
+                               and isinstance(tmp_right.op, ast.Pow)
+                               and isinstance(tmp_right.left, ast.Num),
+                               isinstance(tmp_right, ast.Num)])
+            if no_need:
                 return fr'{left} \, {right}'
         elif isinstance(n.op, ast.Pow):
-            # so that it can be surrounded with parens if it has units
+            # so that it can be surrounded with PARENS if it has units
             n.left.is_in_power = True
-            return fr'{left}^{{{right}}}'
+            return fr'{self.visit(n.left)}^{{{right}}}'
         elif self.div_symbol == 'frac':
             if isinstance(n.op, ast.Div):
                 return fr'\frac{{{left}}}{{{right}}}'
@@ -311,7 +354,9 @@ class _LatexVisitor(ast.NodeVisitor):
             if isinstance(child, ast.List):
                 child.is_in_list = True
         elements = [self.visit(element) for element in n.elts]
-        return '\\left[\\begin{matrix}\n' + '\\\\\n'.join(elements) + '\n\\end{matrix}\\right]'
+        return ('\\left[\\begin{matrix}\n'
+                + '\\\\\n'.join(elements)
+                + '\n\\end{matrix}\\right]')
 
     def prec_List(self, n):
         return 1000
@@ -324,16 +369,19 @@ class _LatexVisitor(ast.NodeVisitor):
                               if isinstance(i, ast.Num)
                               else self.visit(i)
                               for i in n.elts])
-        return '\\left(' + ', '.join([self.visit(element) for element in n.elts]) + '\\right)'
+        return ('\\left('
+                + ', '.join([self.visit(element) for element in n.elts])
+                + '\\right)')
 
     def prec_Tuple(self, n):
         return 1000
 
     # indexed items (item[4:])
     def visit_Subscript(self, n):
-        # if the iterable is kinda not simple, surround it with parens
+        # if the iterable is kinda not simple, surround it with PARENS
         if isinstance(n.value, ast.BinOp) or isinstance(n.value, ast.UnaryOp):
-            return f'{{\\left({self.visit(n.value)}\\right)}}_{{\\left[{self.visit(n.slice)}\\right]}}'
+            return (f'{{\\left({self.visit(n.value)}\\right)}}'
+                    f'_{{\\left[{self.visit(n.slice)}\\right]}}')
         # write the indices as subscripts
         return f'{{{self.visit(n.value)}}}_{{\\left[{self.visit(n.slice)}\\right]}}'
 
@@ -359,11 +407,16 @@ class _LatexVisitor(ast.NodeVisitor):
 
     def visit_Str(self, n):
         # if whole string contains only word characters
-        if re.match('\w*', n.s).span()[1] == len(n.s):
-            return self.format_name(n.s)
+        if re.match(r'\w*', n.s).span()[1] == len(n.s):
+            return format_name(n.s)
         # or if it seems like an equation
         elif re.search(r'[^=]=[^w]', n.s):
-            return eqn(n.s)
+            try:
+                # can't use latexify because the equations may be
+                # python illegal and latex legal like 3*4 = 5/6
+                return eqn(n.s, surr=False, vert=False)
+            except SyntaxError:  # if the equation is just beyond understanding
+                pass
         return n.s
 
     def prec_Str(self, n):
@@ -465,6 +518,9 @@ class _LatexVisitor(ast.NodeVisitor):
         return str(round(number, 2))
 
     def prec_Num(self, n):
+        if hasattr(n, 'is_in_power') and n.is_in_power \
+                and n.n != 0 and (abs(n.n) > 1000 or abs(n.n) < 0.1):
+            return 300
         return 1000
 
     def generic_visit(self, n):
@@ -480,17 +536,18 @@ def latexify(expr, mul_symbol='*', div_symbol='frac', subs=False, mat_size=5):
     '''
 
     if isinstance(expr, str):
-        if expr:
-            pt = ast.parse(expr.strip()).body[0].value
+        if expr.strip():
+            pt = ast.parse(expr.strip()).body[0]
         else:
             return ''
     else:
-        pt = _prep4lx(expr)
+        pt = _prep4lx(expr, mat_size)
 
     return _LatexVisitor(mul_symbol, div_symbol, subs, mat_size).visit(pt)
 
 
-def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True):
+def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True,
+        vert: bool = True) -> str:
     '''main api for equations'''
 
     eqn_len = len(equation_list)
@@ -501,21 +558,48 @@ def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True)
         if eqn_len > 1:
             surroundings = [
                 '\\begin{align}\n\\begin{split}\n', '\n\\end{split}\n\\end{align}']
-            equals = ' &= '
-            joint = '\\\\\n'
+            if vert:
+                joint = '\\\\\n'
+                equals = ' &= '
         else:
             surroundings = ['\\begin{equation}\n', '\n\\end{equation}']
     else:
         surroundings = ['\\(\\displaystyle ', ' \\)']
 
     if norm:
-        equations = [equals.join([latexify(expr.strip())
-                                  for expr in equation.split('=')])
-                     for equation in equation_list]
+        equations = [equals.join([latexify(e) for e in split_eq(eq)])
+                     for eq in equation_list]
     else:
-        equations = [equation.replace('=', equals)
-                     for equation in equation_list]
+        equations = [equals.join(split_eq(eq)) for eq in equation_list]
 
     if surr:
         return surroundings[0] + joint.join(equations) + surroundings[1]
     return joint.join(equations)
+
+
+def split_eq(eqn: str, last=True) -> list:
+    '''split a given equation at the main equal signs and not at the ones
+    used for other purposes like giving a kwarg'''
+
+    balanced = []
+    incomplete = ''
+    for e in eqn.split('='):
+        e = e.strip()
+        # if there is an incomplete or the parens are not balanced, add it to
+        # the incomplete
+        if any([e.count(par[0]) != e.count(par[1]) for par in PARENS]) \
+            or incomplete and any([incomplete.count(par[0]) != incomplete.count(par[1])
+                for par in PARENS]):
+            incomplete += ('=' if incomplete else '') + e
+            # if the incomplete is balanced, add it to balanced and empty it
+            if incomplete and all([incomplete.count(par[0]) == incomplete.count(par[1])
+                    for par in PARENS]):
+                balanced.append(incomplete)
+                incomplete = ''
+        else:
+            balanced.append(e)
+    if last:
+        # if splitting only at the last = is wanted, join the others
+        balanced = ['='.join(balanced[:-1]), balanced[-1]]
+
+    return balanced
