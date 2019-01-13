@@ -567,8 +567,11 @@ def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True,
         surroundings = ['\\(\\displaystyle ', ' \\)']
 
     if norm:
-        equations = [equals.join([latexify(e) for e in split_eq(eq)])
-                     for eq in equation_list]
+        equations = []
+        for eq in equation_list:
+            left, right = split_eq(eq)
+            left = ' = '.join([latexify(e) for e in split_eq(eq, False)])
+            equations.append(left + equals + right)
     else:
         equations = [equals.join(split_eq(eq)) for eq in equation_list]
 
@@ -589,11 +592,11 @@ def split_eq(eqn: str, last=True) -> list:
         # the incomplete
         if any([e.count(par[0]) != e.count(par[1]) for par in PARENS]) \
             or incomplete and any([incomplete.count(par[0]) != incomplete.count(par[1])
-                for par in PARENS]):
+                                   for par in PARENS]):
             incomplete += ('=' if incomplete else '') + e
             # if the incomplete is balanced, add it to balanced and empty it
             if incomplete and all([incomplete.count(par[0]) == incomplete.count(par[1])
-                    for par in PARENS]):
+                                   for par in PARENS]):
                 balanced.append(incomplete)
                 incomplete = ''
         else:
