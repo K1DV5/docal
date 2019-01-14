@@ -566,11 +566,11 @@ def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True,
     if norm:
         equations = []
         for eq in equation_list:
-            left, right = split_eq(eq)
-            left = ' = '.join([latexify(e) for e in split_eq(eq, False)])
-            equations.append(left + equals + right)
+            left, right = _split_eq(eq)
+            left = ' = '.join([latexify(e) for e in _split_eq(eq, False)])
+            equations.append(equals.join([left, right]))
     else:
-        equations = [equals.join(split_eq(eq)) for eq in equation_list]
+        equations = [equals.join(_split_eq(eq)) for eq in equation_list]
 
     if surr:
         return surroundings[0] + joint.join(equations) + surroundings[1]
@@ -602,7 +602,7 @@ def _split_eq(eqn: str, last=True) -> list:
                 incomplete = ''
         else:
             balanced.append(e)
-    if last:
+    if last and len(balanced) > 1:
         # if splitting only at the last = is wanted, join the others
         balanced = ['='.join(balanced[:-1]), balanced[-1]]
 

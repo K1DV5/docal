@@ -7,7 +7,7 @@ module and returns the procedure of the calculations
 
 import ast
 from .document import DICT, color
-from .parsing import latexify, eqn, split_eq, DEFAULT_MAT_SIZE, UNIT_PF
+from .parsing import latexify, eqn, _split_eq, DEFAULT_MAT_SIZE, UNIT_PF
 
 # units that are not base units
 DERIVED = {
@@ -119,7 +119,7 @@ def _assort_input(input_str):
         additionals = input_parts[1]
 
     if '=' in equation:
-        var_name, expression = split_eq(equation)
+        var_name, expression = _split_eq(equation)
     else:
         print(color('ERROR:', 'red'), 'This is not an equation.')
         exit()
