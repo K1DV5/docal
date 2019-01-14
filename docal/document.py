@@ -53,7 +53,7 @@ except ImportError:
     DEFAULT_SCRIPT = None
     DICT = {}
 from .calculation import cal
-from .parsing import UNIT_PF, PARENS, eqn, latexify
+from .parsing import UNIT_PF, _parens_balanced, eqn, latexify
 # to log info about what it's doing with timestamps
 START_TIME = datetime.now()
 
@@ -171,13 +171,9 @@ class document:
         '''
         evaluate assignments and convert to latex form
         '''
-        if self.incomplete_assign or \
-                any([line.count(par[0]) != line.count(par[1])
-                     for par in PARENS]):
+        if self.incomplete_assign or not _parens_balanced(line):
             self.incomplete_assign += '\n' + line
-            if all([self.incomplete_assign.count(par[0]) ==
-                    self.incomplete_assign.count(par[1])
-                    for par in PARENS]):
+            if _parens_balanced(self.incomplete_assign):
                 line = self.incomplete_assign
                 self.incomplete_assign = ''
             else:

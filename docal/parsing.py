@@ -9,9 +9,6 @@ import ast
 import re
 from .document import DICT, color
 
-# those that must be matched in equations
-PARENS = ['()', '[]', '{}']
-
 DEFAULT_MAT_SIZE = 10
 
 GREEK_LETTERS = [
@@ -580,7 +577,17 @@ def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True,
     return joint.join(equations)
 
 
-def split_eq(eqn: str, last=True) -> list:
+def _parens_balanced(expr):
+    '''
+    check if the pairs that must be balanced are actually balanced
+    '''
+    # those that must be matched in equations
+    parens = ['()', '[]', '{}']
+
+    return all([expr.count(p[0]) == expr.count(p[1]) for p in parens])
+
+
+def _split_eq(eqn: str, last=True) -> list:
     '''split a given equation at the main equal signs and not at the ones
     used for other purposes like giving a kwarg'''
 
@@ -588,15 +595,9 @@ def split_eq(eqn: str, last=True) -> list:
     incomplete = ''
     for e in eqn.split('='):
         e = e.strip()
-        # if there is an incomplete or the parens are not balanced, add it to
-        # the incomplete
-        if any([e.count(par[0]) != e.count(par[1]) for par in PARENS]) \
-            or incomplete and any([incomplete.count(par[0]) != incomplete.count(par[1])
-                                   for par in PARENS]):
+        if incomplete or not _parens_balanced(e):
             incomplete += ('=' if incomplete else '') + e
-            # if the incomplete is balanced, add it to balanced and empty it
-            if incomplete and all([incomplete.count(par[0]) == incomplete.count(par[1])
-                                   for par in PARENS]):
+            if incomplete and _parens_balanced(incomplete):
                 balanced.append(incomplete)
                 incomplete = ''
         else:
