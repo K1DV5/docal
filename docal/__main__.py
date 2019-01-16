@@ -1,17 +1,23 @@
 '''
 script handler
 '''
-from sys import argv
+from argparse import ArgumentParser
 from os import path
 from glob import glob
 from docal import document
 from docal.parsing import color
 
+
 def next_to(script):
-    next_to = [f for f in glob(path.splitext(script)[0] + '.*')
-            if path.splitext(f)[1] in ['.tex', '.docx']]
-    if next_to:
-        infile = next_to[0]
+    '''
+    find a file that ends with .tex or .docx and is in the same directory as
+    the script and return the first match, show error message and exit if none
+    is found.
+    '''
+    matches = [f for f in glob(path.splitext(script)[0] + '.*')
+               if path.splitext(f)[1] in ['.tex', '.docx']]
+    if matches:
+        infile = matches[0]
     else:
         print(color('ERROR:', 'red'), 'Cannot find a word or tex file here')
         exit()
@@ -19,35 +25,31 @@ def next_to(script):
     return infile
 
 
-def main():
-    arglen = len(argv)
-    if arglen == 1:
-        print(color('ERROR:', 'red'), 'No script name given.')
-        exit()
-    elif arglen == 2:
-        script = argv[1]
-        # find either a tex or docx file next to the script
-        infile = next_to(script)
-        outfile = None
-    elif arglen == 3:
-        script = argv[1]
-        if argv[2] == '0':
-            infile = next_to(script)
-            outfile = 0
-        else:
-            infile = argv[2]
-            outfile = None
-    elif arglen == 4:
-        script = argv[1]
-        infile = argv[2]
-        outfile = 0 if argv[3] == '0' else argv[3]
+# command line arguments
+parser = ArgumentParser(description="Process the script file, inject it to "
+                        "the input document and produce the output document")
+parser.add_argument('script', help='The calculation file/script')
+parser.add_argument('-i', '--input', help='The document file to be modified')
+parser.add_argument('-o', '--output', help='The destination document file')
+parser.add_argument('-c', '--clear', action='store_true',
+                    help='Clear the calculations and try to '
+                    'revert the document to the previous state. '
+                    'Only for the calculation ranges in LaTeX files.')
+args = parser.parse_args()
+args.input = args.input if args.input else next_to(args.script)
+args.output = 0 if args.output == '0' else args.output
 
-    with open(script) as file:
+
+def main():
+    '''
+    main function in this script
+    '''
+    with open(args.script) as file:
         instructions = file.read()
 
-    d = document(infile)
+    d = document(args.input, to_clear=args.clear)
     d.send(instructions)
-    d.write(outfile)
+    d.write(args.output)
 
 
 try:
