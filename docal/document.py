@@ -125,7 +125,6 @@ class document:
                           lambda x: 'TMP0'.join(
                               x.group(1).split('_')) + 'TMP0',
                           line)
-            breakpoint()
             line = self.inline_calc.sub('TMP0CALC000', line)
             if line.startswith('$$'):
                 line = eqn(*line[2:].split('|'))

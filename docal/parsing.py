@@ -547,12 +547,11 @@ def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True,
         vert: bool = True) -> str:
     '''main api for equations'''
 
-    eqn_len = len(equation_list)
     equals = ' = '
     joint = ' \\; '
 
     if disp:
-        if eqn_len > 1:
+        if len(equation_list) > 1:
             surroundings = [
                 '\\begin{align}\n\\begin{split}\n', '\n\\end{split}\n\\end{align}']
             if vert:
@@ -567,8 +566,8 @@ def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True,
         equations = []
         for eq in equation_list:
             left, right = _split_eq(eq)
-            left = ' = '.join([latexify(e) for e in _split_eq(eq, False)])
-            equations.append(equals.join([left, right]))
+            left = ' = '.join([latexify(e) for e in _split_eq(left, False)])
+            equations.append(equals.join([left, latexify(right)]))
     else:
         equations = [equals.join(_split_eq(eq)) for eq in equation_list]
 
