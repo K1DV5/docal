@@ -7,7 +7,7 @@ https://stackoverflow.com/questions/3867028/converting-a-python-numeric-expressi
 
 import ast
 import re
-from .document import DICT, color
+from .document import DICT
 
 DEFAULT_MAT_SIZE = 10
 
@@ -284,8 +284,8 @@ class _LatexVisitor(ast.NodeVisitor):
                     return f'\\left({qty} {unit}\\right)'
                 return qty + unit
             except KeyError:
-                print(color('WARNING', 'yellow'),
-                      f" The variable '{color(n.id, 'red')}' has not been defined.")
+                print('WARNING:',
+                      f" The variable '{n.id}' has not been defined.")
         return format_name(n.id)
 
     def prec_Name(self, n):

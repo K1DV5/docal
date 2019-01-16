@@ -5,7 +5,6 @@ from argparse import ArgumentParser
 from os import path
 from glob import glob
 from docal import document
-from docal.parsing import color
 
 
 def next_to(script):
@@ -19,7 +18,7 @@ def next_to(script):
     if matches:
         infile = matches[0]
     else:
-        print(color('ERROR:', 'red'), 'Cannot find a word or tex file here')
+        print('ERROR:', 'Cannot find a word or tex file here')
         exit()
 
     return infile
@@ -55,5 +54,5 @@ def main():
 try:
     main()
 except Exception as exc:
-    print(color('ERROR:', 'red'), f'[{exc.__class__.__name__}]', exc.args[0])
+    print('ERROR:', f'[{exc.__class__.__name__}]', exc.args[0])
     exit()
