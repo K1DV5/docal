@@ -26,26 +26,6 @@ from subprocess import run
 from os import environ, remove, path, makedirs
 # for timings
 from datetime import datetime
-# for colored output
-try:
-    from colorama import init as color_init
-except ImportError:
-    print('colorama not installed, using default color...\n')
-
-    def color(text, clr):
-        return text
-else:
-    color_init()
-    COLORS = {'cyan': '36;1',
-              'red': '31;1',
-              'green': '32;1',
-              'yellow': '33;1',
-              'magenta': '35;1'}
-
-    def color(text, clr):
-        '''surround the text with the appropriate ANSI escape sequences
-        so that they can be printed in color'''
-        return f'\033[{COLORS[clr]}m{text}\033[0m'
 # for working with the document's variables and filename
 try:
     from __main__ import __file__ as DEFAULT_SCRIPT, __dict__ as DICT
@@ -86,43 +66,41 @@ class document:
             self.infile = path.abspath(infile)
         else:
             self.infile = DEFAULT_SCRIPT.replace('.py', '.tex')
-        try:
-            if self.infile.endswith('.docx'):
-                self.temp_file = path.join(
-                    self.temp_dir, path.splitext(path.basename(infile))[0])
-                pandoc = run(['pandoc', self.infile, '-t', 'latex', '-o',
-                              self.temp_file, '--extract-media', self.temp_dir])
-                if pandoc.returncode != 0:
-                    raise FileNotFoundError('pandoc error')
-                with open(self.temp_file) as file:
-                    self.file_contents = file.read().replace('\\#\\#', '#')
-            else:
-                self.temp_file = 0
-                with open(self.infile) as file:
-                    self.file_contents = file.read()
-        except FileNotFoundError:
-            print(color('ERROR:', 'red'),
-                  f'{color(path.basename(self.infile), "cyan")} cannot be found.')
-            exit()
+        if self.infile.endswith('.docx'):
+            self.temp_file = path.join(
+                self.temp_dir, path.splitext(path.basename(infile))[0])
+            pandoc = run(['pandoc', self.infile, '-t', 'latex', '-o',
+                          self.temp_file, '--extract-media', self.temp_dir])
+            if pandoc.returncode != 0:
+                raise FileNotFoundError('pandoc error')
+            with open(self.temp_file) as file:
+                self.file_contents = file.read().replace('\\#\\#', '#')
+        else:
+            self.temp_file = 0
+            with open(self.infile) as file:
+                self.file_contents = file.read()
 
-    def __init__(self, infile=None):
+    def __init__(self, infile=None, to_clear=False):
         '''initialize'''
 
         # convert if necessary
         self._prepare_infile(infile)
+        # whether the input file is supposed to be cleared of calculations
+        self.to_clear = to_clear
         # the calculation parts
         self.contents = {}
         # the collection of tags at the bottom of the file for reversing
         self.tagline = re.search(fr'\n% *{re.escape(self.warning)}'
                                  '*[\[[a-zA-Z0-9_ ]+\]\]',
                                  self.file_contents)
+        # remove previous calculation parts
         if self.tagline:
             start = self.tagline.group(0).find('[[') + 2
             end = self.tagline.group(0).rfind(']]')
             self.tags = self.tagline.group(0)[start:end].split()
-        else:
-            self.tags = [tag.group(2)
-                         for tag in self.pattern.finditer(self.file_contents)]
+            self._revert_tags()
+        self.tags = [tag.group(2)
+                     for tag in self.pattern.finditer(self.file_contents)]
         # where the argument of the send function will go to
         self.current_tag = self.tags[0] if self.tags else None
         # temp storage for assignment statements where there are unmatched parens
@@ -135,8 +113,8 @@ class document:
         convert comments to latex paragraphs
         '''
 
-        print(color('    Processing comment line to a paragraph...', 'green'),
-              color(str(datetime.time(datetime.now())), 'magenta'),
+        print('    Processing comment line to a paragraph...',
+              str(datetime.time(datetime.now())),
               f'\n        {line}')
         line = line.lstrip()[1:].strip()
         if line.startswith('$'):
@@ -180,16 +158,16 @@ class document:
                 line = None
         if line:
             if not line.rstrip().endswith(';'):
-                print(color('    Evaluating and converting equation line to'
-                            'LaTeX form...', 'green'),
-                      color(str(datetime.time(datetime.now())), 'magenta'),
+                print('    Evaluating and converting equation line to'
+                        'LaTeX form...',
+                      str(datetime.time(datetime.now())),
                       f'\n        {line}')
                 # the cal function will execute it so no need for exec
                 return cal(line)
 
             # if it does not appear like an equation or a comment, just execute it
-            print(color('    Executing statement...', 'green'), f'\n        {line}',
-                  color(str(datetime.time(datetime.now())), 'magenta'))
+            print('    Executing statement...', f'\n        {line}',
+                  str(datetime.time(datetime.now())),)
             exec(line, DICT)
         return ''
 
@@ -200,8 +178,8 @@ class document:
         # if the first non-blank line is only #, do not modify
         hash_line = re.match(r'\s*#\s*\n', content)
         if hash_line:
-            print(color('    Sending the content without modifying...', 'green'),
-                  color(str(datetime.time(datetime.now())), 'magenta'))
+            print('    Sending the content without modifying...',
+                  str(datetime.time(datetime.now())),)
             return content[hash_line.span()[1]:]
         sent = []
         for line in content.split('\n'):
@@ -213,9 +191,9 @@ class document:
                 line = None
             if line is not None:
                 if self.incomplete_stmt:
-                    print(color('    Executing statement...', 'green'),
+                    print('    Executing statement...',
                           f'\n        {self.incomplete_stmt}',
-                          color(str(datetime.time(datetime.now())), 'magenta'))
+                          str(datetime.time(datetime.now())),)
                     exec(self.incomplete_stmt, DICT)
                     self.incomplete_stmt = ''
                 # a real comment starts with ## and does nothing
@@ -232,9 +210,9 @@ class document:
                 elif line:
                     # if it does not appear like an equation or a comment,
                     # just execute it
-                    print(color('    Executing statement...', 'green'),
+                    print('    Executing statement...',
                           f'\n        {line}',
-                          color(str(datetime.time(datetime.now())), 'magenta'))
+                          str(datetime.time(datetime.now())))
                     exec(line, DICT)
                     if line.startswith('del '):
                         # also delete associated unit strings
@@ -257,43 +235,40 @@ class document:
         if tag in self.tags:
             if tag not in self.contents.keys():
                 self.contents[tag] = []
-            msgs = [color(tag, "cyan"), color(
-                "Processing contents...", "green")]
-            print(f'[{msgs[0]}]: {msgs[1]}',
-                  color(str(datetime.time(datetime.now())), 'magenta'))
+            print(f'[{tag}]: Processing contents...',
+                  str(datetime.time(datetime.now())))
             self.contents[tag].append(self._process_content(content))
             if tag != self.current_tag:
                 self.current_tag = tag
         else:
-            print(color('ERROR:', 'red'),
-                  f'Tag "{color(tag, "cyan")}" is not present in the document')
-            exit()
+            raise KeyError(f'Tag {tag} cannot be found in the document')
 
     def send(self, content):
         '''add the content to the tag, which will be sent to the document.
         Where it will be inserted is decided by the most recent tag.'''
 
-        tags = list(re.finditer(r'\n\s*#\w+\s*\n', content))
-        tags_count = len(tags)
-        # if there are tags mentioned
-        if tags_count:
-            # if no tag is specified at the start, send it to the current one
-            tag_0_start = tags[0].span()[0] + 1
-            content_before = content[:tag_0_start]
-            if content_before.strip():
-                self._send(self.current_tag, content_before)
-            # for performance, define once
-            content_len = len(content)
-            for index, tag in enumerate(tags):
-                # the content is between the end of the tag and either the
-                # beginning of the next tag or the end of the string
-                till = tags[index+1].span()[0] + 1 \
-                    if index < tags_count - 1 else content_len
-                tag_content = content[tag.span()[1]: till]
-                tag = tag.group(0).strip()[1:]
-                self._send(tag, tag_content)
-        else:
-            self._send(self.current_tag, content)
+        if not self.to_clear:
+            tags = list(re.finditer(r'\n\s*#\w+\s*\n', content))
+            tags_count = len(tags)
+            # if there are tags mentioned
+            if tags_count:
+                # if no tag is specified at the start, send it to the current one
+                tag_0_start = tags[0].span()[0] + 1
+                content_before = content[:tag_0_start]
+                if content_before.strip():
+                    self._send(self.current_tag, content_before)
+                # for performance, define once
+                content_len = len(content)
+                for index, tag in enumerate(tags):
+                    # the content is between the end of the tag and either the
+                    # beginning of the next tag or the end of the string
+                    till = tags[index+1].span()[0] + 1 \
+                        if index < tags_count - 1 else content_len
+                    tag_content = content[tag.span()[1]: till]
+                    tag = tag.group(0).strip()[1:]
+                    self._send(tag, tag_content)
+            else:
+                self._send(self.current_tag, content)
 
     def _repl(self, match_object, surround: bool):
         start, tag, end = [m if m else '' for m in match_object.groups()]
@@ -307,9 +282,7 @@ class document:
             result = eqn(latexify(
                 DICT[tag]) + unit, norm=False, disp=False)
         else:
-            print(color('ERROR:', 'red'),
-                  f"'{color(tag, 'cyan')}' is an undefined variable or an unused tag.")
-            exit()
+              raise KeyError(f"'{tag}' is an undefined variable or an unused tag.")
 
         if surround:
             return (start
@@ -354,28 +327,7 @@ class document:
     def _subs_separate(self):
         return self.pattern.sub(self._repl_bare, self.file_contents)
 
-    def _prepare(self, outfile, revert):  # outfile needed for conditional
-        '''prepare what will be written to the final file'''
-
-        if outfile == self.infile:
-            if revert:
-                if self.tagline:
-                    file_contents = self._revert_tags()
-                else:
-                    file_contents = self._subs_in_place()
-            else:
-                if self.tagline:
-                    file_contents = self._revert_tags()
-                file_contents = self._subs_in_place()
-
-        else:
-            if self.tagline:
-                file_contents = self._revert_tags()
-            file_contents = self._subs_separate()
-
-        return file_contents
-
-    def write(self, outfile_or_revert=None):
+    def write(self, outfile=None):
         '''replace all the tags with the contents of the python script.
         then if the destination file is given, write a typeset-ready latex
         file or another type of file (based on the extension, using pandoc).
@@ -384,24 +336,21 @@ class document:
         reverting changes. If this function is run on an in-place substituted
         file, it will revert the file to its original state (with tags).'''
 
-        revert = 1
-        if outfile_or_revert == 0:
-            revert = False
-            outfile = self.infile[:-len('.docx')] + '-out.docx' \
-                if self.infile.endswith('.docx') \
-                else self.infile
-        elif not outfile_or_revert:
-            outfile = self.infile[:-len('.docx')] + '-out.docx' \
-                if self.infile.endswith('.docx') \
-                else self.infile
-        else:
-            outfile = outfile_or_revert
+        if not outfile:
+            if self.infile.endswith('.docx'):
+                basename, ext = path.splitext(self.infile)
+                outfile = basename + '-out' + ext
+            else:
+                outfile = self.infile
+        if not self.to_clear:
+            if outfile == self.infile and self.infile.endswith('.tex'):
+                self.file_contents = self._subs_in_place()
+            else:
+                self.file_contents = self._subs_separate()
 
-        print((f'{color("Writing output to", "green")} '
-               f'{color(outfile, "cyan")}{color("...", "green")}'),
-              color(datetime.now(), "magenta"))
+        print(f"Writing output to '{outfile}'... {datetime.now()}")
 
-        file_contents = self._prepare(outfile, revert)
+        file_contents = self.file_contents
 
         # if the input is a word file
         if self.temp_file:
@@ -411,14 +360,11 @@ class document:
             pandoc = run(['pandoc', '-f', 'latex', self.temp_file,
                           '-o', outfile, '--reference-doc', self.infile])
             if pandoc.returncode != 0:
-                print(color('ERROR:', 'red'),
-                      color((f'{path.basename(outfile)} is currently open'
-                             'in another application), possibly Word'), 'red'))
-                exit()
+                raise RuntimeWarning(f"'{path.basename(outfile)}' may be"
+                        "currently open in another application, possibly Word")
             remove(self.temp_file)
         else:
             with open(outfile, 'w') as file:
                 file.write(file_contents)
 
-        print((f'\n{color("SUCCESS!!!", "green")}     '
-               f'(finished in {color(str(datetime.now() - START_TIME), "magenta")})'))
+        print(f'\nSUCCESS!!!     (finished in {datetime.now() - START_TIME})')

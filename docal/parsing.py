@@ -7,7 +7,7 @@ https://stackoverflow.com/questions/3867028/converting-a-python-numeric-expressi
 
 import ast
 import re
-from .document import DICT, color
+from .document import DICT
 
 DEFAULT_MAT_SIZE = 10
 
@@ -284,8 +284,8 @@ class _LatexVisitor(ast.NodeVisitor):
                     return f'\\left({qty} {unit}\\right)'
                 return qty + unit
             except KeyError:
-                print(color('WARNING', 'yellow'),
-                      f" The variable '{color(n.id, 'red')}' has not been defined.")
+                print('WARNING:',
+                      f" The variable '{n.id}' has not been defined.")
         return format_name(n.id)
 
     def prec_Name(self, n):
@@ -547,12 +547,11 @@ def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True,
         vert: bool = True) -> str:
     '''main api for equations'''
 
-    eqn_len = len(equation_list)
     equals = ' = '
     joint = ' \\; '
 
     if disp:
-        if eqn_len > 1:
+        if len(equation_list) > 1:
             surroundings = [
                 '\\begin{align}\n\\begin{split}\n', '\n\\end{split}\n\\end{align}']
             if vert:
@@ -567,8 +566,8 @@ def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True,
         equations = []
         for eq in equation_list:
             left, right = _split_eq(eq)
-            left = ' = '.join([latexify(e) for e in _split_eq(eq, False)])
-            equations.append(equals.join([left, right]))
+            left = ' = '.join([latexify(e) for e in _split_eq(left, False)])
+            equations.append(equals.join([left, latexify(right)]))
     else:
         equations = [equals.join(_split_eq(eq)) for eq in equation_list]
 

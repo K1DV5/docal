@@ -6,7 +6,7 @@ module and returns the procedure of the calculations
 '''
 
 import ast
-from .document import DICT, color
+from .document import DICT
 from .parsing import latexify, eqn, _split_eq, DEFAULT_MAT_SIZE, UNIT_PF
 
 # units that are not base units
@@ -45,9 +45,9 @@ def _calculate(expr, options: dict):
         compared = [compared, [compared[1], [{}, {}]]]
         # if it is detected, warn the user but accept it anyway
         if not are_equivalent(*compared[1]) and not are_equivalent(*compared[0]):
-            print('            ', color('WARNING:', 'yellow'),
+            print('            WARNING:',
                   'The input unit is not equivalent to the calculated one.',
-                  color('Overriding...', 'yellow'))
+                  'Overriding...')
     else:
         options['unit'] = unitize(expr)
     if options['unit'] and options['unit'] != '_':
@@ -95,7 +95,7 @@ def _process_options(additionals):
                 try:
                     compile(a, '', 'eval')
                 except SyntaxError:
-                    print('            ', color('WARNING:', 'yellow'),
+                    print('            WARNING:',
                           f"Unknown option '{a}' found, ignoring...")
                 else:
                     options['unit'] = a
@@ -121,8 +121,7 @@ def _assort_input(input_str):
     if '=' in equation:
         var_name, expression = _split_eq(equation)
     else:
-        print(color('ERROR:', 'red'), 'This is not an equation.')
-        exit()
+        raise SyntaxError('This could not be understood as an equation')
 
     unp_vars = [n.id
                 for n in ast.walk(ast.parse(var_name).body[0])
@@ -284,7 +283,7 @@ class UnitHandler(ast.NodeVisitor):
             right = reduce(self.visit(n.right))
             if are_equivalent(left, right):
                 return left
-            print('            ', color('WARNING:', 'yellow'),
+            print('            WARNING:',
                   'The units of the two sides are not equivalent.')
             return [{}, {}]
 
