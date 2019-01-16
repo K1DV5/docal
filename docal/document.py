@@ -105,24 +105,27 @@ class document:
                   f'{color(path.basename(self.infile), "cyan")} cannot be found.')
             exit()
 
-    def __init__(self, infile=None):
+    def __init__(self, infile=None, to_clear=False):
         '''initialize'''
 
         # convert if necessary
         self._prepare_infile(infile)
+        # whether the input file is supposed to be cleared of calculations
+        self.to_clear = to_clear
         # the calculation parts
         self.contents = {}
         # the collection of tags at the bottom of the file for reversing
         self.tagline = re.search(fr'\n% *{re.escape(self.warning)}'
                                  '*[\[[a-zA-Z0-9_ ]+\]\]',
                                  self.file_contents)
+        # remove previous calculation parts
         if self.tagline:
             start = self.tagline.group(0).find('[[') + 2
             end = self.tagline.group(0).rfind(']]')
             self.tags = self.tagline.group(0)[start:end].split()
-        else:
-            self.tags = [tag.group(2)
-                         for tag in self.pattern.finditer(self.file_contents)]
+            self._revert_tags()
+        self.tags = [tag.group(2)
+                     for tag in self.pattern.finditer(self.file_contents)]
         # where the argument of the send function will go to
         self.current_tag = self.tags[0] if self.tags else None
         # temp storage for assignment statements where there are unmatched parens
@@ -273,27 +276,28 @@ class document:
         '''add the content to the tag, which will be sent to the document.
         Where it will be inserted is decided by the most recent tag.'''
 
-        tags = list(re.finditer(r'\n\s*#\w+\s*\n', content))
-        tags_count = len(tags)
-        # if there are tags mentioned
-        if tags_count:
-            # if no tag is specified at the start, send it to the current one
-            tag_0_start = tags[0].span()[0] + 1
-            content_before = content[:tag_0_start]
-            if content_before.strip():
-                self._send(self.current_tag, content_before)
-            # for performance, define once
-            content_len = len(content)
-            for index, tag in enumerate(tags):
-                # the content is between the end of the tag and either the
-                # beginning of the next tag or the end of the string
-                till = tags[index+1].span()[0] + 1 \
-                    if index < tags_count - 1 else content_len
-                tag_content = content[tag.span()[1]: till]
-                tag = tag.group(0).strip()[1:]
-                self._send(tag, tag_content)
-        else:
-            self._send(self.current_tag, content)
+        if not self.to_clear:
+            tags = list(re.finditer(r'\n\s*#\w+\s*\n', content))
+            tags_count = len(tags)
+            # if there are tags mentioned
+            if tags_count:
+                # if no tag is specified at the start, send it to the current one
+                tag_0_start = tags[0].span()[0] + 1
+                content_before = content[:tag_0_start]
+                if content_before.strip():
+                    self._send(self.current_tag, content_before)
+                # for performance, define once
+                content_len = len(content)
+                for index, tag in enumerate(tags):
+                    # the content is between the end of the tag and either the
+                    # beginning of the next tag or the end of the string
+                    till = tags[index+1].span()[0] + 1 \
+                        if index < tags_count - 1 else content_len
+                    tag_content = content[tag.span()[1]: till]
+                    tag = tag.group(0).strip()[1:]
+                    self._send(tag, tag_content)
+            else:
+                self._send(self.current_tag, content)
 
     def _repl(self, match_object, surround: bool):
         start, tag, end = [m if m else '' for m in match_object.groups()]
@@ -354,28 +358,7 @@ class document:
     def _subs_separate(self):
         return self.pattern.sub(self._repl_bare, self.file_contents)
 
-    def _prepare(self, outfile, revert):  # outfile needed for conditional
-        '''prepare what will be written to the final file'''
-
-        if outfile == self.infile:
-            if revert:
-                if self.tagline:
-                    file_contents = self._revert_tags()
-                else:
-                    file_contents = self._subs_in_place()
-            else:
-                if self.tagline:
-                    file_contents = self._revert_tags()
-                file_contents = self._subs_in_place()
-
-        else:
-            if self.tagline:
-                file_contents = self._revert_tags()
-            file_contents = self._subs_separate()
-
-        return file_contents
-
-    def write(self, outfile_or_revert=None):
+    def write(self, outfile=None):
         '''replace all the tags with the contents of the python script.
         then if the destination file is given, write a typeset-ready latex
         file or another type of file (based on the extension, using pandoc).
@@ -384,24 +367,23 @@ class document:
         reverting changes. If this function is run on an in-place substituted
         file, it will revert the file to its original state (with tags).'''
 
-        revert = 1
-        if outfile_or_revert == 0:
-            revert = False
-            outfile = self.infile[:-len('.docx')] + '-out.docx' \
-                if self.infile.endswith('.docx') \
-                else self.infile
-        elif not outfile_or_revert:
-            outfile = self.infile[:-len('.docx')] + '-out.docx' \
-                if self.infile.endswith('.docx') \
-                else self.infile
-        else:
-            outfile = outfile_or_revert
+        if not outfile:
+            if self.infile.endswith('.docx'):
+                basename, ext = path.splitext(self.infile)
+                outfile = basename + '-out' + ext
+            else:
+                outfile = self.infile
+        if not self.to_clear:
+            if outfile == self.infile and self.infile.endswith('.tex'):
+                self.file_contents = self._subs_in_place()
+            else:
+                self.file_contents = self._subs_separate()
 
         print((f'{color("Writing output to", "green")} '
                f'{color(outfile, "cyan")}{color("...", "green")}'),
               color(datetime.now(), "magenta"))
 
-        file_contents = self._prepare(outfile, revert)
+        file_contents = self.file_contents
 
         # if the input is a word file
         if self.temp_file:
