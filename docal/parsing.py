@@ -601,6 +601,8 @@ def _split_eq(eqn: str, last=True) -> list:
                 incomplete = ''
         else:
             balanced.append(e)
+    if incomplete:
+        raise SyntaxError('The number of parens is not balanced.')
     if last and len(balanced) > 1:
         # if splitting only at the last = is wanted, join the others
         balanced = ['='.join(balanced[:-1]), balanced[-1]]
