@@ -385,7 +385,8 @@ class document:
             else:
                 outfile = self.infile
         if not self.to_clear:
-            if outfile == self.infile and self.infile.endswith('.tex'):
+            if path.abspath(outfile) == path.abspath(self.infile) \
+                    and self.infile.endswith('.tex'):
                 self.file_contents = self._subs_in_place()
             else:
                 self.file_contents = self._subs_separate()
