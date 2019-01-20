@@ -7,7 +7,8 @@ module and returns the procedure of the calculations
 
 import ast
 from .document import DICT
-from .parsing import latexify, eqn, _split_eq, DEFAULT_MAT_SIZE, UNIT_PF
+from .parsing import latexify, eqn, DEFAULT_MAT_SIZE, UNIT_PF
+from .utils import _split
 
 # units that are not base units
 DERIVED = {
@@ -68,7 +69,7 @@ def _process_options(additionals):
         'mode': 'default',
         'vert': True,
         'note': ''
-            }
+    }
 
     if additionals:
         for a in [a.strip() for a in additionals.split(',')]:
@@ -110,7 +111,8 @@ def _assort_input(input_str):
     '''look above'''
 
     # only split once, because the # char is used for notes below
-    input_parts = [part.strip() for part in input_str.strip().split('#', 1)]
+    input_parts = [part.strip()
+                   for part in _split(input_str.strip(), '#', last=False)]
     if len(input_parts) == 1:
         additionals = ''
         equation = input_str
@@ -119,7 +121,7 @@ def _assort_input(input_str):
         additionals = input_parts[1]
 
     if '=' in equation:
-        var_name, expression = _split_eq(equation)
+        var_name, expression = _split(equation)
     else:
         raise SyntaxError('This could not be understood as an equation')
 

@@ -36,7 +36,8 @@ except ImportError:
     DEFAULT_SCRIPT = None
     DICT = {}
 from .calculation import cal
-from .parsing import UNIT_PF, _parens_balanced, eqn, latexify
+from .parsing import UNIT_PF, eqn, latexify
+from .utils import _parens_balanced
 # to log info about what it's doing with timestamps
 START_TIME = datetime.now()
 # the tag pattern
