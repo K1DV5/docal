@@ -47,20 +47,21 @@ def main():
     '''
     main function in this script
     '''
-    if args.gui:
-        interface(args.input, args.output)
-    else:
-        try:
-            if args.script:
-                with open(args.script) as file:
-                    instructions = file.read()
-
-                d = document(args.input, to_clear=args.clear)
-                d.send(instructions)
-                d.write(args.output)
-        except Exception as exc:
-            print('ERROR:', f'[{exc.__class__.__name__}]', exc.args[0])
-            exit()
+    try:
+        if args.script:
+            with open(args.script) as file:
+                instructions = file.read()
+        else:
+            instructions = None
+        if args.gui:
+            interface(args.input, args.output, instructions)
+        else:
+            d = document(args.input, to_clear=args.clear)
+            d.send(instructions)
+            d.write(args.output)
+    except Exception as exc:
+        print('ERROR:', f'[{exc.__class__.__name__}]', exc.args[0])
+        exit()
 
 
 if __name__ == '__main__':

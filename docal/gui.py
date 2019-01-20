@@ -1,4 +1,4 @@
-# The gui script for DoCaL -i
+# The gui script for DoCaL
 # writtn by K1DV5
 # based on https://github.com/Dvlv/Tkinter-By-Example/
 
@@ -15,7 +15,7 @@ from sys import platform
 
 
 class Editor(tk.Tk):
-    def __init__(self, document_in=None, document_out=None):
+    def __init__(self, document_in=None, document_out=None, calculations=None):
         super().__init__()
 
         self.FONT_SIZE = 12
@@ -24,6 +24,43 @@ class Editor(tk.Tk):
 
         self.title(self.WINDOW_TITLE)
         # self.geometry("900x600")
+
+        self.main_text = tk.Text(
+            self, bg="white", fg="black", font=("Consolas", self.FONT_SIZE), undo=True)
+        self.main_text.pack(expand=1, fill=tk.BOTH, side="right")
+        self.main_text.insert('insert', calculations if calculations else '')
+
+        self.sidebar = ttk.Frame(self)
+        self.sidebar.pack(expand=1, fill=tk.BOTH)
+
+        ttk.Label(self.sidebar, text="Document input:").grid(
+            row=0, column=0, columnspan=2, sticky=tk.E+tk.W)
+        self.document_in = tk.StringVar(value=document_in)
+        ttk.Entry(self.sidebar, textvariable=self.document_in).grid(
+            row=1, column=0)
+        ttk.Button(self.sidebar, text="Browse...",
+                   command=self.sel_doc_in).grid(row=1, column=1)
+
+        ttk.Label(self.sidebar, text="Document output:").grid(
+            row=2, column=0, columnspan=2, sticky=tk.E+tk.W)
+        self.document_out = tk.StringVar(value=document_out)
+        ttk.Entry(self.sidebar, textvariable=self.document_out).grid(
+            row=3, column=0)
+        ttk.Button(self.sidebar, text="Browse...",
+                   command=self.sel_doc_out).grid(row=3, column=1)
+
+        self.open_after = tk.IntVar()
+        ttk.Checkbutton(self.sidebar, text="Open the document afterwards.",
+                        variable=self.open_after).grid(row=4, column=0, columnspan=2)
+
+        ttk.Button(self.sidebar, text="Send",
+                   command=self.send_calcs).grid(row=5)
+        ttk.Button(self.sidebar, text="Clear",
+                   command=self.clear_calcs).grid(row=5, column=1)
+
+        self.bind("<Control-s>", self.file_save)
+        self.bind("<Control-o>", self.file_open)
+        self.bind("<Control-n>", self.file_new)
 
         self.menubar = tk.Menu(self, bg="lightgrey", fg="black")
 
@@ -43,13 +80,24 @@ class Editor(tk.Tk):
         self.edit_menu = tk.Menu(
             self.menubar, tearoff=0, bg="#eeeeee", fg="black")
         self.edit_menu.add_command(
-            label="Cut", command=self.edit_cut, accelerator="Ctrl+X")
+            label="Copy",
+            command=lambda: self.main_text.event_generate('<<Copy>>'),
+            accelerator="Ctrl+C")
         self.edit_menu.add_command(
-            label="Paste", command=self.edit_paste, accelerator="Ctrl+V")
+            label="Cut",
+            command=lambda: self.main_text.event_generate('<<Cut>>'),
+            accelerator="Ctrl+X")
         self.edit_menu.add_command(
-            label="Undo", command=self.edit_undo, accelerator="Ctrl+Z")
-        self.edit_menu.add_command(
-            label="Redo", command=self.edit_redo, accelerator="Ctrl+Y")
+            label="Paste",
+            command=lambda: self.main_text.event_generate('<<Paste>>'),
+            accelerator="Ctrl+V")
+        self.edit_menu.add_separator()
+        self.edit_menu.add_command(label="Undo",
+                                   command=lambda: self.main_text.edit_undo(),
+                                   accelerator="Ctrl+Z")
+        self.edit_menu.add_command(label="Redo",
+                                   command=lambda: self.main_text.edit_redo(),
+                                   accelerator="Ctrl+Y")
 
         # Operations menu
         self.ops_menu = tk.Menu(self.menubar, tearoff=0,
@@ -63,12 +111,12 @@ class Editor(tk.Tk):
 
         # Help menu
         self.help_menu = tk.Menu(self.menubar, tearoff=0,
-                bg="#eeeeee", fg="black")
+                                 bg="#eeeeee", fg="black")
         self.help_menu.add_command(
-                label="User Guide")
+            label="User Guide")
         self.help_menu.add_command(
-                label="About", command=self.show_about
-                )
+            label="About DoCaL", command=self.show_about
+        )
 
         self.menubar.add_cascade(label="File", menu=self.file_menu)
         self.menubar.add_cascade(label="Edit", menu=self.edit_menu)
@@ -76,47 +124,6 @@ class Editor(tk.Tk):
         self.menubar.add_cascade(label="Help", menu=self.help_menu)
 
         self.configure(menu=self.menubar)
-        self.main_text = tk.Text(
-            self, bg="white", fg="black", font=("Consolas", self.FONT_SIZE))
-        self.main_text.pack(expand=1, fill=tk.BOTH, side="right")
-
-        self.sidebar = ttk.Frame(self)
-        self.sidebar.pack(expand=1, fill=tk.BOTH)
-
-        ttk.Label(self.sidebar, text="Document input:").grid(
-            row=1, column=0, columnspan=2, sticky=tk.E+tk.W)
-        self.document_in = tk.StringVar(value=document_in)
-        ttk.Entry(self.sidebar, textvariable=self.document_in).grid(row=2, column=0)
-        ttk.Button(self.sidebar, text="Browse...",
-                   command=self.sel_doc_in).grid(row=2, column=1)
-
-        ttk.Label(self.sidebar, text="Document output:").grid(
-            row=4, column=0, columnspan=2, sticky=tk.E+tk.W)
-        self.document_out = tk.StringVar(value=document_out)
-        ttk.Entry(self.sidebar, textvariable=self.document_out).grid(row=5, column=0)
-        ttk.Button(self.sidebar, text="Browse...",
-                   command=self.sel_doc_out).grid(row=5, column=1)
-
-        self.open_after = tk.IntVar()
-        ttk.Checkbutton(self.sidebar, text="Open the document afterwards.",
-                        variable=self.open_after).grid(row=7, column=0, columnspan=2)
-
-        ttk.Button(self.sidebar, text="Send",
-                   command=self.send_calcs).grid(row=9)
-        ttk.Button(self.sidebar, text="Clear",
-                   command=self.clear_calcs).grid(row=9, column=1)
-
-        self.sidebar.grid_rowconfigure(0, minsize=10)
-        self.sidebar.grid_rowconfigure(3, minsize=10)
-        self.sidebar.grid_rowconfigure(6, minsize=10)
-        self.sidebar.grid_rowconfigure(8, minsize=10)
-
-        self.bind("<Control-s>", self.file_save)
-        self.bind("<Control-o>", self.file_open)
-        self.bind("<Control-n>", self.file_new)
-
-        self.bind("<Control-z>", self.edit_undo)
-        self.bind("<Control-y>", self.edit_redo)
 
     def file_new(self, event=None):
         file_name = filedialog.asksaveasfilename()
@@ -151,18 +158,6 @@ class Editor(tk.Tk):
             new_contents = self.main_text.get(1.0, tk.END)
             with open(self.calc_file, "w") as open_file:
                 open_file.write(new_contents)
-
-    def edit_cut(self, event=None):
-        self.main_text.event_generate("<<Cut>>")
-
-    def edit_paste(self, event=None):
-        self.main_text.event_generate("<<Paste>>")
-
-    def edit_undo(self, event=None):
-        self.main_text.event_generate("<<Undo>>")
-
-    def edit_redo(self, event=None):
-        self.main_text.event_generate("<<Redo>>")
 
     def sel_doc_in(self, event=None):
         doc_in = filedialog.askopenfilename()
@@ -204,9 +199,18 @@ class Editor(tk.Tk):
                 'Success', 'The document has been cleared successfully.')
 
     def show_about(self, event=None):
-        messagebox.showinfo('About', "DoCaL\nPython 3.7.1\n\n© 2019 K1DV5")
+        about = ('DoCaL\n'
+                 'Python 3.7.1\n\n'
+                 'New releases can be downloaded from:\n'
+                 '  https://github.com/K1DV5/DoCaL/releases \n\n'
+                 '© 2019 K1DV5')
+        messagebox.showinfo('About', about)
 
 
-def interface(doc_in=None, doc_out=None):
-    editor = Editor(doc_in, doc_out)
+def interface(doc_in=None, doc_out=None, calculations=None):
+    editor = Editor(doc_in, doc_out, calculations=None)
     editor.mainloop()
+
+
+if __name__ == '__main__':
+    interface()
