@@ -566,11 +566,11 @@ def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True,
     if norm:
         equations = []
         for eq in equation_list:
-            left, right = _split_eq(eq)
-            left = ' = '.join([latexify(e) for e in _split_eq(left, False)])
+            left, right = _split(eq)
+            left = ' = '.join([latexify(e) for e in _split(left, last=False)])
             equations.append(equals.join([left, latexify(right)]))
     else:
-        equations = [equals.join(_split_eq(eq)) for eq in equation_list]
+        equations = [equals.join(_split(eq)) for eq in equation_list]
 
     if surr:
         return surroundings[0] + joint.join(equations) + surroundings[1]

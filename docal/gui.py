@@ -208,7 +208,7 @@ class Editor(tk.Tk):
 
 
 def interface(doc_in=None, doc_out=None, calculations=None):
-    editor = Editor(doc_in, doc_out, calculations=None)
+    editor = Editor(doc_in, doc_out, calculations)
     editor.mainloop()
 
 

@@ -89,5 +89,5 @@ def _split_module(module: str, char='\n'):
         else:
             returned.append((part, 'comment'))
 
-with open('../test1.py') as f:
-    f = f.read()
+# with open('../test1.py') as f:
+#     f = f.read()
