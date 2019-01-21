@@ -7,7 +7,7 @@ import tkinter as tk
 # for non ordinary gui elements
 from tkinter import filedialog, messagebox, ttk
 # main purpose
-from docal import document
+from .document import document
 # file system path manipulations and double clicking
 from os import path, startfile
 # to know the platform
@@ -199,7 +199,7 @@ class Editor(tk.Tk):
                 'Success', 'The document has been cleared successfully.')
 
     def show_about(self, event=None):
-        about = ('DoCaL\n'
+        about = ('DoCaL 0.4.0\n'
                  'Python 3.7.1\n\n'
                  'New releases can be downloaded from:\n'
                  '  https://github.com/K1DV5/DoCaL/releases \n\n'

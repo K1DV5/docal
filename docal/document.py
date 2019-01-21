@@ -37,7 +37,8 @@ except ImportError:
     DICT = {}
 from .calculation import cal
 from .parsing import UNIT_PF, eqn, latexify
-from .utils import _parens_balanced
+# to split the calculation string
+from .utils import _split_module
 # to log info about what it's doing with timestamps
 START_TIME = datetime.now()
 # the tag pattern
@@ -103,16 +104,6 @@ def _repl(match_object, surround: bool, contents: dict = {}):
     return start + result + end
 
 
-def _parens_balanced(expr):
-    '''
-    check if the pairs that must be balanced are actually balanced
-    '''
-    # those that must be matched in equations
-    parens = ['()', '[]', '{}']
-
-    return all([expr.count(p[0]) == expr.count(p[1]) for p in parens])
-
-
 def _process_comment(line, content_dict: dict):
     '''
     convert comments to latex paragraphs
@@ -121,7 +112,6 @@ def _process_comment(line, content_dict: dict):
     print('    Processing comment line to a paragraph...',
           str(datetime.time(datetime.now())),
           f'\n        {line}')
-    line = line.lstrip()[1:].strip()
     if line.startswith('$'):
         # inline calculations, accepted in #{...}
         calcs = [latexify(eval(x.group(1), DICT))
@@ -168,94 +158,6 @@ def _process_assignment(line):
               str(datetime.time(datetime.now())),)
         exec(line, DICT)
     return ''
-
-
-def _to_incomplete(incomplete: str, line: str) -> bool:
-    '''
-    determine whether the line should be sent to the incomplete storage or not
-    '''
-    conditions = [
-        # if there is an incomplete part, and it doesn't have equal parens,
-        incomplete and not any([_parens_balanced(incomplete),
-                                # or ends with \ or :
-                                incomplete.rstrip().endswith('\\'),
-                                incomplete.rstrip().endswith(':')]),
-        # or the line is indented and not a comment
-        line and line[0].isspace() and not line.lstrip().startswith('#'),
-        # or the line is not a comment and is a beginning of a block
-        line and not line.lstrip().startswith('#') and line.rstrip().endswith(':'),
-        # or the line is blank and there is an incomplete part
-        not line.strip() and incomplete,
-        # or the parens in the line are not balanced
-        line and not _parens_balanced(line)
-    ]
-
-    return any(conditions)
-
-
-def _process_content(content: str, content_dict: dict) -> str:
-    '''
-    convert the given string to latex in the appropriate way
-    '''
-    # if the first non-blank line is only #, do not modify
-    hash_line = re.match(r'\s*#\s*\n', content)
-    if hash_line:
-        print('    Sending the content without modifying...',
-              str(datetime.time(datetime.now())),)
-        return content[hash_line.span()[1]:]
-    sent = []
-    incomplete = ''
-    for line in content.split('\n'):
-        # this will accumulate the lines. If the intent is an assignment, the
-        # last line has to be added to make it up. If the intent is execution,
-        # the accumulated can be executed directly and the last line has to be
-        # considered from the beginning.
-        if _to_incomplete(incomplete, line):
-            incomplete += line + '\n'
-            line = None
-        if line is not None:
-            if incomplete:
-                inc_type = ast.parse(incomplete).body
-                if inc_type and isinstance(inc_type[0], ast.Assign):
-                    # this will be processed as an assignment
-                    sent.append(_process_assignment(incomplete))
-                else:
-                    # it seems to be a block to be executed
-                    print('    Executing statement...',
-                          f'\n        {incomplete}',
-                          str(datetime.time(datetime.now())),)
-                    exec(incomplete, DICT)
-                # clear
-                incomplete = ''
-            # a real comment starts with ## and does nothing
-            if line.lstrip().startswith('##'):
-                pass
-            # if the first non whitespace char is # and not ## send as is
-            # with the variables referenced with #var substituted
-            elif line.lstrip().startswith('#'):
-                sent.append(_process_comment(line, content_dict))
-            # if it is an assignment, take it as a calculation to send
-            # unless it ends with a ;
-            elif re.search(r'[^=]=[^=]', line):
-                sent.append(_process_assignment(line))
-            elif line:
-                # if it does not appear like an equation or a comment,
-                # just execute it
-                print('    Executing statement...',
-                      f'\n        {line}',
-                      str(datetime.time(datetime.now())))
-                exec(line, DICT)
-                if line.startswith('del '):
-                    # also delete associated unit strings
-                    variables = [v.strip()
-                                 for v in line[len('del '):].split(',')]
-                    for v in variables:
-                        if v + UNIT_PF in DICT:
-                            del DICT[v + UNIT_PF]
-            else:
-                sent.append('')
-    sent = '\n'.join(sent)
-    return sent
 
 
 class document:
@@ -307,9 +209,7 @@ class document:
         if tag in self.tags:
             if tag not in self.contents.keys():
                 self.contents[tag] = []
-            print(f'[{tag}]: Processing contents...',
-                  str(datetime.time(datetime.now())))
-            self.contents[tag].append(_process_content(content, self.contents))
+            self.contents[tag].append(content)
             if tag != self.current_tag:
                 self.current_tag = tag
         else:
@@ -320,27 +220,32 @@ class document:
         Where it will be inserted is decided by the most recent tag.'''
 
         if not self.to_clear:
-            tags = list(re.finditer(r'\n\s*#\w+\s*\n', content))
-            tags_count = len(tags)
-            # if there are tags mentioned
-            if tags_count:
-                # if no tag is specified at the start, send it to the current one
-                tag_0_start = tags[0].span()[0] + 1
-                content_before = content[:tag_0_start]
-                if content_before.strip():
-                    self._send(self.current_tag, content_before)
-                # for performance, define once
-                content_len = len(content)
-                for index, tag in enumerate(tags):
-                    # the content is between the end of the tag and either the
-                    # beginning of the next tag or the end of the string
-                    till = tags[index+1].span()[0] + 1 \
-                        if index < tags_count - 1 else content_len
-                    tag_content = content[tag.span()[1]: till]
-                    tag = tag.group(0).strip()[1:]
-                    self._send(tag, tag_content)
-            else:
-                self._send(self.current_tag, content)
+            tag = self.current_tag
+            print(f'[{tag}]: Processing contents...',
+                  str(datetime.time(datetime.now())))
+            for part in _split_module(content):
+                if part[1] == 'tag':
+                    tag = part[0]
+                    print(f'[{tag}]: Processing contents...',
+                    str(datetime.time(datetime.now())))
+                elif part[1] == 'assign':
+                    self._send(tag, _process_assignment(part[0]))
+                elif part[1] == 'comment':
+                    self._send(tag, _process_comment(part[0], self.contents))
+                elif part[1] == 'stmt':
+                    # if it does not appear like an equation or a comment,
+                    # just execute it
+                    print('    Executing statement...',
+                          f'\n        {part[0]}',
+                          str(datetime.time(datetime.now())))
+                    exec(part[0], DICT)
+                    if part[0].startswith('del '):
+                        # also delete associated unit strings
+                        variables = [v.strip()
+                                     for v in part[0][len('del '):].split(',')]
+                        for v in variables:
+                            if v + UNIT_PF in DICT:
+                                del DICT[v + UNIT_PF]
 
     def _revert_tags(self):
         # remove the tagline

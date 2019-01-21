@@ -1,4 +1,3 @@
-# -args(-g)
 '''
 script handler
 '''
