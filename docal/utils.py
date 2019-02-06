@@ -104,4 +104,11 @@ def _split_module(module: str, char='\n'):
                 returned.append((part, 'assign'))
             else:
                 returned.append((part, 'stmt'))
+    if incomplete:
+        inc_type = ast.parse(incomplete).body
+        if inc_type and isinstance(inc_type[0], ast.Assign):
+            returned.append((incomplete, 'assign'))
+        else:
+            returned.append((incomplete, 'stmt'))
+        incomplete = ''
     return returned
