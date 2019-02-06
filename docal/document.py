@@ -276,7 +276,7 @@ class wordFile:
                 index_run = list(loc_para).index(loc_run)
                 pref_w = f'{{{self.namespaces["w"]}}}'
                 # if there is only one para, insert its contents into the para
-                if len(ans_parts) == 1:  
+                if len(ans_parts) == 1:
                     ans_runs = list(ans_parts[0])
                     ans_runs.reverse()  # same reason as above
                     for run in ans_runs:
@@ -290,7 +290,7 @@ class wordFile:
                     beg_para = ET.Element(pref_w + 'p')
                     beg_run = ET.SubElement(beg_para, pref_w + 'r')
                     beg_text = ET.SubElement(beg_run, pref_w + 't',
-                                              {'xml:space': 'preserve'})
+                                             {'xml:space': 'preserve'})
                     beg_text.text = split_text[0]
                     ans_parts.reverse()  # same reason as above
                     for ans in ans_parts:
@@ -298,7 +298,6 @@ class wordFile:
                     beg_index = info['index'] + added
                     self.doc_tree[0].insert(beg_index, beg_para)
                     added += len(ans_parts) + 1
-
 
     def _get_ans_tree(self, values={}):
         result_str = '\n\n'.join(['##' + tag + '\n\n' + '\n'.join(values[tag])
@@ -412,8 +411,9 @@ class document:
                 augmented = re.sub(r'(?a)\\mathrm\s*\{\s*TMP0CALC000\s*\}',
                                    calc.replace('\\', r'\\'), augmented, 1)
         else:
-            augmented = PATTERN.sub(
-                lambda x: self._format_value(x.group(2)), line)
+            augmented = PATTERN.sub(lambda x: x.group(1) +
+                                    self._format_value(x.group(2)) +
+                                    x.group(3), line)
             augmented = INLINE_CALC.sub(lambda x:
                                         eqn(str(eval(x.group(1), DICT)),
                                             disp=False), augmented)
