@@ -8,6 +8,7 @@ https://stackoverflow.com/questions/3867028/converting-a-python-numeric-expressi
 import ast
 import re
 from .document import DICT
+from .utils import _split
 
 DEFAULT_MAT_SIZE = 10
 
@@ -565,44 +566,12 @@ def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True,
     if norm:
         equations = []
         for eq in equation_list:
-            left, right = _split_eq(eq)
-            left = ' = '.join([latexify(e) for e in _split_eq(left, False)])
+            left, right = _split(eq)
+            left = ' = '.join([latexify(e) for e in _split(left, last=False)])
             equations.append(equals.join([left, latexify(right)]))
     else:
-        equations = [equals.join(_split_eq(eq)) for eq in equation_list]
+        equations = [equals.join(_split(eq)) for eq in equation_list]
 
     if surr:
         return surroundings[0] + joint.join(equations) + surroundings[1]
     return joint.join(equations)
-
-
-def _parens_balanced(expr):
-    '''
-    check if the pairs that must be balanced are actually balanced
-    '''
-    # those that must be matched in equations
-    parens = ['()', '[]', '{}']
-
-    return all([expr.count(p[0]) == expr.count(p[1]) for p in parens])
-
-
-def _split_eq(eqn: str, last=True) -> list:
-    '''split a given equation at the main equal signs and not at the ones
-    used for other purposes like giving a kwarg'''
-
-    balanced = []
-    incomplete = ''
-    for e in eqn.split('='):
-        e = e.strip()
-        if incomplete or not _parens_balanced(e):
-            incomplete += ('=' if incomplete else '') + e
-            if incomplete and _parens_balanced(incomplete):
-                balanced.append(incomplete)
-                incomplete = ''
-        else:
-            balanced.append(e)
-    if last and len(balanced) > 1:
-        # if splitting only at the last = is wanted, join the others
-        balanced = ['='.join(balanced[:-1]), balanced[-1]]
-
-    return balanced
