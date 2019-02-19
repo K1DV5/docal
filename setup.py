@@ -1,29 +1,52 @@
-# -{python %f install}-
-# -{python %f sdist bdist_wheel --universal}-
-import setuptools
+# -{python %f install}
+"""
+:copyright: (c) 2019 by K1DV5
+:license: MIT, see LICENSE for more details.
+"""
 
-with open('README.md', 'r') as fh:
-    long_description = fh.read()
+from setuptools import setup, find_packages
 
-setuptools.setup(
-    name='doCal',
-    version='0.4.0',
-    author='K1DV5',
+with open('README.rst') as readme_file:
+    readme = readme_file.read()
+
+with open('HISTORY.rst') as history_file:
+    history = history_file.read()
+
+setup_requirements = ['pytest-runner', ]
+
+test_requirements = ['pytest', ]
+
+setup(
+    author="Kidus Adugna",
     author_email='kidusadugna@gmail.com',
-    description='Inject Python calculations into Word and LaTeX documents with ease!',
-    long_description_content_type='text/markdown',
-    long_description=long_description,
-    url='https://github.com/K1DV5/doCal',
-    packages=setuptools.find_packages(),
+    classifiers=[
+        'Development Status :: 2 - Pre-Alpha',
+        'Intended Audience :: Engineers',
+        'Intended Audience :: Academics',
+        'Intended Audience :: Students',
+        'Intended Audience :: Developers',
+        'License :: OSI Approved :: MIT License',
+        'Natural Language :: English',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+    ],
+    description="Inject Python calculations into Word and LaTeX documents with ease!",
     entry_points={
         'console_scripts': [
-            'docal = docal.__main__:main'
-            ]
-        },
-    classifiers=[
-        'Programming Language :: Python :: 3',
-        'License :: OSI Approved :: MIT License',
-        'Operating System :: OS Independent'
-        ]
+            'docal=docal.__main__:main',
+        ],
+    },
+    license="MIT license",
+    long_description=readme + '\n\n' + history,
+    include_package_data=True,
+    keywords='docal',
+    name='docal',
+    packages=find_packages(include=['docal']),
+    setup_requires=setup_requirements,
+    test_suite='tests',
+    tests_require=test_requirements,
+    url='https://github.com/K1DV5/docal',
+    version='0.4.0',
+    zip_safe=False,
 )
-

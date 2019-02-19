@@ -337,6 +337,7 @@ class wordFile:
         if not outfile:
             base, ext = path.splitext(self.infile)
             outfile = base + '-out' + ext
+        print(f"Writing output to '{outfile}'... {datetime.now()}")
         move(tmp_fname, outfile)
 
 
