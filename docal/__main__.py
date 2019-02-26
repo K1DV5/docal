@@ -7,23 +7,6 @@ from glob import glob
 from docal import document
 
 
-def next_to(script: str) -> str:
-    '''
-    find a file that ends with .tex or .docx and is in the same directory as
-    the script and return the first match, show error message and exit if none
-    is found.
-    '''
-    matches = [f for f in glob(path.splitext(script)[0] + '.*')
-               if path.splitext(f)[1] in ['.tex', '.docx']]
-    if matches:
-        infile = matches[0]
-    else:
-        print('ERROR:', 'Cannot find a word or tex file here')
-        exit()
-
-    return infile
-
-
 # command line arguments
 parser = ArgumentParser(description="Process the script file, inject it to "
                         "the input document and produce the output document")
@@ -35,8 +18,6 @@ parser.add_argument('-c', '--clear', action='store_true',
                     'revert the document to the previous state. '
                     'Only for the calculation ranges in LaTeX files.')
 args = parser.parse_args()
-args.input = next_to(args.script) if not args.input and args.script else args.input
-args.output = 0 if args.output == '0' else args.output
 
 
 def main():
