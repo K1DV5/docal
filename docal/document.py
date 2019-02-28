@@ -221,32 +221,34 @@ class wordFile:
 
         pref_w = f'{{{self.namespaces["w"]}}}'
         tags_info = []
-        for index, p in enumerate(tree[0]):
-            conts = self.normalized_contents(p)
-            p.clear()
-            for cont in conts:
-                if type(cont) == list:
-                    if '##' in cont[0]:
-                        # there is some tag in this; ignore any properties
-                        w_r = ET.SubElement(p, pref_w + 'r')
-                        w_t = ET.SubElement(w_r, pref_w + 't',
-                                            {'xml:space': 'preserve'})
-                        w_t.text = cont[0]
-                        # store tags and full addresses of the tags in the text
-                        for tag in PATTERN_2.findall(cont[0]):
-                            if cont[0].strip() == '##' + tag[1]:
-                                position = 'para'
-                            else:
-                                position = 'inline'
-                            tags_info.append({'tag': tag,
-                                              'address': [p, w_r, w_t],
-                                              'position': position,
-                                              'index': index})
-                    else:  # preserve properties
-                        for r in cont[1:]:
-                            p.append(r)
-                else:
-                    p.append(cont)
+        for index, child in enumerate(tree[0]):
+            if child.tag == pref_w + 'p':
+                # get its contents and clear it
+                conts = self.normalized_contents(child)
+                child.clear()
+                for cont in conts:
+                    if type(cont) == list:
+                        if '##' in cont[0]:
+                            # there is some tag in this; ignore any properties
+                            w_r = ET.SubElement(child, pref_w + 'r')
+                            w_t = ET.SubElement(w_r, pref_w + 't',
+                                                {'xml:space': 'preserve'})
+                            w_t.text = cont[0]
+                            # store full info about the tags
+                            for tag in PATTERN_2.findall(cont[0]):
+                                if cont[0].strip() == '##' + tag[1]:
+                                    position = 'para'
+                                else:
+                                    position = 'inline'
+                                tags_info.append({'tag': tag,
+                                                  'address': [child, w_r, w_t],
+                                                  'position': position,
+                                                  'index': index})
+                        else:  # preserve properties
+                            for r in cont[1:]:
+                                child.append(r)
+                    else:
+                        child.append(cont)
 
         return tags_info
 
@@ -335,6 +337,7 @@ class wordFile:
         if not outfile:
             base, ext = path.splitext(self.infile)
             outfile = base + '-out' + ext
+        print(f"Writing output to '{outfile}'... {datetime.now()}")
         move(tmp_fname, outfile)
 
 
