@@ -29,9 +29,9 @@ PRIMES = {'prime': "'", '2prime': "''", '3prime': "'''"}
 
 # things that are transformed, used for units and such
 TRANSFORMED = {
-    'degC': '^\\circ \\mathrm{C}',
-    'degF': '^\\circ \\mathrm{F}',
-    'deg': '^\\circ'
+    'degC': '\\,^\\circ \\mathrm{C}',
+    'degF': '\\,^\\circ \\mathrm{F}',
+    'deg': '\\,^\\circ'
 }
 
 # what will be appended after the names to store units for those names
