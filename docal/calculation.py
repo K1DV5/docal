@@ -21,13 +21,13 @@ DERIVED = {
 DERIVED = {u: ast.parse(DERIVED[u]).body[0].value for u in DERIVED}
 
 
-def _calculate(expr, options: dict):
+def _calculate(expr, options: dict, working_dict=DICT):
     '''carryout the necesary calculations and assignments'''
 
     result = [
-        latexify(expr, mat_size=options['mat_size']),
-        latexify(expr, subs=True, mat_size=options['mat_size']),
-        latexify(eval(expr, DICT), mat_size=options['mat_size'])
+        latexify(expr, mat_size=options['mat_size'], working_dict=working_dict),
+        latexify(expr, subs=True, mat_size=options['mat_size'], working_dict=working_dict),
+        latexify(eval(expr, working_dict), mat_size=options['mat_size'], working_dict=working_dict)
     ]
 
     if options['steps']:
@@ -40,8 +40,8 @@ def _calculate(expr, options: dict):
     # detect if the user is trying to give a different unit and give warning
     if options['unit']:
         # in their dict forms
-        compared = [UnitHandler(True).visit(ast.parse(options['unit']).body[0].value),
-                    UnitHandler(False).visit(ast.parse(expr).body[0].value)]
+        compared = [UnitHandler(True, working_dict).visit(ast.parse(options['unit']).body[0].value),
+                    UnitHandler(False, working_dict).visit(ast.parse(expr).body[0].value)]
         # when the calculated already has a unit
         compared = [compared, [compared[1], [{}, {}]]]
         # if it is detected, warn the user but accept it anyway
@@ -52,7 +52,7 @@ def _calculate(expr, options: dict):
     else:
         options['unit'] = unitize(expr)
     if options['unit'] and options['unit'] != '_':
-        unit_lx = fr" \,\mathrm{{{latexify(options['unit'], div_symbol='/')}}}"
+        unit_lx = fr" \,\mathrm{{{latexify(options['unit'], div_symbol='/', working_dict=working_dict)}}}"
     else:
         unit_lx = ''
     result[-1] += unit_lx + options['note']
@@ -132,7 +132,7 @@ def _assort_input(input_str):
     return var_name, unp_vars, expression, additionals
 
 
-def cal(input_str: str) -> str:
+def cal(input_str: str, working_dict=DICT) -> str:
     '''
     evaluate all the calculations, carry out the appropriate assignments,
     and return all the procedures
@@ -140,7 +140,7 @@ def cal(input_str: str) -> str:
     '''
     var_name, unp_vars, expr, additionals = _assort_input(input_str)
     options = _process_options(additionals)
-    result = _calculate(expr, options)
+    result = _calculate(expr, options, working_dict)
     var_lx = latexify(var_name)
 
     if options['mode'] == 'inline':
@@ -160,10 +160,10 @@ def cal(input_str: str) -> str:
     output = eqn(*procedure, norm=False, disp=displ, vert=options['vert'])
 
     # carry out normal op in main script
-    exec(input_str, DICT)
+    exec(input_str, working_dict)
     # for later unit retrieval
     for var in unp_vars:
-        exec(f'{var}{UNIT_PF} = "{options["unit"]}"', DICT)
+        exec(f'{var}{UNIT_PF} = "{options["unit"]}"', working_dict)
 
     return output
 
@@ -173,15 +173,16 @@ class UnitHandler(ast.NodeVisitor):
     simplify the given expression as a combination of units
     '''
 
-    def __init__(self, norm=False):
+    def __init__(self, norm=False, working_dict=DICT):
         self.norm = norm
+        self.dict = working_dict
 
     def visit_Name(self, n):
         if self.norm:
             unit = n
         else:
-            if n.id + UNIT_PF in DICT:
-                un = DICT[n.id + UNIT_PF]
+            if n.id + UNIT_PF in self.dict:
+                un = self.dict[n.id + UNIT_PF]
             else:
                 un = '_'
             unit = ast.parse(un).body[0].value
@@ -296,7 +297,7 @@ class UnitHandler(ast.NodeVisitor):
         return [{}, {}]
 
 
-def unitize(s: str) -> str:
+def unitize(s: str, working_dict=DICT) -> str:
     '''
     look for units of the variable names in the expression, cancel-out units
     that can be canceled out and return an expression of units that can be
@@ -304,12 +305,12 @@ def unitize(s: str) -> str:
     '''
 
     def unit_handler(pu, norm):
-        return UnitHandler(norm).visit(pu)
+        return UnitHandler(norm, working_dict).visit(pu)
     ls = reduce(unit_handler(ast.parse(s).body[0].value, False))
 
     # the var names that are of units in the main dict that are not _
-    in_use = {DICT[u] for u in DICT
-              if u.endswith(UNIT_PF) and DICT[u] != '_'}
+    in_use = {working_dict[u] for u in working_dict
+              if u.endswith(UNIT_PF) and working_dict[u] != '_'}
     # var names in in_use whose values contain one of the DERIVED units
     in_use = [u for u in in_use
               if any([n.id in DERIVED

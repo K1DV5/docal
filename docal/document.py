@@ -398,20 +398,20 @@ class document:
         # temp storage for block statements like if and for
         self.incomplete_stmt = ''
 
-    def _format_value(self, var):
-        if var in DICT:
+    def _format_value(self, var, working_dict=DICT):
+        if var in working_dict:
             unit_name = var + UNIT_PF
-            unit = fr' \, \mathrm{{{latexify(DICT[unit_name], div_symbol="/")}}}'\
-                if unit_name in DICT.keys() and DICT[unit_name] \
-                and DICT[unit_name] != '_' else ''
+            unit = fr' \, \mathrm{{{latexify(working_dict[unit_name], div_symbol="/", working_dict=working_dict)}}}'\
+                if unit_name in working_dict.keys() and working_dict[unit_name] \
+                and working_dict[unit_name] != '_' else ''
             result = eqn(latexify(
-                DICT[var]) + unit, norm=False, disp=False)
+                working_dict[var]) + unit, norm=False, disp=False)
         else:
             raise KeyError(f"'{var}' is an undefined variable.")
 
         return result
 
-    def _process_comment(self, line):
+    def _process_comment(self, line, working_dict=DICT):
         '''
         convert comments to latex paragraphs
         '''
@@ -421,7 +421,7 @@ class document:
               f'\n        {line}')
         if line.startswith('$'):
             # inline calculations, accepted in #{...}
-            calcs = [latexify(eval(x.group(1), DICT))
+            calcs = [latexify(eval(x.group(1), working_dict))
                      for x in INLINE_CALC.finditer(line)]
             line = re.sub(r'(?a)#(\w+)',
                           lambda x: 'TMP0'.join(
@@ -434,7 +434,7 @@ class document:
                 line = eqn(line[1:], disp=False)
             augmented = re.sub(r'(?a)\\mathrm\s*\{\s*(\w+)TMP0\s*\}',
                                lambda x: latexify(
-                                   DICT['_'.join(x.group(1).split('TMP0'))]),
+                                   working_dict['_'.join(x.group(1).split('TMP0'))]),
                                line)
             for calc in calcs:
                 augmented = re.sub(r'(?a)\\mathrm\s*\{\s*TMP0CALC000\s*\}',
@@ -444,12 +444,12 @@ class document:
                                     self._format_value(x.group(2)) +
                                     x.group(3), line)
             augmented = INLINE_CALC.sub(lambda x:
-                                        eqn(str(eval(x.group(1), DICT)),
+                                        eqn(str(eval(x.group(1), working_dict)),
                                             disp=False), augmented)
 
         return augmented
 
-    def _process_assignment(self, line):
+    def _process_assignment(self, line, working_dict=DICT):
         '''
         evaluate assignments and convert to latex form
         '''
@@ -459,15 +459,15 @@ class document:
                   str(datetime.time(datetime.now())),
                   f'\n        {line}')
             # the cal function will execute it so no need for exec
-            return cal(line)
+            return cal(line, working_dict)
         else:
             # if it does not appear like an equation or a comment, just execute it
             print('    Executing statement...', f'\n        {line}',
                   str(datetime.time(datetime.now())),)
-            exec(line, DICT)
+            exec(line, working_dict)
         return ''
 
-    def process_content(self, input_str):
+    def process_content(self, input_str, working_dict=DICT):
         tag = self.current_tag
         processed = []
         for part in _split_module(input_str):
@@ -476,23 +476,23 @@ class document:
                 print(f'[{tag}]: Processing contents...',
                       str(datetime.time(datetime.now())))
             elif part[1] == 'assign':
-                processed.append((tag, self._process_assignment(part[0])))
+                processed.append((tag, self._process_assignment(part[0], working_dict)))
             elif part[1] == 'comment':
-                processed.append((tag, self._process_comment(part[0])))
+                processed.append((tag, self._process_comment(part[0], working_dict)))
             elif part[1] == 'stmt':
                 # if it does not appear like an equation or a comment,
                 # just execute it
                 print('    Executing statement...',
                       f'\n        {part[0]}',
                       str(datetime.time(datetime.now())))
-                exec(part[0], DICT)
+                exec(part[0], working_dict)
                 if part[0].startswith('del '):
                     # also delete associated unit strings
                     variables = [v.strip()
                                  for v in part[0][len('del '):].split(',')]
                     for v in variables:
-                        if v + UNIT_PF in DICT:
-                            del DICT[v + UNIT_PF]
+                        if v + UNIT_PF in working_dict:
+                            del working_dict[v + UNIT_PF]
         return processed
 
     def _send(self, tag, content):

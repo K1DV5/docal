@@ -181,11 +181,12 @@ def _fit_matrix(matrix, max_size=(5, 5)):
 
 class _LatexVisitor(ast.NodeVisitor):
 
-    def __init__(self, mul_symbol, div_symbol, subs, mat_size):
+    def __init__(self, mul_symbol, div_symbol, subs, mat_size, working_dict=DICT):
         self.mul_symbol = mul_symbol
         self.div_symbol = div_symbol
         self.subs = subs
         self.mat_size = mat_size
+        self.dict = working_dict
 
     def prec(self, n):
         return getattr(self, 'prec_'+n.__class__.__name__, getattr(self, 'generic_prec'))(n)
@@ -213,9 +214,9 @@ class _LatexVisitor(ast.NodeVisitor):
             if hasattr(n, 'is_in_attr') and n.is_in_attr:
                 return f'{base}.{attr}'
             if shallow:
-                return _prep4lx(eval(f'{base}.{attr}', DICT), self.mat_size).value
+                return _prep4lx(eval(f'{base}.{attr}', self.dict), self.mat_size).value
             # get, prep and visit the value
-            return self.visit(_prep4lx(eval(f'{base}.{attr}', DICT), self.mat_size))
+            return self.visit(_prep4lx(eval(f'{base}.{attr}', self.dict), self.mat_size))
         # only get the part after the dot
         return format_name(n.attr)
 
@@ -271,14 +272,14 @@ class _LatexVisitor(ast.NodeVisitor):
             try:
                 # if the raw ast object is needed (for BinOp)
                 if shallow:
-                    return _prep4lx(DICT[n.id], self.mat_size).value
+                    return _prep4lx(self.dict[n.id], self.mat_size).value
                 # to prevent infinite recursion:
-                if str(DICT[n.id]) == n.id:
-                    return format_name(str(DICT[n.id]))
-                qty = self.visit(_prep4lx(DICT[n.id], self.mat_size))
-                unit = fr'\, \mathrm{{{latexify(DICT[n.id + UNIT_PF], div_symbol="/")}}}' \
-                    if n.id + UNIT_PF in DICT.keys() and DICT[n.id + UNIT_PF] \
-                    and DICT[n.id + UNIT_PF] != '_' else ''
+                if str(self.dict[n.id]) == n.id:
+                    return format_name(str(self.dict[n.id]))
+                qty = self.visit(_prep4lx(self.dict[n.id], self.mat_size))
+                unit = fr'\, \mathrm{{{latexify(self.dict[n.id + UNIT_PF], div_symbol="/")}}}' \
+                    if n.id + UNIT_PF in self.dict.keys() and self.dict[n.id + UNIT_PF] \
+                    and self.dict[n.id + UNIT_PF] != '_' else ''
                 # if the quantity is raised to some power and has a unit,
                 # surround it with PARENS
                 if hasattr(n, 'is_in_power') and n.is_in_power and unit and unit != '_':
@@ -528,7 +529,7 @@ class _LatexVisitor(ast.NodeVisitor):
         return 0
 
 
-def latexify(expr, mul_symbol='*', div_symbol='frac', subs=False, mat_size=5):
+def latexify(expr, mul_symbol='*', div_symbol='frac', subs=False, mat_size=5, working_dict=DICT):
     '''
     convert the given expr to a latex string using _LatexVisitor
     '''
@@ -541,7 +542,7 @@ def latexify(expr, mul_symbol='*', div_symbol='frac', subs=False, mat_size=5):
     else:
         pt = _prep4lx(expr, mat_size)
 
-    return _LatexVisitor(mul_symbol, div_symbol, subs, mat_size).visit(pt)
+    return _LatexVisitor(mul_symbol, div_symbol, subs, mat_size, working_dict).visit(pt)
 
 
 def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True,
