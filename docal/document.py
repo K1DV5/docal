@@ -48,8 +48,6 @@ DEFAULT_FILE = 'Untitled.tex'
 # the tag pattern
 PATTERN = re.compile(r'(?s)([^\w\\]|^)#(\w+?)(\W|$)')
 PATTERN_2 = re.compile(r'(?s)([^\w\\]|^)##(\w+?)(\W|$)')  # for word
-# the inline calculation pattern like #{x+5}
-INLINE_CALC = re.compile(r'(?<![\w\\])#\{(.*?)\}')
 # surrounding of the content sent for reversing (something that doesn't
 # change the actual content of the document, and works inside lines)
 SURROUNDING = ['{} {{ {}', '{} }} {}']
@@ -420,14 +418,10 @@ class document:
               str(datetime.time(datetime.now())),
               f'\n        {line}')
         if line.startswith('$'):
-            # inline calculations, accepted in #{...}
-            calcs = [latexify(eval(x.group(1), working_dict))
-                     for x in INLINE_CALC.finditer(line)]
             line = re.sub(r'(?a)#(\w+)',
                           lambda x: 'TMP0'.join(
                               x.group(1).split('_')) + 'TMP0',
                           line)
-            line = INLINE_CALC.sub('TMP0CALC000', line)
             if line.startswith('$$'):
                 line = eqn(*line[2:].split('|'))
             else:
@@ -436,16 +430,10 @@ class document:
                                lambda x: latexify(
                                    working_dict['_'.join(x.group(1).split('TMP0'))]),
                                line)
-            for calc in calcs:
-                augmented = re.sub(r'(?a)\\mathrm\s*\{\s*TMP0CALC000\s*\}',
-                                   calc.replace('\\', r'\\'), augmented, 1)
         else:
             augmented = PATTERN.sub(lambda x: x.group(1) +
                                     self._format_value(x.group(2)) +
                                     x.group(3), line)
-            augmented = INLINE_CALC.sub(lambda x:
-                                        eqn(str(eval(x.group(1), working_dict)),
-                                            disp=False), augmented)
 
         return augmented
 
