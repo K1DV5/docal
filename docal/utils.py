@@ -107,6 +107,8 @@ def _split_module(module: str, char='\n', comments=False):
                     returned.append((part.lstrip()[1:], 'comment'))
             elif isinstance(part_ast[0], ast.Assign):
                 returned.append((part, 'assign'))
+            elif isinstance(part_ast[0], ast.Expr):
+                returned.append((part, 'expr'))
             else:
                 returned.append((part, 'stmt'))
     if incomplete:

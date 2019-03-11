@@ -475,7 +475,7 @@ class document:
                 tag = part[0]
                 print(f'[{tag}]: Processing contents...',
                       str(datetime.time(datetime.now())))
-            elif part[1] == 'assign':
+            elif part[1] in ['assign', 'expr']:
                 processed.append((tag, self._process_assignment(part[0], working_dict)))
             elif part[1] == 'comment':
                 processed.append((tag, self._process_comment(part[0], working_dict)))

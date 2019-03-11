@@ -123,11 +123,14 @@ def _assort_input(input_str):
     if '=' in equation:
         var_name, expression = _split(equation)
     else:
-        raise SyntaxError('This could not be understood as an equation')
+        var_name, expression = None, equation
 
-    unp_vars = [n.id
-                for n in ast.walk(ast.parse(var_name).body[0])
-                if isinstance(n, ast.Name)]
+    if var_name:
+        unp_vars = [n.id
+                    for n in ast.walk(ast.parse(var_name).body[0])
+                    if isinstance(n, ast.Name)]
+    else:
+        unp_vars = None
 
     return var_name, unp_vars, expression, additionals
 
@@ -141,8 +144,6 @@ def cal(input_str: str, working_dict=DICT) -> str:
     var_name, unp_vars, expr, additionals = _assort_input(input_str)
     options = _process_options(additionals)
     result = _calculate(expr, options, working_dict)
-    var_lx = latexify(var_name)
-
     if options['mode'] == 'inline':
         displ = False
     elif options['mode'] == 'display':
@@ -153,17 +154,28 @@ def cal(input_str: str, working_dict=DICT) -> str:
         else:
             displ = True
 
-    procedure = [f'{var_lx} = {result[0]}']
-    for step in result[1:]:
-        procedure.append('    = ' + step)
+    if var_name:
+        # this is an assignment/equation
+        var_lx = latexify(var_name)
+
+        procedure = [f'{var_lx} = {result[0]}']
+        for step in result[1:]:
+            procedure.append('    = ' + step)
+
+        # carry out normal op in main script
+        exec(input_str, working_dict)
+        # for later unit retrieval
+        for var in unp_vars:
+            exec(f'{var}{UNIT_PF} = "{options["unit"]}"', working_dict)
+    else:
+        if len(result) > 1:
+            procedure = [f'{result[0]} = {result[1]}']
+            if result[2:]:
+                procedure.append('    = ' + result[2])
+        else:
+            procedure = [result[0]]
 
     output = eqn(*procedure, norm=False, disp=displ, vert=options['vert'])
-
-    # carry out normal op in main script
-    exec(input_str, working_dict)
-    # for later unit retrieval
-    for var in unp_vars:
-        exec(f'{var}{UNIT_PF} = "{options["unit"]}"', working_dict)
 
     return output
 
