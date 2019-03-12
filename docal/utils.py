@@ -69,7 +69,7 @@ def _to_incomplete(incomplete: str, line: str) -> bool:
     return any(conditions)
 
 
-def _split_module(module: str, char='\n'):
+def _split_module(module: str, char='\n', comments=False):
     '''
     split the given script string with the character/str using the rules
     '''
@@ -96,12 +96,19 @@ def _split_module(module: str, char='\n'):
                 tag_match = PATTERN.match(part.strip())
                 if tag_match and tag_match.group(0) == part.strip():
                     returned.append((part.strip()[1:], 'tag'))
-                elif part.lstrip().startswith('##') or not part:
+                elif part.lstrip().startswith('##'):
+                    if comments:
+                        returned.append((part.lstrip()[2:], 'real-comment'))
+                    else:
+                        returned.append(('', 'comment'))
+                elif not part:
                     returned.append(('', 'comment'))
                 else:
                     returned.append((part.lstrip()[1:], 'comment'))
             elif isinstance(part_ast[0], ast.Assign):
                 returned.append((part, 'assign'))
+            elif isinstance(part_ast[0], ast.Expr):
+                returned.append((part, 'expr'))
             else:
                 returned.append((part, 'stmt'))
     if incomplete:
