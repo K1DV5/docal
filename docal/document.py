@@ -64,7 +64,7 @@ class latexFile:
 
         self.to_clear = to_clear
         if infile:
-            self.infile = infile
+            self.infile = self.outfile = infile
             with open(self.infile) as file:
                 self.file_contents = file.read()
             # the collection of tags at the bottom of the file for reversing
@@ -81,6 +81,7 @@ class latexFile:
                          for tag in PATTERN.finditer(self.file_contents)]
         else:
             self.file_contents = self.infile = self.tagline = self.tags = None
+            self.outfile = DEFAULT_FILE
 
     def _revert_tags(self):
         # remove the tagline
@@ -129,14 +130,12 @@ class latexFile:
         return start + result + end
 
     def write(self, outfile=None, values={}):
-        if not outfile:
-            if self.infile:
-                outfile = self.infile
-            else:
-                outfile = DEFAULT_FILE
+        if outfile:
+            self.outfile = outfile
+
         if not self.to_clear:
             if self.infile:
-                if path.abspath(outfile) == path.abspath(self.infile):
+                if path.abspath(self.outfile) == path.abspath(self.infile):
                     self.file_contents = self._subs_in_place(values)
                 else:
                     self.file_contents = self._subs_separate(values)
@@ -145,8 +144,8 @@ class latexFile:
                     '\n'.join(val) for val in values.values()
                     ])
 
-        print(f"Writing output to '{outfile}'... {datetime.now()}")
-        with open(outfile, 'w') as file:
+        print(f"Writing output to '{self.outfile}'... {datetime.now()}")
+        with open(self.outfile, 'w') as file:
             file.write(self.file_contents)
 
 
@@ -185,6 +184,8 @@ class wordFile:
         # file taken as input file when not explicitly set:
         if infile:
             self.infile = infile
+            base, ext = path.splitext(self.infile)
+            self.outfile = base + '-out' + ext
             with ZipFile(infile, 'r') as zin:
                 file_contents = zin.read('word/document.xml')
                 self.tmp_file = ZipFile(path.join(
@@ -208,6 +209,7 @@ class wordFile:
                     self.temp_dir, path.splitext(
                         path.basename(DEFAULT_FILE))[0])
             self.infile = self.doc_tree = self.tags_info = self.tags = None
+            self.outfile = DEFAULT_FILE.replace('.tex', '.docx')
 
     def normalized_contents(self, paragraph):
         pref_w = f'{{{self.namespaces["w"]}}}'
@@ -330,6 +332,8 @@ class wordFile:
         return ans_tree
 
     def write(self, outfile=None, values={}):
+        if outfile:
+            self.outfile = outfile
 
         if self.infile:
             self._subs_tags(values)
@@ -355,14 +359,8 @@ class wordFile:
             run(['pandoc', self.tmp_file, '-f', 'latex', '-o', tmp_fname])
             remove(self.tmp_file)
 
-        if not outfile:
-            if self.infile:
-                base, ext = path.splitext(self.infile)
-                outfile = base + '-out' + ext
-            else:
-                outfile = DEFAULT_FILE.replace('.tex', '.docx')
-        print(f"Writing output to '{outfile}'... {datetime.now()}")
-        move(tmp_fname, outfile)
+        print(f"Writing output to '{self.outfile}'... {datetime.now()}")
+        move(tmp_fname, self.outfile)
 
 
 class document:
