@@ -439,19 +439,12 @@ class document:
         '''
         evaluate assignments and convert to latex form
         '''
-        if not line.rstrip().endswith(';'):
-            print('    Evaluating and converting equation line to'
-                  'LaTeX form...',
-                  str(datetime.time(datetime.now())),
-                  f'\n        {line}')
-            # the cal function will execute it so no need for exec
-            return cal(line, working_dict)
-        else:
-            # if it does not appear like an equation or a comment, just execute it
-            print('    Executing statement...', f'\n        {line}',
-                  str(datetime.time(datetime.now())),)
-            exec(line, working_dict)
-        return ''
+        print('    Evaluating and converting equation line to'
+              'LaTeX form...',
+              str(datetime.time(datetime.now())),
+              f'\n        {line}')
+        # the cal function will execute it so no need for exec
+        return cal(line, working_dict)
 
     def process_content(self, input_str, working_dict=DICT):
         tag = self.current_tag

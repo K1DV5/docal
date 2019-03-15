@@ -68,7 +68,8 @@ def _process_options(additionals):
         'unit': '',
         'mode': 'default',
         'vert': True,
-        'note': ''
+        'note': '',
+        'hidden': False
     }
 
     if additionals:
@@ -91,6 +92,8 @@ def _process_options(additionals):
                 options['vert'] = True
             elif a == '-':
                 options['vert'] = False
+            elif a == ';':
+                options['hidden'] = True
             else:
                 # if it is a valid python expression, take it as a unit
                 try:
@@ -102,7 +105,7 @@ def _process_options(additionals):
                     options['unit'] = a
 
     if options['note']:
-        options['note'] = f'\\quad\\text{{{options["note"]}}}'
+        options['note'] = f'\\,\\text{{{options["note"]}}}'
 
     return options
 
@@ -167,6 +170,9 @@ def cal(input_str: str, working_dict=DICT) -> str:
         # for later unit retrieval
         for var in unp_vars:
             exec(f'{var}{UNIT_PF} = "{options["unit"]}"', working_dict)
+        
+        if options['hidden']:
+            return ''
     else:
         if len(result) > 1:
             procedure = [f'{result[0]} = {result[1]}']
