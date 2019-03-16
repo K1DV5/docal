@@ -25,14 +25,16 @@ import re
 import ast
 # to run pandoc
 from subprocess import run
-# for temp folder access and path manips
-from os import environ, remove, path, makedirs
+# for path manips
+from os import path
 # for timings
 from datetime import datetime
 # for word file handling
 import xml.etree.ElementTree as ET
 from zipfile import ZipFile, ZIP_DEFLATED
-from shutil import move
+# for temp directory
+import tempfile
+from shutil import move, rmtree
 # for working with the document's variables and filename
 try:
     from __main__ import __dict__ as DICT
@@ -150,10 +152,6 @@ class latexFile:
 
 class wordFile:
 
-    # temp folder for converted files
-    temp_dir = path.join(environ['TMP'], 'docal_tmp')
-    # If it does not exist, create it
-    makedirs(temp_dir, exist_ok=True)
     # the xml declaration
     declaration = '<?xml version="1.0" encoding="utf-8" standalone="yes"?>\n'
     # always required namespaces
@@ -180,6 +178,8 @@ class wordFile:
     }
 
     def __init__(self, infile, to_clear=False):
+        # temp folder for converted files
+        self.temp_dir = tempfile.mkdtemp()
         # file taken as input file when not explicitly set:
         if infile:
             self.infile = infile
@@ -325,8 +325,6 @@ class wordFile:
         run(['pandoc', result_tex, '-o', result_docx])
         with ZipFile(result_docx) as docx:
             ans_tree = ET.fromstring(docx.read('word/document.xml'))
-        remove(result_tex)
-        remove(result_docx)
 
         return ans_tree
 
@@ -356,10 +354,11 @@ class wordFile:
                     ]))
             tmp_fname = path.splitext(self.tmp_file)[0] + '.docx'
             run(['pandoc', self.tmp_file, '-f', 'latex', '-o', tmp_fname])
-            remove(self.tmp_file)
 
         print(f"Writing output to '{self.outfile}'... {datetime.now()}")
         move(tmp_fname, self.outfile)
+
+        rmtree(self.temp_dir)
 
 
 class document:
