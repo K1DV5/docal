@@ -47,7 +47,6 @@ START_TIME = datetime.now()
 DEFAULT_FILE = 'Untitled.tex'
 # the tag pattern
 PATTERN = re.compile(r'(?s)([^\w\\]|^)#(\w+?)(\W|$)')
-PATTERN_2 = re.compile(r'(?s)([^\w\\]|^)##(\w+?)(\W|$)')  # for word
 # surrounding of the content sent for reversing (something that doesn't
 # change the actual content of the document, and works inside lines)
 SURROUNDING = ['{} {{ {}', '{} }} {}']
@@ -242,15 +241,15 @@ class wordFile:
                 child.clear()
                 for cont in conts:
                     if type(cont) == list:
-                        if '##' in cont[0]:
+                        if '#' in cont[0]:
                             # there is some tag in this; ignore any properties
                             w_r = ET.SubElement(child, pref_w + 'r')
                             w_t = ET.SubElement(w_r, pref_w + 't',
                                                 {'xml:space': 'preserve'})
                             w_t.text = cont[0]
                             # store full info about the tags
-                            for tag in PATTERN_2.findall(cont[0]):
-                                if cont[0].strip() == '##' + tag[1]:
+                            for tag in PATTERN.findall(cont[0]):
+                                if cont[0].strip() == '#' + tag[1]:
                                     position = 'para'
                                 else:
                                     position = 'inline'
@@ -287,7 +286,7 @@ class wordFile:
                 added += len(ans_parts) - 1  # minus the tag para (removed)
             else:
                 loc_para, loc_run, loc_text = info['address']
-                split_text = loc_text.text.split('##' + info['tag'][1], 1)
+                split_text = loc_text.text.split('#' + info['tag'][1], 1)
                 loc_text.text = split_text[1]
                 index_run = list(loc_para).index(loc_run)
                 pref_w = f'{{{self.namespaces["w"]}}}'
@@ -316,7 +315,7 @@ class wordFile:
                     added += len(ans_parts) + 1
 
     def _get_ans_tree(self, values={}):
-        result_str = '\n\n'.join(['##' + tag + '\n\n' + '\n'.join(values[tag])
+        result_str = '\n\n'.join(['#' + tag + '\n\n' + '\n'.join(values[tag])
                                   for tag in self.tags])
         result_tex = path.join(
             self.temp_dir, path.basename(self.infile) + '-res.tex')
