@@ -20,6 +20,8 @@ parser.add_argument('-c', '--clear', action='store_true',
                     help='Clear the calculations and try to '
                     'revert the document to the previous state. '
                     'Only for the calculation ranges in LaTeX files.')
+parser.add_argument('-l', '--log-level', choices=['INFO', 'WARNING', 'ERROR'],
+        help='How much info you want to see')
 args = parser.parse_args()
 
 if args.input_output:
@@ -36,7 +38,7 @@ def main():
                 instructions = file.read()
         else:
             instructions = None
-        d = document(args.input, to_clear=args.clear)
+        d = document(args.input, to_clear=args.clear, log_level=args.log_level)
         d.send(instructions)
         d.write(args.output)
     except Exception as exc:

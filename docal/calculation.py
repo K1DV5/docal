@@ -6,6 +6,7 @@ module and returns the procedure of the calculations
 '''
 
 import ast
+import logging
 from .document import DICT
 from .parsing import latexify, eqn, DEFAULT_MAT_SIZE, UNIT_PF
 from .utils import _split
@@ -46,9 +47,7 @@ def _calculate(expr, options: dict, working_dict=DICT):
         compared = [compared, [compared[1], [{}, {}]]]
         # if it is detected, warn the user but accept it anyway
         if not are_equivalent(*compared[1]) and not are_equivalent(*compared[0]):
-            print('            WARNING:',
-                  'The input unit is not equivalent to the calculated one.',
-                  'Overriding...')
+            logging.warning('The input unit is not equivalent to the calculated one.')
     else:
         options['unit'] = unitize(expr)
     if options['unit'] and options['unit'] != '_':
@@ -68,7 +67,8 @@ def _process_options(additionals):
         'unit': '',
         'mode': 'default',
         'vert': True,
-        'note': ''
+        'note': '',
+        'hidden': False
     }
 
     if additionals:
@@ -91,18 +91,19 @@ def _process_options(additionals):
                 options['vert'] = True
             elif a == '-':
                 options['vert'] = False
+            elif a == ';':
+                options['hidden'] = True
             else:
                 # if it is a valid python expression, take it as a unit
                 try:
                     compile(a, '', 'eval')
                 except SyntaxError:
-                    print('            WARNING:',
-                          f"Unknown option '{a}' found, ignoring...")
+                    logging.warning('Unknown option %s found, ignoring...', a)
                 else:
                     options['unit'] = a
 
     if options['note']:
-        options['note'] = f'\\quad\\text{{{options["note"]}}}'
+        options['note'] = f'\\,\\text{{{options["note"]}}}'
 
     return options
 
@@ -167,6 +168,9 @@ def cal(input_str: str, working_dict=DICT) -> str:
         # for later unit retrieval
         for var in unp_vars:
             exec(f'{var}{UNIT_PF} = "{options["unit"]}"', working_dict)
+        
+        if options['hidden']:
+            return ''
     else:
         if len(result) > 1:
             procedure = [f'{result[0]} = {result[1]}']
@@ -298,8 +302,7 @@ class UnitHandler(ast.NodeVisitor):
             right = reduce(self.visit(n.right))
             if are_equivalent(left, right):
                 return left
-            print('            WARNING:',
-                  'The units of the two sides are not equivalent.')
+            logging.warning('The units of the two sides are not equivalent.')
             return [{}, {}]
 
     def visit_UnaryOp(self, n):

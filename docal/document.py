@@ -25,14 +25,16 @@ import re
 import ast
 # to run pandoc
 from subprocess import run
-# for temp folder access and path manips
-from os import environ, remove, path, makedirs
-# for timings
-from datetime import datetime
+# for path manips
+from os import path
 # for word file handling
 import xml.etree.ElementTree as ET
 from zipfile import ZipFile, ZIP_DEFLATED
-from shutil import move
+# for temp directory
+import tempfile
+# for status tracking
+import logging as log
+from shutil import move, rmtree
 # for working with the document's variables and filename
 try:
     from __main__ import __dict__ as DICT
@@ -42,12 +44,9 @@ from .calculation import cal
 from .parsing import UNIT_PF, eqn, latexify
 # to split the calculation string
 from .utils import _split_module
-# to log info about what it's doing with timestamps
-START_TIME = datetime.now()
 DEFAULT_FILE = 'Untitled.tex'
 # the tag pattern
 PATTERN = re.compile(r'(?s)([^\w\\]|^)#(\w+?)(\W|$)')
-PATTERN_2 = re.compile(r'(?s)([^\w\\]|^)##(\w+?)(\W|$)')  # for word
 # surrounding of the content sent for reversing (something that doesn't
 # change the actual content of the document, and works inside lines)
 SURROUNDING = ['{} {{ {}', '{} }} {}']
@@ -64,7 +63,7 @@ class latexFile:
 
         self.to_clear = to_clear
         if infile:
-            self.infile = infile
+            self.infile = self.outfile = infile
             with open(self.infile) as file:
                 self.file_contents = file.read()
             # the collection of tags at the bottom of the file for reversing
@@ -81,6 +80,7 @@ class latexFile:
                          for tag in PATTERN.finditer(self.file_contents)]
         else:
             self.file_contents = self.infile = self.tagline = self.tags = None
+            self.outfile = DEFAULT_FILE
 
     def _revert_tags(self):
         # remove the tagline
@@ -129,14 +129,12 @@ class latexFile:
         return start + result + end
 
     def write(self, outfile=None, values={}):
-        if not outfile:
-            if self.infile:
-                outfile = self.infile
-            else:
-                outfile = DEFAULT_FILE
+        if outfile:
+            self.outfile = outfile
+
         if not self.to_clear:
             if self.infile:
-                if path.abspath(outfile) == path.abspath(self.infile):
+                if path.abspath(self.outfile) == path.abspath(self.infile):
                     self.file_contents = self._subs_in_place(values)
                 else:
                     self.file_contents = self._subs_separate(values)
@@ -145,17 +143,13 @@ class latexFile:
                     '\n'.join(val) for val in values.values()
                     ])
 
-        print(f"Writing output to '{outfile}'... {datetime.now()}")
-        with open(outfile, 'w') as file:
+        log.info('[writing file] %s', self.outfile)
+        with open(self.outfile, 'w') as file:
             file.write(self.file_contents)
 
 
 class wordFile:
 
-    # temp folder for converted files
-    temp_dir = path.join(environ['TMP'], 'docal_tmp')
-    # If it does not exist, create it
-    makedirs(temp_dir, exist_ok=True)
     # the xml declaration
     declaration = '<?xml version="1.0" encoding="utf-8" standalone="yes"?>\n'
     # always required namespaces
@@ -182,9 +176,13 @@ class wordFile:
     }
 
     def __init__(self, infile, to_clear=False):
+        # temp folder for converted files
+        self.temp_dir = tempfile.mkdtemp()
         # file taken as input file when not explicitly set:
         if infile:
             self.infile = infile
+            base, ext = path.splitext(self.infile)
+            self.outfile = base + '-out' + ext
             with ZipFile(infile, 'r') as zin:
                 file_contents = zin.read('word/document.xml')
                 self.tmp_file = ZipFile(path.join(
@@ -208,6 +206,7 @@ class wordFile:
                     self.temp_dir, path.splitext(
                         path.basename(DEFAULT_FILE))[0])
             self.infile = self.doc_tree = self.tags_info = self.tags = None
+            self.outfile = DEFAULT_FILE.replace('.tex', '.docx')
 
     def normalized_contents(self, paragraph):
         pref_w = f'{{{self.namespaces["w"]}}}'
@@ -240,15 +239,15 @@ class wordFile:
                 child.clear()
                 for cont in conts:
                     if type(cont) == list:
-                        if '##' in cont[0]:
+                        if '#' in cont[0]:
                             # there is some tag in this; ignore any properties
                             w_r = ET.SubElement(child, pref_w + 'r')
                             w_t = ET.SubElement(w_r, pref_w + 't',
                                                 {'xml:space': 'preserve'})
                             w_t.text = cont[0]
                             # store full info about the tags
-                            for tag in PATTERN_2.findall(cont[0]):
-                                if cont[0].strip() == '##' + tag[1]:
+                            for tag in PATTERN.findall(cont[0]):
+                                if cont[0].strip() == '#' + tag[1]:
                                     position = 'para'
                                 else:
                                     position = 'inline'
@@ -285,7 +284,7 @@ class wordFile:
                 added += len(ans_parts) - 1  # minus the tag para (removed)
             else:
                 loc_para, loc_run, loc_text = info['address']
-                split_text = loc_text.text.split('##' + info['tag'][1], 1)
+                split_text = loc_text.text.split('#' + info['tag'][1], 1)
                 loc_text.text = split_text[1]
                 index_run = list(loc_para).index(loc_run)
                 pref_w = f'{{{self.namespaces["w"]}}}'
@@ -314,7 +313,7 @@ class wordFile:
                     added += len(ans_parts) + 1
 
     def _get_ans_tree(self, values={}):
-        result_str = '\n\n'.join(['##' + tag + '\n\n' + '\n'.join(values[tag])
+        result_str = '\n\n'.join(['#' + tag + '\n\n' + '\n'.join(values[tag])
                                   for tag in self.tags])
         result_tex = path.join(
             self.temp_dir, path.basename(self.infile) + '-res.tex')
@@ -324,12 +323,12 @@ class wordFile:
         run(['pandoc', result_tex, '-o', result_docx])
         with ZipFile(result_docx) as docx:
             ans_tree = ET.fromstring(docx.read('word/document.xml'))
-        remove(result_tex)
-        remove(result_docx)
 
         return ans_tree
 
     def write(self, outfile=None, values={}):
+        if outfile:
+            self.outfile = outfile
 
         if self.infile:
             self._subs_tags(values)
@@ -353,16 +352,11 @@ class wordFile:
                     ]))
             tmp_fname = path.splitext(self.tmp_file)[0] + '.docx'
             run(['pandoc', self.tmp_file, '-f', 'latex', '-o', tmp_fname])
-            remove(self.tmp_file)
 
-        if not outfile:
-            if self.infile:
-                base, ext = path.splitext(self.infile)
-                outfile = base + '-out' + ext
-            else:
-                outfile = DEFAULT_FILE.replace('.tex', '.docx')
-        print(f"Writing output to '{outfile}'... {datetime.now()}")
-        move(tmp_fname, outfile)
+        log.info('[writing file] %s', self.outfile)
+        move(tmp_fname, self.outfile)
+
+        rmtree(self.temp_dir)
 
 
 class document:
@@ -375,10 +369,13 @@ class document:
         '.tex': latexFile,
     }
 
-    def __init__(self, infile=None, to_clear=False):
+    def __init__(self, infile=None, to_clear=False, log_level=None):
         '''initialize'''
 
         self.to_clear = to_clear
+        log_level = getattr(log, log_level.upper()) if log_level else None
+        log.basicConfig(format='%(asctime)s %(levelname)s: %(message)s',
+                        level=log_level)
         # the document
         if infile:
             infile = path.abspath(infile)
@@ -414,9 +411,7 @@ class document:
         convert comments to latex paragraphs
         '''
 
-        print('    Processing comment line to a paragraph...',
-              str(datetime.time(datetime.now())),
-              f'\n        {line}')
+        log.info('[Processing] %s', line)
         if line.startswith('$'):
             line = re.sub(r'(?a)#(\w+)',
                           lambda x: 'TMP0'.join(
@@ -441,19 +436,9 @@ class document:
         '''
         evaluate assignments and convert to latex form
         '''
-        if not line.rstrip().endswith(';'):
-            print('    Evaluating and converting equation line to'
-                  'LaTeX form...',
-                  str(datetime.time(datetime.now())),
-                  f'\n        {line}')
-            # the cal function will execute it so no need for exec
-            return cal(line, working_dict)
-        else:
-            # if it does not appear like an equation or a comment, just execute it
-            print('    Executing statement...', f'\n        {line}',
-                  str(datetime.time(datetime.now())),)
-            exec(line, working_dict)
-        return ''
+        log.info('[Processing] %s', line)
+        # the cal function will execute it so no need for exec
+        return cal(line, working_dict)
 
     def process_content(self, input_str, working_dict=DICT):
         tag = self.current_tag
@@ -461,8 +446,7 @@ class document:
         for part in _split_module(input_str):
             if part[1] == 'tag':
                 tag = part[0]
-                print(f'[{tag}]: Processing contents...',
-                      str(datetime.time(datetime.now())))
+                log.info('[tag:%s]', tag)
             elif part[1] in ['assign', 'expr']:
                 processed.append((tag, self._process_assignment(part[0], working_dict)))
             elif part[1] == 'comment':
@@ -470,9 +454,7 @@ class document:
             elif part[1] == 'stmt':
                 # if it does not appear like an equation or a comment,
                 # just execute it
-                print('    Executing statement...',
-                      f'\n        {part[0]}',
-                      str(datetime.time(datetime.now())))
+                log.info('[Executing] %s', part[0])
                 exec(part[0], working_dict)
                 if part[0].startswith('del '):
                     # also delete associated unit strings
@@ -504,8 +486,7 @@ class document:
 
         if not self.to_clear:
             tag = self.current_tag
-            print(f'[{tag}]: Processing contents...',
-                  str(datetime.time(datetime.now())))
+            log.info('[tag:%s]', tag)
             for tag, part in self.process_content(content):
                 self._send(tag, part)
 
@@ -532,4 +513,4 @@ class document:
                 self.document_file = self.file_handlers['.tex'](None, self.to_clear)
 
         self.document_file.write(outfile, self.contents)
-        print(f'\nSUCCESS!!!     (finished in {datetime.now() - START_TIME})')
+        log.info('SUCCESS!!!')
