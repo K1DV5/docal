@@ -7,6 +7,7 @@ https://stackoverflow.com/questions/3867028/converting-a-python-numeric-expressi
 
 import ast
 import re
+import logging
 from .document import DICT
 from .utils import _split
 
@@ -286,8 +287,7 @@ class _LatexVisitor(ast.NodeVisitor):
                     return f'\\left({qty} {unit}\\right)'
                 return qty + unit
             except KeyError:
-                print('WARNING:',
-                      f" The variable '{n.id}' has not been defined.")
+                logging.warning('The variable %s has not been defined.', n.id)
         return format_name(n.id)
 
     def prec_Name(self, n):

@@ -6,6 +6,7 @@ module and returns the procedure of the calculations
 '''
 
 import ast
+import logging
 from .document import DICT
 from .parsing import latexify, eqn, DEFAULT_MAT_SIZE, UNIT_PF
 from .utils import _split
@@ -46,9 +47,7 @@ def _calculate(expr, options: dict, working_dict=DICT):
         compared = [compared, [compared[1], [{}, {}]]]
         # if it is detected, warn the user but accept it anyway
         if not are_equivalent(*compared[1]) and not are_equivalent(*compared[0]):
-            print('            WARNING:',
-                  'The input unit is not equivalent to the calculated one.',
-                  'Overriding...')
+            logging.warning('The input unit is not equivalent to the calculated one.')
     else:
         options['unit'] = unitize(expr)
     if options['unit'] and options['unit'] != '_':
@@ -99,8 +98,7 @@ def _process_options(additionals):
                 try:
                     compile(a, '', 'eval')
                 except SyntaxError:
-                    print('            WARNING:',
-                          f"Unknown option '{a}' found, ignoring...")
+                    logging.warning('Unknown option %s found, ignoring...', a)
                 else:
                     options['unit'] = a
 
@@ -304,8 +302,7 @@ class UnitHandler(ast.NodeVisitor):
             right = reduce(self.visit(n.right))
             if are_equivalent(left, right):
                 return left
-            print('            WARNING:',
-                  'The units of the two sides are not equivalent.')
+            logging.warning('The units of the two sides are not equivalent.')
             return [{}, {}]
 
     def visit_UnaryOp(self, n):
