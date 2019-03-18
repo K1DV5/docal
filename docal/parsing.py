@@ -160,9 +160,9 @@ def _fit_matrix(matrix, max_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
     if there is a need, make the given matrix smaller
     '''
 
-    shape = matrix.shape if not isinstance(matrix, list) else [len(matrix)]
+    shape = (len(matrix),) if isinstance(matrix, list) else matrix.shape
     # array -> short
-    if len(shape) == 1 and shape[0] > max_size[0]:
+    if len(shape) == 1 and shape[0] > max_size[0] or isinstance(matrix, list):
         mat_ls = _fit_array(matrix, max_size[0])
     # too big -> small
     elif matrix.shape[0] > max_size[0] and matrix.shape[1] > max_size[1]:

@@ -81,6 +81,7 @@ class latexFile:
         else:
             self.file_contents = self.infile = self.tagline = self.tags = None
             self.outfile = DEFAULT_FILE
+        self.calc_tags = []
 
     def _revert_tags(self):
         # remove the tagline
@@ -99,10 +100,10 @@ class latexFile:
 
     def _subs_in_place(self, values: dict):
         file_str = self.file_contents + f'\n\n% {self.warning} [['
-        for tag in self.tags:
-            file_str += tag + ' '
         file_str = PATTERN.sub(lambda x: self._repl(x, True, values),
                                file_str)
+        for tag in self.calc_tags:
+            file_str += tag + ' '
         file_str = file_str.rstrip('\n') + ']]'
         return file_str
 
@@ -113,20 +114,20 @@ class latexFile:
     def _repl(self, match_object, surround: bool, values: dict):
         start, tag, end = [m if m else '' for m in match_object.groups()]
         if tag in values:
+            self.calc_tags.append(tag)
             result = '\n'.join(values[tag])
-        else:
-            raise KeyError(f"'{tag}' is an unused tag.")
+            if surround:
+                return (start
+                        + SURROUNDING[0]
+                        + (start if start == '\n' else '')
+                        + result
+                        + (end if end == '\n' else '')
+                        + SURROUNDING[1]
+                        + end)
 
-        if surround:
-            return (start
-                    + SURROUNDING[0]
-                    + (start if start == '\n' else '')
-                    + result
-                    + (end if end == '\n' else '')
-                    + SURROUNDING[1]
-                    + end)
-
-        return start + result + end
+            return start + result + end
+        log.warning(f"'{tag}' is an unused tag in the document.")
+        return start + '#' + tag + end
 
     def write(self, outfile=None, values={}):
         if outfile:
@@ -281,51 +282,57 @@ class wordFile:
         indices = [info['index'] for info in ans_tag_info]
         ans_len = len(ans_tree[0])
         # add one to skip the tags
-        ranges = zip([i + 1 for i in indices], indices[1:] + [ans_len])
+        ranges = list(zip([i + 1 for i in indices], indices[1:] + [ans_len]))
+        # get ans elements in (tag, (start, end)) form
+        ans_info = [(info['tag'], ranges[i]) for i, info in enumerate(ans_tag_info)]
 
         added = 0  # the added index to make up for the added elements
-        for index, (start, end) in enumerate(ranges):
-            info = self.tags_info[index]
-            ans_parts = ans_tree[0][start: end]
-            if info['position'] == 'para':
-                ans_parts.reverse()  # because they are inserted at the same index
-                for ans in ans_parts:
-                    self.doc_tree[0].insert(info['index'] + added, ans)
-                self.doc_tree[0].remove(info['address'][0])
-                added += len(ans_parts) - 1  # minus the tag para (removed)
-            else:
-                loc_para, loc_run, loc_text = info['address']
-                split_text = loc_text.text.split(info['tag-alt'][1], 1)
-                loc_text.text = split_text[1]
-                index_run = list(loc_para).index(loc_run)
-                pref_w = f'{{{self.namespaces["w"]}}}'
-                # if there is only one para, insert its contents into the para
-                if len(ans_parts) == 1:
-                    ans_runs = list(ans_parts[0])
-                    ans_runs.reverse()  # same reason as above
-                    for run in ans_runs:
-                        loc_para.insert(index_run, run)
-                    beg_run = ET.Element(pref_w + 'r')
-                    beg_text = ET.SubElement(beg_run, pref_w + 't',
-                                             {'xml:space': 'preserve'})
-                    beg_text.text = split_text[0]
-                    loc_para.insert(index_run, beg_run)
-                else:  # split the para and make new paras between the splits
-                    beg_para = ET.Element(pref_w + 'p')
-                    beg_run = ET.SubElement(beg_para, pref_w + 'r')
-                    beg_text = ET.SubElement(beg_run, pref_w + 't',
-                                             {'xml:space': 'preserve'})
-                    beg_text.text = split_text[0]
-                    ans_parts.reverse()  # same reason as above
+        for tag, (start, end) in ans_info:
+            matching_infos = [info for info in self.tags_info if info['tag'] == tag]
+            if matching_infos:
+                info = matching_infos[0]
+                ans_parts = ans_tree[0][start: end]
+                if info['position'] == 'para':
+                    ans_parts.reverse()  # because they are inserted at the same index
                     for ans in ans_parts:
                         self.doc_tree[0].insert(info['index'] + added, ans)
-                    beg_index = info['index'] + added
-                    self.doc_tree[0].insert(beg_index, beg_para)
-                    added += len(ans_parts) + 1
+                    self.doc_tree[0].remove(info['address'][0])
+                    added += len(ans_parts) - 1  # minus the tag para (removed)
+                else:
+                    loc_para, loc_run, loc_text = info['address']
+                    split_text = loc_text.text.split(info['tag-alt'][1], 1)
+                    loc_text.text = split_text[1]
+                    index_run = list(loc_para).index(loc_run)
+                    pref_w = f'{{{self.namespaces["w"]}}}'
+                    # if there is only one para, insert its contents into the para
+                    if len(ans_parts) == 1:
+                        ans_runs = list(ans_parts[0])
+                        ans_runs.reverse()  # same reason as above
+                        for run in ans_runs:
+                            loc_para.insert(index_run, run)
+                        beg_run = ET.Element(pref_w + 'r')
+                        beg_text = ET.SubElement(beg_run, pref_w + 't',
+                                                 {'xml:space': 'preserve'})
+                        beg_text.text = split_text[0]
+                        loc_para.insert(index_run, beg_run)
+                    else:  # split the para and make new paras between the splits
+                        beg_para = ET.Element(pref_w + 'p')
+                        beg_run = ET.SubElement(beg_para, pref_w + 'r')
+                        beg_text = ET.SubElement(beg_run, pref_w + 't',
+                                                 {'xml:space': 'preserve'})
+                        beg_text.text = split_text[0]
+                        ans_parts.reverse()  # same reason as above
+                        for ans in ans_parts:
+                            self.doc_tree[0].insert(info['index'] + added, ans)
+                        beg_index = info['index'] + added
+                        self.doc_tree[0].insert(beg_index, beg_para)
+                        added += len(ans_parts) + 1
+            else:
+                log.warning(f'Tag {tag} not found in the document.')
 
     def _get_ans_tree(self, values={}):
-        result_str = '\n\n'.join(['#' + tag + '\n\n' + '\n'.join(values[tag])
-                                  for tag in self.tags])
+        result_str = '\n\n'.join(['#' + tag + '\n\n' + '\n'.join(value)
+                                  for tag, value in values.items()])
         result_tex = path.join(
             self.temp_dir, path.basename(self.infile) + '-res.tex')
         result_docx = path.splitext(result_tex)[0] + '.docx'
@@ -491,7 +498,9 @@ class document:
             if tag != self.current_tag:
                 self.current_tag = tag
         elif self.document_file:
-            raise KeyError(f'Tag {tag} cannot be found in the document')
+            if tag is None:
+                log.error('There are no tags in the document')
+            log.error(f'Tag {tag} cannot be found in the document')
 
     def send(self, content):
         '''add the content to the tag, which will be sent to the document.
@@ -511,12 +520,6 @@ class document:
         substitution on the input file without destroying the chance of
         reverting changes. If this function is run on an in-place substituted
         file, it will revert the file to its original state (with tags).'''
-
-        # treat the rest of the tags as values to be referred
-        if self.document_file and not self.to_clear:
-            for tag in self.tags:
-                if tag not in self.contents:
-                    self.contents[tag] = [self._format_value(tag)]
 
         if not self.document_file:
             if outfile:
