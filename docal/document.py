@@ -141,7 +141,7 @@ class latexFile:
             else:
                 self.file_contents = '\n'.join([
                     '\n'.join(val) for val in values.values()
-                    ])
+                ])
 
         log.info('[writing file] %s', self.outfile)
         with open(self.outfile, 'w') as file:
@@ -175,6 +175,9 @@ class wordFile:
         "wps": "http://schemas.microsoft.com/office/word/2010/wordprocessingshape",
     }
 
+    # the internal form of the parsed tags for internal use to avoid normal # usage
+    tag_alt_form = '#{%s}'
+
     def __init__(self, infile, to_clear=False):
         # temp folder for converted files
         self.temp_dir = tempfile.mkdtemp()
@@ -200,11 +203,11 @@ class wordFile:
 
             # the tags in the document (stores tags, their addresses, and whether inline)
             self.tags_info = self.extract_tags_info(self.doc_tree)
-            self.tags = [info['tag'][1] for info in self.tags_info]
+            self.tags = [info['tag'] for info in self.tags_info]
         else:
             self.tmp_file = path.join(
-                    self.temp_dir, path.splitext(
-                        path.basename(DEFAULT_FILE))[0])
+                self.temp_dir, path.splitext(
+                    path.basename(DEFAULT_FILE))[0])
             self.infile = self.doc_tree = self.tags_info = self.tags = None
             self.outfile = DEFAULT_FILE.replace('.tex', '.docx')
 
@@ -240,21 +243,29 @@ class wordFile:
                 for cont in conts:
                     if type(cont) == list:
                         if '#' in cont[0]:
-                            # there is some tag in this; ignore any properties
+                            # replace with a new element
                             w_r = ET.SubElement(child, pref_w + 'r')
                             w_t = ET.SubElement(w_r, pref_w + 't',
                                                 {'xml:space': 'preserve'})
-                            w_t.text = cont[0]
-                            # store full info about the tags
-                            for tag in PATTERN.findall(cont[0]):
-                                if cont[0].strip() == '#' + tag[1]:
+                            # store full info about the tags inside
+                            for tag in PATTERN.finditer(cont[0]):
+                                if cont[0].strip() == '#' + tag.group(2):
                                     position = 'para'
                                 else:
                                     position = 'inline'
-                                tags_info.append({'tag': tag,
-                                                  'address': [child, w_r, w_t],
-                                                  'position': position,
-                                                  'index': index})
+                                tags_info.append({
+                                    'tag': tag.group(2),
+                                    'tag-alt': self.tag_alt_form % tag.group(2),
+                                    'address': [child, w_r, w_t],
+                                    'position': position,
+                                    'index': index})
+                            # remove \'s from the escaped #'s and change the tags form
+                            w_t.text = (re.sub(r'\\#', '#', PATTERN.sub(
+                                lambda tag:
+                                    tag.group(1) +
+                                    self.tag_alt_form % tag.group(2) +
+                                    tag.group(3),
+                                cont[0])))
                         else:  # preserve properties
                             for r in cont[1:]:
                                 child.append(r)
@@ -284,7 +295,7 @@ class wordFile:
                 added += len(ans_parts) - 1  # minus the tag para (removed)
             else:
                 loc_para, loc_run, loc_text = info['address']
-                split_text = loc_text.text.split('#' + info['tag'][1], 1)
+                split_text = loc_text.text.split(info['tag-alt'][1], 1)
                 loc_text.text = split_text[1]
                 index_run = list(loc_para).index(loc_run)
                 pref_w = f'{{{self.namespaces["w"]}}}'
@@ -349,7 +360,7 @@ class wordFile:
             with open(self.tmp_file, 'w') as file:
                 file.write('\n'.join([
                     '\n'.join(val) for val in values.values()
-                    ]))
+                ]))
             tmp_fname = path.splitext(self.tmp_file)[0] + '.docx'
             run(['pandoc', self.tmp_file, '-f', 'latex', '-o', tmp_fname])
 
@@ -448,9 +459,11 @@ class document:
                 tag = part[0]
                 log.info('[tag:%s]', tag)
             elif part[1] in ['assign', 'expr']:
-                processed.append((tag, self._process_assignment(part[0], working_dict)))
+                processed.append(
+                    (tag, self._process_assignment(part[0], working_dict)))
             elif part[1] == 'comment':
-                processed.append((tag, self._process_comment(part[0], working_dict)))
+                processed.append(
+                    (tag, self._process_comment(part[0], working_dict)))
             elif part[1] == 'stmt':
                 # if it does not appear like an equation or a comment,
                 # just execute it
@@ -508,9 +521,11 @@ class document:
         if not self.document_file:
             if outfile:
                 ext = path.splitext(outfile)[1]
-                self.document_file = self.file_handlers[ext](None, self.to_clear)
+                self.document_file = self.file_handlers[ext](
+                    None, self.to_clear)
             else:
-                self.document_file = self.file_handlers['.tex'](None, self.to_clear)
+                self.document_file = self.file_handlers['.tex'](
+                    None, self.to_clear)
 
         self.document_file.write(outfile, self.contents)
         log.info('SUCCESS!!!')
