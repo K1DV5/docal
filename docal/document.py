@@ -126,7 +126,7 @@ class latexFile:
                         + end)
 
             return start + result + end
-        log.warning(f"'{tag}' is an unused tag in the document.")
+        log.error(f"There is nothing to send to #{tag}.")
         return start + '#' + tag + end
 
     def write(self, outfile=None, values={}):
@@ -291,6 +291,8 @@ class wordFile:
             matching_infos = [info for info in self.tags_info if info['tag'] == tag]
             if matching_infos:
                 info = matching_infos[0]
+                # remove this entry to revert the left ones from their alt form
+                self.tags_info.remove(info)
                 ans_parts = ans_tree[0][start: end]
                 if info['position'] == 'para':
                     ans_parts.reverse()  # because they are inserted at the same index
@@ -328,7 +330,12 @@ class wordFile:
                         self.doc_tree[0].insert(beg_index, beg_para)
                         added += len(ans_parts) + 1
             else:
-                log.warning(f'Tag {tag} not found in the document.')
+                log.error(f'Tag {tag} not found in the document.')
+        # revert the tags left from their alt form
+        for info in self.tags_info:
+            log.error(f'There is nothing to send to #{info["tag"]}.')
+            loc_text = info['address'][2]
+            loc_text.text = loc_text.text.replace(info['tag-alt'], '#' + info['tag'])
 
     def _get_ans_tree(self, values={}):
         result_str = '\n\n'.join(['#' + tag + '\n\n' + '\n'.join(value)
@@ -392,8 +399,7 @@ class document:
 
         self.to_clear = to_clear
         log_level = getattr(log, log_level.upper()) if log_level else None
-        log.basicConfig(format='%(asctime)s %(levelname)s: %(message)s',
-                        level=log_level)
+        log.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
         # the document
         if infile:
             infile = path.abspath(infile)
@@ -406,6 +412,8 @@ class document:
         # the calculations corresponding to the tags
         self.contents = {}
         self.current_tag = self.tags[0] if self.tags else None
+        if self.current_tag is None:
+            log.error('There are no tags in the document')
         # temp storage for assignment statements where there are unmatched parens
         self.incomplete_assign = ''
         # temp storage for block statements like if and for
@@ -464,7 +472,7 @@ class document:
         for part in _split_module(input_str):
             if part[1] == 'tag':
                 tag = part[0]
-                log.info('[tag:%s]', tag)
+                log.info('[Change tag] #%s', tag)
             elif part[1] in ['assign', 'expr']:
                 processed.append(
                     (tag, self._process_assignment(part[0], working_dict)))
@@ -485,32 +493,22 @@ class document:
                             del working_dict[v + UNIT_PF]
         return processed
 
-    def _send(self, tag, content):
-        '''store the conten as an item in the list under the tag
-        for later substitution
-        '''
-        if tag == '_':
-            tag = self.current_tag
-        if not (self.document_file or self.tags) or tag in self.tags:
-            if tag not in self.contents.keys():
-                self.contents[tag] = []
-            self.contents[tag].append(content)
-            if tag != self.current_tag:
-                self.current_tag = tag
-        elif self.document_file:
-            if tag is None:
-                log.error('There are no tags in the document')
-            log.error(f'Tag {tag} cannot be found in the document')
-
     def send(self, content):
         '''add the content to the tag, which will be sent to the document.
         Where it will be inserted is decided by the most recent tag.'''
 
         if not self.to_clear:
             tag = self.current_tag
-            log.info('[tag:%s]', tag)
+            log.info('[Change tag] #%s', tag)
             for tag, part in self.process_content(content):
-                self._send(tag, part)
+                if tag == '_':
+                    tag = self.current_tag
+                if not (self.document_file or self.tags) or tag in self.tags:
+                    if tag not in self.contents.keys():
+                        self.contents[tag] = []
+                    self.contents[tag].append(part)
+                    if tag != self.current_tag:
+                        self.current_tag = tag
 
     def write(self, outfile=None):
         '''replace all the tags with the contents of the python script.
