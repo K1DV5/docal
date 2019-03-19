@@ -33,7 +33,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 # for temp directory
 import tempfile
 # for status tracking
-import logging as log
+import logging
 from shutil import move, rmtree
 # for working with the document's variables and filename
 try:
@@ -50,6 +50,10 @@ PATTERN = re.compile(r'(?s)([^\w\\]|^)#(\w+?)(\W|$)')
 # surrounding of the content sent for reversing (something that doesn't
 # change the actual content of the document, and works inside lines)
 SURROUNDING = ['{} {{ {}', '{} }} {}']
+
+LOG_FORMAT = '%(levelname)s: %(message)s'
+logging.basicConfig(format=LOG_FORMAT)
+log = logging.getLogger(__name__)
 
 
 class latexFile:
@@ -81,6 +85,7 @@ class latexFile:
         else:
             self.file_contents = self.infile = self.tagline = self.tags = None
             self.outfile = DEFAULT_FILE
+        self.calc_tags = []
 
     def _revert_tags(self):
         # remove the tagline
@@ -99,10 +104,10 @@ class latexFile:
 
     def _subs_in_place(self, values: dict):
         file_str = self.file_contents + f'\n\n% {self.warning} [['
-        for tag in self.tags:
-            file_str += tag + ' '
         file_str = PATTERN.sub(lambda x: self._repl(x, True, values),
                                file_str)
+        for tag in self.calc_tags:
+            file_str += tag + ' '
         file_str = file_str.rstrip('\n') + ']]'
         return file_str
 
@@ -114,19 +119,18 @@ class latexFile:
         start, tag, end = [m if m else '' for m in match_object.groups()]
         if tag in values:
             result = '\n'.join(values[tag])
-        else:
-            raise KeyError(f"'{tag}' is an unused tag.")
+            if surround:
+                return (start
+                        + SURROUNDING[0]
+                        + (start if start == '\n' else '')
+                        + result
+                        + (end if end == '\n' else '')
+                        + SURROUNDING[1]
+                        + end)
 
-        if surround:
-            return (start
-                    + SURROUNDING[0]
-                    + (start if start == '\n' else '')
-                    + result
-                    + (end if end == '\n' else '')
-                    + SURROUNDING[1]
-                    + end)
-
-        return start + result + end
+            return start + result + end
+        log.error(f"There is nothing to send to #{tag}.")
+        return start + '#' + tag + end
 
     def write(self, outfile=None, values={}):
         if outfile:
@@ -134,6 +138,11 @@ class latexFile:
 
         if not self.to_clear:
             if self.infile:
+                for tag in values:
+                    if tag in self.tags:
+                        self.calc_tags.append(tag)
+                    else:
+                        log.error(f'#{tag} not found in the document.')
                 if path.abspath(self.outfile) == path.abspath(self.infile):
                     self.file_contents = self._subs_in_place(values)
                 else:
@@ -141,7 +150,7 @@ class latexFile:
             else:
                 self.file_contents = '\n'.join([
                     '\n'.join(val) for val in values.values()
-                    ])
+                ])
 
         log.info('[writing file] %s', self.outfile)
         with open(self.outfile, 'w') as file:
@@ -175,6 +184,9 @@ class wordFile:
         "wps": "http://schemas.microsoft.com/office/word/2010/wordprocessingshape",
     }
 
+    # the internal form of the parsed tags for internal use to avoid normal # usage
+    tag_alt_form = '#{%s}'
+
     def __init__(self, infile, to_clear=False):
         # temp folder for converted files
         self.temp_dir = tempfile.mkdtemp()
@@ -200,11 +212,11 @@ class wordFile:
 
             # the tags in the document (stores tags, their addresses, and whether inline)
             self.tags_info = self.extract_tags_info(self.doc_tree)
-            self.tags = [info['tag'][1] for info in self.tags_info]
+            self.tags = [info['tag'] for info in self.tags_info]
         else:
             self.tmp_file = path.join(
-                    self.temp_dir, path.splitext(
-                        path.basename(DEFAULT_FILE))[0])
+                self.temp_dir, path.splitext(
+                    path.basename(DEFAULT_FILE))[0])
             self.infile = self.doc_tree = self.tags_info = self.tags = None
             self.outfile = DEFAULT_FILE.replace('.tex', '.docx')
 
@@ -240,21 +252,29 @@ class wordFile:
                 for cont in conts:
                     if type(cont) == list:
                         if '#' in cont[0]:
-                            # there is some tag in this; ignore any properties
+                            # replace with a new element
                             w_r = ET.SubElement(child, pref_w + 'r')
                             w_t = ET.SubElement(w_r, pref_w + 't',
                                                 {'xml:space': 'preserve'})
-                            w_t.text = cont[0]
-                            # store full info about the tags
-                            for tag in PATTERN.findall(cont[0]):
-                                if cont[0].strip() == '#' + tag[1]:
+                            # store full info about the tags inside
+                            for tag in PATTERN.finditer(cont[0]):
+                                if cont[0].strip() == '#' + tag.group(2):
                                     position = 'para'
                                 else:
                                     position = 'inline'
-                                tags_info.append({'tag': tag,
-                                                  'address': [child, w_r, w_t],
-                                                  'position': position,
-                                                  'index': index})
+                                tags_info.append({
+                                    'tag': tag.group(2),
+                                    'tag-alt': self.tag_alt_form % tag.group(2),
+                                    'address': [child, w_r, w_t],
+                                    'position': position,
+                                    'index': index})
+                            # remove \'s from the escaped #'s and change the tags form
+                            w_t.text = (re.sub(r'\\#', '#', PATTERN.sub(
+                                lambda tag:
+                                    tag.group(1) +
+                                    self.tag_alt_form % tag.group(2) +
+                                    tag.group(3),
+                                cont[0])))
                         else:  # preserve properties
                             for r in cont[1:]:
                                 child.append(r)
@@ -270,51 +290,64 @@ class wordFile:
         indices = [info['index'] for info in ans_tag_info]
         ans_len = len(ans_tree[0])
         # add one to skip the tags
-        ranges = zip([i + 1 for i in indices], indices[1:] + [ans_len])
+        ranges = list(zip([i + 1 for i in indices], indices[1:] + [ans_len]))
+        # get ans elements in (tag, (start, end)) form
+        ans_info = [(info['tag'], ranges[i]) for i, info in enumerate(ans_tag_info)]
 
         added = 0  # the added index to make up for the added elements
-        for index, (start, end) in enumerate(ranges):
-            info = self.tags_info[index]
-            ans_parts = ans_tree[0][start: end]
-            if info['position'] == 'para':
-                ans_parts.reverse()  # because they are inserted at the same index
-                for ans in ans_parts:
-                    self.doc_tree[0].insert(info['index'] + added, ans)
-                self.doc_tree[0].remove(info['address'][0])
-                added += len(ans_parts) - 1  # minus the tag para (removed)
-            else:
-                loc_para, loc_run, loc_text = info['address']
-                split_text = loc_text.text.split('#' + info['tag'][1], 1)
-                loc_text.text = split_text[1]
-                index_run = list(loc_para).index(loc_run)
-                pref_w = f'{{{self.namespaces["w"]}}}'
-                # if there is only one para, insert its contents into the para
-                if len(ans_parts) == 1:
-                    ans_runs = list(ans_parts[0])
-                    ans_runs.reverse()  # same reason as above
-                    for run in ans_runs:
-                        loc_para.insert(index_run, run)
-                    beg_run = ET.Element(pref_w + 'r')
-                    beg_text = ET.SubElement(beg_run, pref_w + 't',
-                                             {'xml:space': 'preserve'})
-                    beg_text.text = split_text[0]
-                    loc_para.insert(index_run, beg_run)
-                else:  # split the para and make new paras between the splits
-                    beg_para = ET.Element(pref_w + 'p')
-                    beg_run = ET.SubElement(beg_para, pref_w + 'r')
-                    beg_text = ET.SubElement(beg_run, pref_w + 't',
-                                             {'xml:space': 'preserve'})
-                    beg_text.text = split_text[0]
-                    ans_parts.reverse()  # same reason as above
+        for tag, (start, end) in ans_info:
+            matching_infos = [info for info in self.tags_info if info['tag'] == tag]
+            if matching_infos:
+                info = matching_infos[0]
+                # remove this entry to revert the left ones from their alt form
+                self.tags_info.remove(info)
+                ans_parts = ans_tree[0][start: end]
+                if info['position'] == 'para':
+                    ans_parts.reverse()  # because they are inserted at the same index
                     for ans in ans_parts:
                         self.doc_tree[0].insert(info['index'] + added, ans)
-                    beg_index = info['index'] + added
-                    self.doc_tree[0].insert(beg_index, beg_para)
-                    added += len(ans_parts) + 1
+                    self.doc_tree[0].remove(info['address'][0])
+                    added += len(ans_parts) - 1  # minus the tag para (removed)
+                else:
+                    loc_para, loc_run, loc_text = info['address']
+                    split_text = loc_text.text.split(info['tag-alt'][1], 1)
+                    loc_text.text = split_text[1]
+                    index_run = list(loc_para).index(loc_run)
+                    pref_w = f'{{{self.namespaces["w"]}}}'
+                    # if there is only one para, insert its contents into the para
+                    if len(ans_parts) == 1:
+                        ans_runs = list(ans_parts[0])
+                        ans_runs.reverse()  # same reason as above
+                        for run in ans_runs:
+                            loc_para.insert(index_run, run)
+                        beg_run = ET.Element(pref_w + 'r')
+                        beg_text = ET.SubElement(beg_run, pref_w + 't',
+                                                 {'xml:space': 'preserve'})
+                        beg_text.text = split_text[0]
+                        loc_para.insert(index_run, beg_run)
+                    else:  # split the para and make new paras between the splits
+                        beg_para = ET.Element(pref_w + 'p')
+                        beg_run = ET.SubElement(beg_para, pref_w + 'r')
+                        beg_text = ET.SubElement(beg_run, pref_w + 't',
+                                                 {'xml:space': 'preserve'})
+                        beg_text.text = split_text[0]
+                        ans_parts.reverse()  # same reason as above
+                        for ans in ans_parts:
+                            self.doc_tree[0].insert(info['index'] + added, ans)
+                        beg_index = info['index'] + added
+                        self.doc_tree[0].insert(beg_index, beg_para)
+                        added += len(ans_parts) + 1
+            else:
+                log.error(f'#{tag} not found in the document.')
+        # revert the rest of the tags from their alt form
+        for info in self.tags_info:
+            log.error(f'There is nothing to send to #{info["tag"]}.')
+            loc_text = info['address'][2]
+            loc_text.text = loc_text.text.replace(info['tag-alt'], '#' + info['tag'])
 
     def _get_ans_tree(self, values={}):
-        result_str = '\n\n'.join(['#' + tag + '\n\n' + '\n'.join(values[tag])
-                                  for tag in self.tags])
+        result_str = '\n\n'.join(['#' + tag + '\n\n' + '\n'.join(value)
+                                  for tag, value in values.items()])
         result_tex = path.join(
             self.temp_dir, path.basename(self.infile) + '-res.tex')
         result_docx = path.splitext(result_tex)[0] + '.docx'
@@ -349,7 +382,7 @@ class wordFile:
             with open(self.tmp_file, 'w') as file:
                 file.write('\n'.join([
                     '\n'.join(val) for val in values.values()
-                    ]))
+                ]))
             tmp_fname = path.splitext(self.tmp_file)[0] + '.docx'
             run(['pandoc', self.tmp_file, '-f', 'latex', '-o', tmp_fname])
 
@@ -369,25 +402,31 @@ class document:
         '.tex': latexFile,
     }
 
-    def __init__(self, infile=None, to_clear=False, log_level=None):
+    def __init__(self, infile=None, to_clear=False, log_level=None, log_file=False):
         '''initialize'''
 
         self.to_clear = to_clear
-        log_level = getattr(log, log_level.upper()) if log_level else None
-        log.basicConfig(format='%(asctime)s %(levelname)s: %(message)s',
-                        level=log_level)
         # the document
         if infile:
             infile = path.abspath(infile)
-            ext = path.splitext(infile)[1]
+            basename, ext = path.splitext(infile)
             self.document_file = self.file_handlers[ext](infile, to_clear)
             self.tags = self.document_file.tags
+            if log_file:
+                file_logger = logging.FileHandler(basename + '.log', 'w')
+                file_logger.setFormatter(logging.Formatter(LOG_FORMAT))
+                log.handlers = []
+                log.addHandler(file_logger)
         else:
             self.document_file = None
             self.tags = []
+        if log_level:
+            log.setLevel(getattr(logging, log_level.upper()))
         # the calculations corresponding to the tags
         self.contents = {}
         self.current_tag = self.tags[0] if self.tags else None
+        if self.current_tag is None:
+            log.error('There are no tags in the document')
         # temp storage for assignment statements where there are unmatched parens
         self.incomplete_assign = ''
         # temp storage for block statements like if and for
@@ -446,11 +485,13 @@ class document:
         for part in _split_module(input_str):
             if part[1] == 'tag':
                 tag = part[0]
-                log.info('[tag:%s]', tag)
+                log.info('[Change tag] #%s', tag)
             elif part[1] in ['assign', 'expr']:
-                processed.append((tag, self._process_assignment(part[0], working_dict)))
+                processed.append(
+                    (tag, self._process_assignment(part[0], working_dict)))
             elif part[1] == 'comment':
-                processed.append((tag, self._process_comment(part[0], working_dict)))
+                processed.append(
+                    (tag, self._process_comment(part[0], working_dict)))
             elif part[1] == 'stmt':
                 # if it does not appear like an equation or a comment,
                 # just execute it
@@ -465,30 +506,21 @@ class document:
                             del working_dict[v + UNIT_PF]
         return processed
 
-    def _send(self, tag, content):
-        '''store the conten as an item in the list under the tag
-        for later substitution
-        '''
-        if tag == '_':
-            tag = self.current_tag
-        if not (self.document_file or self.tags) or tag in self.tags:
-            if tag not in self.contents.keys():
-                self.contents[tag] = []
-            self.contents[tag].append(content)
-            if tag != self.current_tag:
-                self.current_tag = tag
-        elif self.document_file:
-            raise KeyError(f'Tag {tag} cannot be found in the document')
-
     def send(self, content):
         '''add the content to the tag, which will be sent to the document.
         Where it will be inserted is decided by the most recent tag.'''
 
         if not self.to_clear:
             tag = self.current_tag
-            log.info('[tag:%s]', tag)
+            log.info('[Change tag] #%s', tag)
             for tag, part in self.process_content(content):
-                self._send(tag, part)
+                if tag == '_':
+                    tag = self.current_tag
+                if tag not in self.contents.keys():
+                    self.contents[tag] = []
+                self.contents[tag].append(part)
+                if tag != self.current_tag:
+                    self.current_tag = tag
 
     def write(self, outfile=None):
         '''replace all the tags with the contents of the python script.
@@ -499,18 +531,14 @@ class document:
         reverting changes. If this function is run on an in-place substituted
         file, it will revert the file to its original state (with tags).'''
 
-        # treat the rest of the tags as values to be referred
-        if self.document_file and not self.to_clear:
-            for tag in self.tags:
-                if tag not in self.contents:
-                    self.contents[tag] = [self._format_value(tag)]
-
         if not self.document_file:
             if outfile:
                 ext = path.splitext(outfile)[1]
-                self.document_file = self.file_handlers[ext](None, self.to_clear)
+                self.document_file = self.file_handlers[ext](
+                    None, self.to_clear)
             else:
-                self.document_file = self.file_handlers['.tex'](None, self.to_clear)
+                self.document_file = self.file_handlers['.tex'](
+                    None, self.to_clear)
 
         self.document_file.write(outfile, self.contents)
         log.info('SUCCESS!!!')

@@ -42,7 +42,7 @@ def main():
         d.send(instructions)
         d.write(args.output)
     except Exception as exc:
-        print('ERROR:', f'[{exc.__class__.__name__}]', *exc.args)
+        print('ERROR:', exc)
         exit()
 
 

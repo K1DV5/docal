@@ -11,6 +11,8 @@ import logging
 from .document import DICT
 from .utils import _split
 
+log = logging.getLogger(__name__)
+
 DEFAULT_MAT_SIZE = 10
 
 GREEK_LETTERS = [
@@ -86,7 +88,7 @@ def _prep4lx(quantity, mat_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
     '''
 
     quantity_type = str(type(quantity))
-    ndquantities = ['array', 'Array', 'matrix', 'Matrix']
+    ndquantities = ['array', 'Array', 'matrix', 'Matrix', 'list']
 
     if any([typ in quantity_type for typ in ndquantities]):
         if isinstance(mat_size, int):
@@ -155,14 +157,14 @@ def _fit_long_matrix(matrix, max_rows):
     return mat
 
 
-def _fit_matrix(matrix, max_size=(5, 5)):
+def _fit_matrix(matrix, max_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
     '''
     if there is a need, make the given matrix smaller
     '''
 
-    shape = matrix.shape
+    shape = (len(matrix),) if isinstance(matrix, list) else matrix.shape
     # array -> short
-    if len(shape) == 1 and shape[0] > max_size[0]:
+    if len(shape) == 1 and shape[0] > max_size[0] or isinstance(matrix, list):
         mat_ls = _fit_array(matrix, max_size[0])
     # too big -> small
     elif matrix.shape[0] > max_size[0] and matrix.shape[1] > max_size[1]:
@@ -287,7 +289,7 @@ class _LatexVisitor(ast.NodeVisitor):
                     return f'\\left({qty} {unit}\\right)'
                 return qty + unit
             except KeyError:
-                logging.warning('The variable %s has not been defined.', n.id)
+                log.warning('The variable %s has not been defined.', n.id)
         return format_name(n.id)
 
     def prec_Name(self, n):
@@ -529,7 +531,7 @@ class _LatexVisitor(ast.NodeVisitor):
         return 0
 
 
-def latexify(expr, mul_symbol='*', div_symbol='frac', subs=False, mat_size=5, working_dict=DICT):
+def latexify(expr, mul_symbol='*', div_symbol='frac', subs=False, mat_size=DEFAULT_MAT_SIZE, working_dict=DICT):
     '''
     convert the given expr to a latex string using _LatexVisitor
     '''
