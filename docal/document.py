@@ -114,7 +114,6 @@ class latexFile:
     def _repl(self, match_object, surround: bool, values: dict):
         start, tag, end = [m if m else '' for m in match_object.groups()]
         if tag in values:
-            self.calc_tags.append(tag)
             result = '\n'.join(values[tag])
             if surround:
                 return (start
@@ -135,6 +134,11 @@ class latexFile:
 
         if not self.to_clear:
             if self.infile:
+                for tag in values:
+                    if tag in self.tags:
+                        self.calc_tags.append(tag)
+                    else:
+                        log.error(f'#{tag} not found in the document.')
                 if path.abspath(self.outfile) == path.abspath(self.infile):
                     self.file_contents = self._subs_in_place(values)
                 else:
@@ -330,8 +334,8 @@ class wordFile:
                         self.doc_tree[0].insert(beg_index, beg_para)
                         added += len(ans_parts) + 1
             else:
-                log.error(f'Tag {tag} not found in the document.')
-        # revert the tags left from their alt form
+                log.error(f'#{tag} not found in the document.')
+        # revert the rest of the tags from their alt form
         for info in self.tags_info:
             log.error(f'There is nothing to send to #{info["tag"]}.')
             loc_text = info['address'][2]
@@ -503,12 +507,11 @@ class document:
             for tag, part in self.process_content(content):
                 if tag == '_':
                     tag = self.current_tag
-                if not (self.document_file or self.tags) or tag in self.tags:
-                    if tag not in self.contents.keys():
-                        self.contents[tag] = []
-                    self.contents[tag].append(part)
-                    if tag != self.current_tag:
-                        self.current_tag = tag
+                if tag not in self.contents.keys():
+                    self.contents[tag] = []
+                self.contents[tag].append(part)
+                if tag != self.current_tag:
+                    self.current_tag = tag
 
     def write(self, outfile=None):
         '''replace all the tags with the contents of the python script.
