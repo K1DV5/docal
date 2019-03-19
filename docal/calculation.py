@@ -11,6 +11,8 @@ from .document import DICT
 from .parsing import latexify, eqn, DEFAULT_MAT_SIZE, UNIT_PF
 from .utils import _split
 
+log = logging.getLogger(__name__)
+
 # units that are not base units
 DERIVED = {
     'N': 'kg*m/s**2',
@@ -47,7 +49,7 @@ def _calculate(expr, options: dict, working_dict=DICT):
         compared = [compared, [compared[1], [{}, {}]]]
         # if it is detected, warn the user but accept it anyway
         if not are_equivalent(*compared[1]) and not are_equivalent(*compared[0]):
-            logging.warning('The input unit is not equivalent to the calculated one.')
+            log.warning('The input unit is not equivalent to the calculated one.')
     else:
         options['unit'] = unitize(expr)
     if options['unit'] and options['unit'] != '_':
@@ -98,7 +100,7 @@ def _process_options(additionals):
                 try:
                     compile(a, '', 'eval')
                 except SyntaxError:
-                    logging.warning('Unknown option %s found, ignoring...', a)
+                    log.warning('Unknown option %s found, ignoring...', a)
                 else:
                     options['unit'] = a
 
@@ -302,7 +304,7 @@ class UnitHandler(ast.NodeVisitor):
             right = reduce(self.visit(n.right))
             if are_equivalent(left, right):
                 return left
-            logging.warning('The units of the two sides are not equivalent.')
+            log.warning('The units of the two sides are not equivalent.')
             return [{}, {}]
 
     def visit_UnaryOp(self, n):
