@@ -11,6 +11,8 @@ import logging
 from .document import DICT
 from .utils import _split
 
+log = logging.getLogger(__name__)
+
 DEFAULT_MAT_SIZE = 10
 
 GREEK_LETTERS = [
@@ -287,7 +289,7 @@ class _LatexVisitor(ast.NodeVisitor):
                     return f'\\left({qty} {unit}\\right)'
                 return qty + unit
             except KeyError:
-                logging.warning('The variable %s has not been defined.', n.id)
+                log.warning('The variable %s has not been defined.', n.id)
         return format_name(n.id)
 
     def prec_Name(self, n):

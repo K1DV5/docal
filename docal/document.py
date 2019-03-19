@@ -33,7 +33,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 # for temp directory
 import tempfile
 # for status tracking
-import logging as log
+import logging
 from shutil import move, rmtree
 # for working with the document's variables and filename
 try:
@@ -50,6 +50,10 @@ PATTERN = re.compile(r'(?s)([^\w\\]|^)#(\w+?)(\W|$)')
 # surrounding of the content sent for reversing (something that doesn't
 # change the actual content of the document, and works inside lines)
 SURROUNDING = ['{} {{ {}', '{} }} {}']
+
+LOG_FORMAT = '%(levelname)s: %(message)s'
+logging.basicConfig(format=LOG_FORMAT)
+log = logging.getLogger(__name__)
 
 
 class latexFile:
@@ -398,21 +402,26 @@ class document:
         '.tex': latexFile,
     }
 
-    def __init__(self, infile=None, to_clear=False, log_level=None):
+    def __init__(self, infile=None, to_clear=False, log_level=None, log_file=False):
         '''initialize'''
 
         self.to_clear = to_clear
-        log_level = getattr(log, log_level.upper()) if log_level else None
-        log.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
         # the document
         if infile:
             infile = path.abspath(infile)
-            ext = path.splitext(infile)[1]
+            basename, ext = path.splitext(infile)
             self.document_file = self.file_handlers[ext](infile, to_clear)
             self.tags = self.document_file.tags
+            if log_file:
+                file_logger = logging.FileHandler(basename + '.log', 'w')
+                file_logger.setFormatter(logging.Formatter(LOG_FORMAT))
+                log.handlers = []
+                log.addHandler(file_logger)
         else:
             self.document_file = None
             self.tags = []
+        if log_level:
+            log.setLevel(getattr(logging, log_level.upper()))
         # the calculations corresponding to the tags
         self.contents = {}
         self.current_tag = self.tags[0] if self.tags else None
