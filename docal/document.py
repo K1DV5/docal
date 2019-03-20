@@ -292,11 +292,13 @@ class wordFile:
         # add one to skip the tags
         ranges = list(zip([i + 1 for i in indices], indices[1:] + [ans_len]))
         # get ans elements in (tag, (start, end)) form
-        ans_info = [(info['tag'], ranges[i]) for i, info in enumerate(ans_tag_info)]
+        ans_info = [(info['tag'], ranges[i])
+                    for i, info in enumerate(ans_tag_info)]
 
         added = 0  # the added index to make up for the added elements
         for tag, (start, end) in ans_info:
-            matching_infos = [info for info in self.tags_info if info['tag'] == tag]
+            matching_infos = [
+                info for info in self.tags_info if info['tag'] == tag]
             if matching_infos:
                 info = matching_infos[0]
                 # remove this entry to revert the left ones from their alt form
@@ -310,7 +312,7 @@ class wordFile:
                     added += len(ans_parts) - 1  # minus the tag para (removed)
                 else:
                     loc_para, loc_run, loc_text = info['address']
-                    split_text = loc_text.text.split(info['tag-alt'][1], 1)
+                    split_text = loc_text.text.split(info['tag-alt'], 1)
                     loc_text.text = split_text[1]
                     index_run = list(loc_para).index(loc_run)
                     pref_w = f'{{{self.namespaces["w"]}}}'
@@ -343,10 +345,14 @@ class wordFile:
         for info in self.tags_info:
             logger.error(f'There is nothing to send to #{info["tag"]}.')
             loc_text = info['address'][2]
-            loc_text.text = loc_text.text.replace(info['tag-alt'], '#' + info['tag'])
+            loc_text.text = loc_text.text.replace(
+                info['tag-alt'], '#' + info['tag'])
 
     def _get_ans_tree(self, values={}):
-        result_str = '\n\n'.join(['#' + tag + '\n\n' + '\n'.join(value)
+        result_str = '\n\n'.join(['#' +
+                                  tag.replace('_', '\\_') +
+                                  '\n\n' +
+                                  '\n'.join(value)
                                   for tag, value in values.items()])
         result_tex = path.join(
             self.temp_dir, path.basename(self.infile) + '-res.tex')
