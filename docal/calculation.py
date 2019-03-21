@@ -34,7 +34,7 @@ def _calculate(expr, options: dict, working_dict=DICT):
     ]
 
     if options['steps']:
-        result = [result[s] for s in options['steps']]
+        result = [result[s] for s in options['steps'] if 0 <= s <= 2]
     else:  # remove repeated steps (retaining order)
         if isinstance(ast.parse(expr).body[0].value, ast.Name):
             result = [result[0], result[2]]
