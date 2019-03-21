@@ -486,7 +486,7 @@ class document:
         else:
             augmented = PATTERN.sub(lambda x: x.group(1) +
                                     self._format_value(x.group(2)) +
-                                    x.group(3), line)
+                                    x.group(3), line.lstrip())
 
         return augmented
 

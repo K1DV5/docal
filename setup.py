@@ -1,8 +1,12 @@
 # -{python %f install}
+# -{twine upload dist/*}
+# -{python %f sdist bdist_wheel}
 """
 :copyright: (c) 2019 by K1DV5
 :license: MIT, see LICENSE for more details.
 """
+
+VERSION = '1.0.0'
 
 from setuptools import setup, find_packages
 
@@ -20,11 +24,9 @@ setup(
     author="Kidus Adugna",
     author_email='kidusadugna@gmail.com',
     classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
-        'Intended Audience :: Engineers',
-        'Intended Audience :: Academics',
-        'Intended Audience :: Students',
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
+        'Intended Audience :: End Users/Desktop',
         'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
         'Programming Language :: Python :: 3',
@@ -47,6 +49,6 @@ setup(
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/K1DV5/docal',
-    version='0.4.0',
+    version=VERSION,
     zip_safe=False,
 )
