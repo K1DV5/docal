@@ -53,7 +53,7 @@ SURROUNDING = ['{} {{ {}', '{} }} {}']
 
 LOG_FORMAT = '%(levelname)s: %(message)s'
 logging.basicConfig(format=LOG_FORMAT)
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class latexFile:
@@ -129,7 +129,7 @@ class latexFile:
                         + end)
 
             return start + result + end
-        log.error(f"There is nothing to send to #{tag}.")
+        logger.error(f"There is nothing to send to #{tag}.")
         return start + '#' + tag + end
 
     def write(self, outfile=None, values={}):
@@ -142,7 +142,7 @@ class latexFile:
                     if tag in self.tags:
                         self.calc_tags.append(tag)
                     else:
-                        log.error(f'#{tag} not found in the document.')
+                        logger.error(f'#{tag} not found in the document.')
                 if path.abspath(self.outfile) == path.abspath(self.infile):
                     self.file_contents = self._subs_in_place(values)
                 else:
@@ -152,7 +152,7 @@ class latexFile:
                     '\n'.join(val) for val in values.values()
                 ])
 
-        log.info('[writing file] %s', self.outfile)
+        logger.info('[writing file] %s', self.outfile)
         with open(self.outfile, 'w') as file:
             file.write(self.file_contents)
 
@@ -292,11 +292,13 @@ class wordFile:
         # add one to skip the tags
         ranges = list(zip([i + 1 for i in indices], indices[1:] + [ans_len]))
         # get ans elements in (tag, (start, end)) form
-        ans_info = [(info['tag'], ranges[i]) for i, info in enumerate(ans_tag_info)]
+        ans_info = [(info['tag'], ranges[i])
+                    for i, info in enumerate(ans_tag_info)]
 
         added = 0  # the added index to make up for the added elements
         for tag, (start, end) in ans_info:
-            matching_infos = [info for info in self.tags_info if info['tag'] == tag]
+            matching_infos = [
+                info for info in self.tags_info if info['tag'] == tag]
             if matching_infos:
                 info = matching_infos[0]
                 # remove this entry to revert the left ones from their alt form
@@ -310,7 +312,7 @@ class wordFile:
                     added += len(ans_parts) - 1  # minus the tag para (removed)
                 else:
                     loc_para, loc_run, loc_text = info['address']
-                    split_text = loc_text.text.split(info['tag-alt'][1], 1)
+                    split_text = loc_text.text.split(info['tag-alt'], 1)
                     loc_text.text = split_text[1]
                     index_run = list(loc_para).index(loc_run)
                     pref_w = f'{{{self.namespaces["w"]}}}'
@@ -338,15 +340,19 @@ class wordFile:
                         self.doc_tree[0].insert(beg_index, beg_para)
                         added += len(ans_parts) + 1
             else:
-                log.error(f'#{tag} not found in the document.')
+                logger.error(f'#{tag} not found in the document.')
         # revert the rest of the tags from their alt form
         for info in self.tags_info:
-            log.error(f'There is nothing to send to #{info["tag"]}.')
+            logger.error(f'There is nothing to send to #{info["tag"]}.')
             loc_text = info['address'][2]
-            loc_text.text = loc_text.text.replace(info['tag-alt'], '#' + info['tag'])
+            loc_text.text = loc_text.text.replace(
+                info['tag-alt'], '#' + info['tag'])
 
     def _get_ans_tree(self, values={}):
-        result_str = '\n\n'.join(['#' + tag + '\n\n' + '\n'.join(value)
+        result_str = '\n\n'.join(['#' +
+                                  tag.replace('_', '\\_') +
+                                  '\n\n' +
+                                  '\n'.join(value)
                                   for tag, value in values.items()])
         result_tex = path.join(
             self.temp_dir, path.basename(self.infile) + '-res.tex')
@@ -386,10 +392,19 @@ class wordFile:
             tmp_fname = path.splitext(self.tmp_file)[0] + '.docx'
             run(['pandoc', self.tmp_file, '-f', 'latex', '-o', tmp_fname])
 
-        log.info('[writing file] %s', self.outfile)
+        logger.info('[writing file] %s', self.outfile)
         move(tmp_fname, self.outfile)
 
         rmtree(self.temp_dir)
+
+
+class LogRecorder(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.log = []
+
+    def emit(self, record):
+        self.log.append(self.format(record))
 
 
 class document:
@@ -406,6 +421,17 @@ class document:
         '''initialize'''
 
         self.to_clear = to_clear
+        # clear previous handlers so the logs are only for the current run
+        log_formatter = logging.Formatter(LOG_FORMAT)
+        # log messages
+        self.log = []
+        self.log_recorder = LogRecorder()
+        self.log_recorder.setFormatter(log_formatter)
+        # to avoid repeatedly adding the same handler
+        logger.handlers = []
+        logger.addHandler(self.log_recorder)
+        if log_level:
+            logger.setLevel(getattr(logging, log_level.upper()))
         # the document
         if infile:
             infile = path.abspath(infile)
@@ -426,7 +452,7 @@ class document:
         self.contents = {}
         self.current_tag = self.tags[0] if self.tags else None
         if self.current_tag is None:
-            log.error('There are no tags in the document')
+            logger.error('There are no tags in the document')
         # temp storage for assignment statements where there are unmatched parens
         self.incomplete_assign = ''
         # temp storage for block statements like if and for
@@ -450,7 +476,7 @@ class document:
         convert comments to latex paragraphs
         '''
 
-        log.info('[Processing] %s', line)
+        logger.info('[Processing] %s', line)
         if line.startswith('$'):
             line = re.sub(r'(?a)#(\w+)',
                           lambda x: 'TMP0'.join(
@@ -467,7 +493,7 @@ class document:
         else:
             augmented = PATTERN.sub(lambda x: x.group(1) +
                                     self._format_value(x.group(2)) +
-                                    x.group(3), line)
+                                    x.group(3), line.lstrip())
 
         return augmented
 
@@ -475,7 +501,7 @@ class document:
         '''
         evaluate assignments and convert to latex form
         '''
-        log.info('[Processing] %s', line)
+        logger.info('[Processing] %s', line)
         # the cal function will execute it so no need for exec
         return cal(line, working_dict)
 
@@ -485,7 +511,7 @@ class document:
         for part in _split_module(input_str):
             if part[1] == 'tag':
                 tag = part[0]
-                log.info('[Change tag] #%s', tag)
+                logger.info('[Change tag] #%s', tag)
             elif part[1] in ['assign', 'expr']:
                 processed.append(
                     (tag, self._process_assignment(part[0], working_dict)))
@@ -495,7 +521,7 @@ class document:
             elif part[1] == 'stmt':
                 # if it does not appear like an equation or a comment,
                 # just execute it
-                log.info('[Executing] %s', part[0])
+                logger.info('[Executing] %s', part[0])
                 exec(part[0], working_dict)
                 if part[0].startswith('del '):
                     # also delete associated unit strings
@@ -512,7 +538,7 @@ class document:
 
         if not self.to_clear:
             tag = self.current_tag
-            log.info('[Change tag] #%s', tag)
+            logger.info('[Change tag] #%s', tag)
             for tag, part in self.process_content(content):
                 if tag == '_':
                     tag = self.current_tag
@@ -541,4 +567,5 @@ class document:
                     None, self.to_clear)
 
         self.document_file.write(outfile, self.contents)
-        log.info('SUCCESS!!!')
+        logger.info('SUCCESS!!!')
+        self.log = self.log_recorder.log
