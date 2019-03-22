@@ -171,8 +171,6 @@ def cal(input_str: str, working_dict=DICT) -> str:
         for var in unp_vars:
             exec(f'{var}{UNIT_PF} = "{options["unit"]}"', working_dict)
         
-        if options['hidden']:
-            return ''
     else:
         if len(result) > 1:
             procedure = [f'{result[0]} = {result[1]}']
@@ -180,6 +178,9 @@ def cal(input_str: str, working_dict=DICT) -> str:
                 procedure.append('    = ' + result[2])
         else:
             procedure = [result[0]]
+
+    if options['hidden']:
+        return ''
 
     output = eqn(*procedure, norm=False, disp=displ, vert=options['vert'])
 
