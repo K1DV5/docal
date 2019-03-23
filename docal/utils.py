@@ -46,27 +46,50 @@ def _split(what: str, char='=', count=None, last=True) -> list:
     return balanced
 
 
-def _to_incomplete(incomplete: str, line: str) -> bool:
+def _contin_type(accumul: str, line: str) -> bool:
     '''
-    determine whether the line should be sent to the incomplete storage or not
+    determine whether the line is part of a multi line part
+    (for _split_module)
     '''
-    conditions = [
-        # if there is an incomplete part, and it doesn't have equal parens,
-        incomplete and not any([_parens_balanced(incomplete),
-                                # or ends with \ or :
-                                incomplete.rstrip().endswith('\\'),
-                                incomplete.rstrip().endswith(':')]),
+    if accumul and any([
+        not _parens_balanced(accumul),
+        accumul.rstrip()[-1] in ['\\', ':'],
         # or the line is indented and not a comment
         line and line[0].isspace() and not line.lstrip().startswith('#'),
-        # or the line is not a comment and is a beginning of a block
-        # or the parens are not balanced
-        all([line, not line.lstrip().startswith('#'),
-             line.rstrip().endswith(':') or not _parens_balanced(line)]),
-        # or the line is blank and there is an incomplete part
-        not line.strip() and incomplete
-    ]
+        not line.strip()
+    ]):
+        return 'contin'
+    elif (not _parens_balanced(line) or
+            line and not line.lstrip().startswith(
+                '#') and line.rstrip()[-1] in ['\\', ':']):
+        return 'begin'
 
-    return any(conditions)
+
+def _identify_part(part, comments):
+    '''get the type of a string piece (assignment, expression, etc.)
+    (for _split_module)
+    '''
+
+    part_ast = ast.parse(part).body
+    if not part_ast:
+        tag_match = PATTERN.match(part.strip())
+        if tag_match and tag_match.group(0) == part.strip():
+            return (part.strip()[1:], 'tag')
+        elif part.lstrip().startswith('##'):
+            if comments:
+                return (part.lstrip()[2:], 'real-comment')
+            else:
+                return ('', 'comment')
+        elif not part:
+            return ('', 'comment')
+        else:
+            return (part.lstrip()[1:], 'comment')
+    elif isinstance(part_ast[0], ast.Assign):
+        return (part, 'assign')
+    elif isinstance(part_ast[0], ast.Expr):
+        return (part, 'expr')
+
+    return (part, 'stmt')
 
 
 def _split_module(module: str, char='\n', comments=False):
@@ -74,48 +97,22 @@ def _split_module(module: str, char='\n', comments=False):
     split the given script string with the character/str using the rules
     '''
     returned = []
-    incomplete = ''
+    # incomplete lines accululation, stored as [<accumululated>, <contin type>]
+    accumul = ['', None]
     for part in module.split('\n'):
-        # this will accumulate the lines. If the intent is an assignment, the
-        # last line has to be added to make it up. If the intent is execution,
-        # the accumulated can be executed directly and the last line has to be
-        # considered from the beginning.
-        if _to_incomplete(incomplete, part):
-            incomplete += part + char
-            part = None
-        if part is not None:
-            if incomplete:
-                inc_type = ast.parse(incomplete).body
-                if inc_type and isinstance(inc_type[0], ast.Assign):
-                    returned.append((incomplete, 'assign'))
-                else:
-                    returned.append((incomplete, 'stmt'))
-                incomplete = ''
-            part_ast = ast.parse(part).body
-            if not part_ast:
-                tag_match = PATTERN.match(part.strip())
-                if tag_match and tag_match.group(0) == part.strip():
-                    returned.append((part.strip()[1:], 'tag'))
-                elif part.lstrip().startswith('##'):
-                    if comments:
-                        returned.append((part.lstrip()[2:], 'real-comment'))
-                    else:
-                        returned.append(('', 'comment'))
-                elif not part:
-                    returned.append(('', 'comment'))
-                else:
-                    returned.append((part.lstrip()[1:], 'comment'))
-            elif isinstance(part_ast[0], ast.Assign):
-                returned.append((part, 'assign'))
-            elif isinstance(part_ast[0], ast.Expr):
-                returned.append((part, 'expr'))
+        contin_type = _contin_type(accumul[0], part)
+        if contin_type:
+            if contin_type == 'contin':
+                accumul[0] += '\n' + part
             else:
-                returned.append((part, 'stmt'))
-    if incomplete:
-        inc_type = ast.parse(incomplete).body
-        if inc_type and isinstance(inc_type[0], ast.Assign):
-            returned.append((incomplete, 'assign'))
+                if accumul[0]:
+                    returned.append(_identify_part(accumul[0], comments))
+                accumul = [part, contin_type]
         else:
-            returned.append((incomplete, 'stmt'))
-        incomplete = ''
+            if accumul[0]:
+                returned.append(_identify_part(accumul[0], comments))
+            returned.append(_identify_part(part, comments))
+    if accumul[0]:
+        returned.append(_identify_part(accumul[0], comments))
+
     return returned

@@ -6,7 +6,7 @@
 :license: MIT, see LICENSE for more details.
 """
 
-VERSION = '1.0.1'
+VERSION = '1.0.2'
 
 from setuptools import setup, find_packages
 
