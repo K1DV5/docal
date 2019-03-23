@@ -418,7 +418,7 @@ class _LatexVisitor(ast.NodeVisitor):
                 return eqn(n.s, surr=False, vert=False)
             except SyntaxError:  # if the equation is just beyond understanding
                 pass
-        return n.s
+        return f'\\text{{{n.s}}}'
 
     def prec_Str(self, n):
         return 1000
