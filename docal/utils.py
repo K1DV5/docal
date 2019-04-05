@@ -60,7 +60,7 @@ def _contin_type(accumul: str, line: str) -> bool:
     ]):
         return 'contin'
     elif (not _parens_balanced(line) or
-            line and not line.lstrip().startswith(
+            line.strip() and not line.lstrip().startswith(
                 '#') and line.rstrip()[-1] in ['\\', ':']):
         return 'begin'
 
