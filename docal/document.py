@@ -441,13 +441,12 @@ class document:
             if log_file:
                 file_logger = logging.FileHandler(basename + '.log', 'w')
                 file_logger.setFormatter(logging.Formatter(LOG_FORMAT))
-                log.handlers = []
-                log.addHandler(file_logger)
+                logger.addHandler(file_logger)
         else:
             self.document_file = None
             self.tags = []
         if log_level:
-            log.setLevel(getattr(logging, log_level.upper()))
+            logger.setLevel(getattr(logging, log_level.upper()))
         # the calculations corresponding to the tags
         self.contents = {}
         self.current_tag = self.tags[0] if self.tags else None
