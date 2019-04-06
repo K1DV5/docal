@@ -40,7 +40,7 @@ def _split(what: str, char='=', count=None, last=True) -> list:
         if last:
             # if splitting only at the last = is wanted, join the others
             balanced = [char.join(balanced[:-1]), balanced[-1]]
-        else:
+        elif last is not None:
             balanced = [balanced[0], char.join(balanced[1:])]
 
     return balanced

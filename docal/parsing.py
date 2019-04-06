@@ -569,9 +569,8 @@ def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True,
     if norm:
         equations = []
         for eq in equation_list:
-            left, right = _split(eq)
-            left = ' = '.join([latexify(e) for e in _split(left, last=False)])
-            equations.append(equals.join([left, latexify(right)]))
+            eq = ' = '.join([latexify(e) for e in _split(eq, last=None)])
+            equations.append(eq)
     else:
         equations = [equals.join(_split(eq)) for eq in equation_list]
 
