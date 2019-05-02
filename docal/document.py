@@ -482,7 +482,7 @@ class document:
                               x.group(1).split('_')) + 'TMP0',
                           line)
             if line.startswith('$$'):
-                line = eqn(*line[2:].split('|'))
+                line = eqn(line[2:])
             else:
                 line = eqn(line[1:], disp=False)
             augmented = re.sub(r'(?a)\\mathrm\s*\{\s*(\w+)TMP0\s*\}',

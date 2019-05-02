@@ -547,9 +547,11 @@ def latexify(expr, mul_symbol='*', div_symbol='frac', subs=False, mat_size=DEFAU
     return _LatexVisitor(mul_symbol, div_symbol, subs, mat_size, working_dict).visit(pt)
 
 
-def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True,
-        vert: bool = True) -> str:
+def eqn(*equation_list, norm=True, disp=True, surr=True, vert=True) -> str:
     '''main api for equations'''
+
+    # split and flatten in case there are any |
+    equation_list = [eq for sub_eq in equation_list for eq in sub_eq.split('|')]
 
     equals = ' = '
     joint = ' \\; '
@@ -569,7 +571,11 @@ def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True,
     if norm:
         equations = []
         for eq in equation_list:
-            eq = ' = '.join([latexify(e) for e in _split(eq, last=None)])
+            sub_eqs = [latexify(e) for e in _split(eq, last=None)]
+            if len(sub_eqs) > 2:
+                eq = equals.join([' = '.join(sub_eqs[:-1]), sub_eqs[-1]])
+            else:
+                eq = equals.join(sub_eqs)
             equations.append(eq)
     else:
         equations = [equals.join(_split(eq)) for eq in equation_list]
