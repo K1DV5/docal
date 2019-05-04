@@ -111,6 +111,7 @@ def _split_module(module: str, char='\n', comments=False):
         else:
             if accumul[0]:
                 returned.append(_identify_part(accumul[0], comments))
+                accumul[0] = ''
             returned.append(_identify_part(part, comments))
     if accumul[0]:
         returned.append(_identify_part(accumul[0], comments))
