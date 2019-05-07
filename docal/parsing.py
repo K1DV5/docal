@@ -316,11 +316,12 @@ class _LatexVisitor(ast.NodeVisitor):
                 tmp_right = self.visit_Name(n.right, True)
             elif isinstance(n.right, ast.Attribute):
                 tmp_right = self.visit_Attribute(n.right, True)
+
         if self.prec(n.op) > self.prec(n.left):
             left = fr'\left({ self.visit(n.left) }\right)'
         else:
             left = self.visit(n.left)
-        if self.prec(n.op) > self.prec(tmp_right):
+        if self.prec(n.op) > self.prec(tmp_right) and not isinstance(n.op, ast.Pow):
             # not forgetting the units, so n.right
             right = fr'\left({ self.visit(n.right) }\right)'
         else:
@@ -333,16 +334,12 @@ class _LatexVisitor(ast.NodeVisitor):
                                isinstance(tmp_right, ast.Num)])
             if no_need:
                 return fr'{left} \, {right}'
-        elif isinstance(n.op, ast.Pow):
-            # so that it can be surrounded with PARENS if it has units
-            n.left.is_in_power = True
-            return fr'{self.visit(n.left)}^{{{right}}}'
         elif self.div_symbol == 'frac':
             if isinstance(n.op, ast.Div):
                 return fr'\frac{{{left}}}{{{right}}}'
             elif isinstance(n.op, ast.FloorDiv):
                 return fr'\left\lfloor\frac{{{left}}}{{{right}}}\right\rfloor'
-        return fr'{left} {self.visit(n.op)} {right}'
+        return fr'{{{left}}} {self.visit(n.op)} {{{right}}}'
 
     def prec_BinOp(self, n):
         return self.prec(n.op)
@@ -450,6 +447,9 @@ class _LatexVisitor(ast.NodeVisitor):
 
     def prec_Mod(self, n):
         return 500
+
+    def visit_Pow(self, n):
+        return '^'
 
     def prec_Pow(self, n):
         return 700

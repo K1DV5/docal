@@ -1,6 +1,6 @@
-# -{python %f install}
 # -{twine upload dist/*}
 # -{del dist\* | python %f sdist bdist_wheel}
+# -{python %f install}
 """
 :copyright: (c) 2019 by K1DV5
 :license: MIT, see LICENSE for more details.
@@ -8,7 +8,7 @@
 
 from setuptools import setup, find_packages
 
-VERSION = '1.0.6'
+VERSION = '1.0.7'
 
 with open('README.rst') as readme_file:
     readme = readme_file.read()
