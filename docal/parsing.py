@@ -317,11 +317,13 @@ class _LatexVisitor(ast.NodeVisitor):
             elif isinstance(n.right, ast.Attribute):
                 tmp_right = self.visit_Attribute(n.right, True)
 
-        if self.prec(n.op) > self.prec(n.left):
+        div_and_frac = self.div_symbol == 'frac' and isinstance(n.op, ast.Div)
+        if self.prec(n.op) > self.prec(n.left) and not div_and_frac:
             left = fr'\left({ self.visit(n.left) }\right)'
         else:
             left = self.visit(n.left)
-        if self.prec(n.op) > self.prec(tmp_right) and not isinstance(n.op, ast.Pow):
+        if self.prec(n.op) > self.prec(tmp_right) and \
+                not isinstance(n.op, ast.Pow) and not div_and_frac:
             # not forgetting the units, so n.right
             right = fr'\left({ self.visit(n.right) }\right)'
         else:

@@ -8,7 +8,7 @@
 
 from setuptools import setup, find_packages
 
-VERSION = '1.0.7'
+VERSION = '1.0.8'
 
 with open('README.rst') as readme_file:
     readme = readme_file.read()
