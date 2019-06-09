@@ -72,6 +72,10 @@ def format_name(name_str: str) -> str:
             parts_final[which] = '{' + \
                 parts_final[which] + PRIMES[part] + "}"
             accent_locations.append(index)
+        # change in ... as [Dd]elta...
+        elif part.startswith('Delta') or part.startswith('delta'):
+            delta, var = part[:len('delta')], part[len('delta'):]
+            parts_final[index] = f'\\{delta} {format_name(var)}'
         elif len(part) > 1:
             parts_final[index] = fr'\mathrm{{{parts_final[index]}}}'
     # remove the accents
@@ -549,7 +553,7 @@ def latexify(expr, mul_symbol='*', div_symbol='frac', subs=False, mat_size=DEFAU
     return _LatexVisitor(mul_symbol, div_symbol, subs, mat_size, working_dict).visit(pt)
 
 
-def eqn(*equation_list, norm=True, disp=True, surr=True, vert=True) -> str:
+def eqn(*equation_list, norm=True, disp=True, surr=True, vert=True, div_symbol='frac', mul_symbol='*') -> str:
     '''main api for equations'''
 
     # split and flatten in case there are any |
@@ -573,7 +577,8 @@ def eqn(*equation_list, norm=True, disp=True, surr=True, vert=True) -> str:
     if norm:
         equations = []
         for eq in equation_list:
-            sub_eqs = [latexify(e) for e in _split(eq, last=None)]
+            sub_eqs = [latexify(e, mul_symbol=mul_symbol, div_symbol=div_symbol)
+                       for e in _split(eq, last=None)]
             if len(sub_eqs) > 2:
                 eq = equals.join([' = '.join(sub_eqs[:-1]), sub_eqs[-1]])
             else:
