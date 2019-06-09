@@ -554,6 +554,90 @@ class document:
                 if tag != self.current_tag:
                     self.current_tag = tag
 
+    def from_xl(self, fname, xlrange=('A', 1, None)):
+        '''
+        accept an excel file, extract the calculations in it and incorporate
+        it in the document.'''
+
+        ns = {
+            'main': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main',
+            'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+            'mc': 'http://schemas.openxmlformats.org/markup-compatibility/2006',
+            'x14ac': 'http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac',
+        }
+
+        with ZipFile(fname, 'r') as zin:
+            sheet_xml = zin.read('xl/worksheets/sheet1.xml').decode('utf-8')
+            str_xml = zin.read('xl/sharedStrings.xml').decode('utf-8')
+
+        sheet_tree = ET.fromstring(sheet_xml)
+        str_tree = ET.fromstring(str_xml)
+        strs = [node[0].text for node in str_tree]
+
+        # store calcs in dict with cell addreses as keys
+        instructions = {}
+
+        rows = sheet_tree.find('{%s}sheetData' % ns['main'])
+        xlrange = (*xlrange[:2],
+            (int(rows[-1].attrib['r']) if not xlrange[-1] else xlrange[-1]))
+
+        for i, row in enumerate(rows):
+            if xlrange[1] <= int(row.attrib['r']) <= xlrange[2]:
+                line = []
+                options = []
+                current_key = f'para{i}'
+                current_col = -1
+                for col in row:
+                    col_let = ''.join(
+                        [c for c in col.attrib['r'] if c.isalpha()])
+                    if col_let == xlrange[0]:
+                        current_col = 0
+                    if 0 <= current_col < 3:
+                        cont = ['txt', '']
+                        if 't' in col.attrib and col.attrib['t'] == 's':
+                            cont = ['txt', strs[int(col[0].text)]]
+                        elif col.findall('{%s}f' % ns['main']):
+                            cont = ['expr', col[0].text, col[1].text]
+                        elif len(col):
+                            cont = ['val', col[0].text]
+
+                        if current_col == 0:
+                            line.append(cont)
+                            current_col += 1
+                        elif current_col == 1:
+                            if line[0][0] == 'txt':
+                                if cont[0] in ['expr', 'val']:
+                                    line[0][0] = 'var'
+                                    line.append(cont)
+                                    current_key = col.attrib['r']
+                                    current_col += 1
+                        else:
+                            if line[0][0] == 'var':
+                                if cont[0] == 'txt':
+                                    line.append(['opt', cont[1]])
+                                    current_col += 1
+                instructions[current_key] = line
+
+        script = []
+        for key, content in instructions.items():
+            if content[0][0] == 'txt':
+                para = content[0][1]
+                script.append('# ' + para if para.strip() else '')
+            elif content[0][0] == 'var':
+                var_name = content[0][1]
+                if len(content[1]) == 2:
+                    steps = [content[1][1]]
+                else:
+                    steps = [re.sub(r'[A-Z]+[0-9]+', lambda x: instructions[x.group(0)][0][1], content[1][1]),
+                    re.sub(r'[A-Z]+[0-9]+', lambda x: instructions[x.group(0)][1][-1], content[1][1])]
+                steps.append(content[1][-1])
+                opt = content[-1][-1] if content[-1][0] == 'opt' else ''
+                script.append(
+                    '# ' + cal([var_name, steps, opt]).replace('\n', '\n# '))
+
+        self.send('\n'.join(script))
+
+
     def write(self, outfile=None):
         '''replace all the tags with the contents of the python script.
         then if the destination file is given, write a typeset-ready latex
