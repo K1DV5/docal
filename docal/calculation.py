@@ -24,34 +24,47 @@ DERIVED = {
 DERIVED = {u: ast.parse(DERIVED[u]).body[0].value for u in DERIVED}
 
 
-def _calculate(expr, options: dict, working_dict=DICT):
+def _calculate(expr, options: dict, working_dict=DICT, mul_symbol='*', div_symbol='/'):
     '''carryout the necesary calculations and assignments'''
 
-    result = [
-        latexify(expr, mat_size=options['mat_size'], working_dict=working_dict),
-        latexify(expr, subs=True, mat_size=options['mat_size'], working_dict=working_dict),
-        latexify(eval(expr, working_dict), mat_size=options['mat_size'], working_dict=working_dict)
-    ]
+    def lx_args(ex, subs=None):
+
+        return latexify(ex,
+                        mat_size=options['mat_size'],
+                        working_dict=working_dict,
+                        mul_symbol=mul_symbol,
+                        div_symbol=div_symbol)
+
+    if type(expr) != str:
+        result = [latexify(e) for e in expr]
+    else:
+        result = [
+            lx_args(expr),
+            lx_args(expr, subs=True),
+            lx_args(eval(expr, working_dict))
+        ]
 
     if options['steps']:
         result = [result[s] for s in options['steps'] if 0 <= s <= 2]
     else:  # remove repeated steps (retaining order)
-        if isinstance(ast.parse(expr).body[0].value, ast.Name):
+        if type(expr) == str and isinstance(ast.parse(expr).body[0].value, ast.Name):
             result = [result[0], result[2]]
         else:
             result = list(dict.fromkeys(result))
     # detect if the user is trying to give a different unit and give warning
-    if options['unit']:
-        # in their dict forms
-        compared = [UnitHandler(True, working_dict).visit(ast.parse(options['unit']).body[0].value),
-                    UnitHandler(False, working_dict).visit(ast.parse(expr).body[0].value)]
-        # when the calculated already has a unit
-        compared = [compared, [compared[1], [{}, {}]]]
-        # if it is detected, warn the user but accept it anyway
-        if not are_equivalent(*compared[1]) and not are_equivalent(*compared[0]):
-            log.warning('The input unit is not equivalent to the calculated one.')
-    else:
-        options['unit'] = unitize(expr)
+    if type(expr) == str:
+        if options['unit']:
+            # in their dict forms
+            compared = [UnitHandler(True, working_dict).visit(ast.parse(options['unit']).body[0].value),
+                        UnitHandler(False, working_dict).visit(ast.parse(expr).body[0].value)]
+            # when the calculated already has a unit
+            compared = [compared, [compared[1], [{}, {}]]]
+            # if it is detected, warn the user but accept it anyway
+            if not are_equivalent(*compared[1]) and not are_equivalent(*compared[0]):
+                log.warning(
+                    'The input unit is not equivalent to the calculated one.')
+        else:
+            options['unit'] = unitize(expr)
     if options['unit'] and options['unit'] != '_':
         unit_lx = fr" \,\mathrm{{{latexify(options['unit'], div_symbol='/', working_dict=working_dict)}}}"
     else:
@@ -138,15 +151,17 @@ def _assort_input(input_str):
     return var_name, unp_vars, expression, additionals
 
 
-def cal(input_str: str, working_dict=DICT) -> str:
+def cal(input_str: str, working_dict=DICT, mul_symbol='*', div_symbol='frac') -> str:
     '''
     evaluate all the calculations, carry out the appropriate assignments,
     and return all the procedures
 
     '''
-    var_name, unp_vars, expr, additionals = _assort_input(input_str)
+    var_name, unp_vars, expr, additionals = _assort_input(input_str) \
+        if type(input_str) == str \
+        else (input_str[0], None, input_str[1], input_str[2])
     options = _process_options(additionals)
-    result = _calculate(expr, options, working_dict)
+    result = _calculate(expr, options, working_dict, mul_symbol, div_symbol)
     if options['mode'] == 'inline':
         displ = False
     elif options['mode'] == 'display':
@@ -165,12 +180,13 @@ def cal(input_str: str, working_dict=DICT) -> str:
         for step in result[1:]:
             procedure.append('    = ' + step)
 
-        # carry out normal op in main script
-        exec(input_str, working_dict)
-        # for later unit retrieval
-        for var in unp_vars:
-            exec(f'{var}{UNIT_PF} = "{options["unit"]}"', working_dict)
-        
+        if type(input_str) == str:
+            # carry out normal op in main script
+            exec(input_str, working_dict)
+            # for later unit retrieval
+            for var in unp_vars:
+                exec(f'{var}{UNIT_PF} = "{options["unit"]}"', working_dict)
+
     else:
         if len(result) > 1:
             procedure = [f'{result[0]} = {result[1]}']
