@@ -483,6 +483,13 @@ class document:
                           line)
             if line.startswith('$$'):
                 line = eqn(line[2:])
+            elif line.startswith('$where'):
+                # usually after equations
+                defns = [defn.split('=')
+                                    for defn in line.split(' ', 1)[1].split(',')]
+                defns = eqn(
+                    '|'.join([var + ' = "' + mean + '"' for var, mean in defns]))
+                line = '\nwhere\n' + defns
             else:
                 line = eqn(line[1:], disp=False)
             augmented = re.sub(r'(?a)\\mathrm\s*\{\s*(\w+)TMP0\s*\}',
