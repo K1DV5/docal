@@ -643,6 +643,30 @@ class document:
 
         self.send('\n'.join(script))
 
+    def from_normal(norm):
+        '''
+        accept an ascii input (equations) and comments without preceding with
+        hash and send it as a python-legal input
+
+        import statements and the like:
+        :import this
+        '''
+
+        lines = norm.split('\n')
+        py_lines = []
+        comment_pat = re.compile(r'^(?=[^#:].*?(\w+\s+?\w+)|(\\\w+).*?$)')
+        for line in lines:
+            # import statements and the like preceded with :
+            line = comment_pat.sub('# ', line)
+            py_lines.append(re.sub(r'^\:', '', line))
+        py_legal = '\n'.join(py_lines)
+        # change power symbol, not in comments
+        py_legal = re.sub(r'(?sm)^([^\#].*?)\^', r'\1**', py_legal)
+        # number coefficients like 2x
+        py_legal = re.sub(r'(?<=[0-9])( ?[a-df-zA-Z_]|\()', '*\\1', py_legal)
+
+        self.send(py_legal)
+
     def write(self, outfile=None):
         '''replace all the tags with the contents of the python script.
         then if the destination file is given, write a typeset-ready latex
