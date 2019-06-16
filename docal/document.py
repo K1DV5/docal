@@ -486,7 +486,7 @@ class document:
             elif line.startswith('$where'):
                 # usually after equations
                 defns = [defn.split('=')
-                                    for defn in line.split(' ', 1)[1].split(',')]
+                         for defn in line.split(' ', 1)[1].split(',')]
                 defns = eqn(
                     '|'.join([var + ' = "' + mean + '"' for var, mean in defns]))
                 line = '\nwhere\n' + defns
@@ -554,7 +554,7 @@ class document:
                 if tag != self.current_tag:
                     self.current_tag = tag
 
-    def from_xl(self, fname, xlrange=('A', 1, None)):
+    def from_xl(self, fname, xlrange=None):
         '''
         accept an excel file, extract the calculations in it and incorporate
         it in the document.'''
@@ -578,11 +578,16 @@ class document:
         instructions = {}
 
         rows = sheet_tree.find('{%s}sheetData' % NS['main'])
-        xlrange = (*xlrange[:2],
-                   (xlrange[-1] if xlrange[-1] else int(rows[-1].attrib['r'])))
 
         for i, row in enumerate(rows):
-            if xlrange[1] <= int(row.attrib['r']) <= xlrange[2]:
+            if xlrange is None:
+                for col in row:
+                    if 't' in col.attrib and col.attrib['t'] == 's' and strs[int(col[0].text)]:
+                        col_let = ''.join(
+                            [c for c in col.attrib['r'] if c.isalpha()])
+                        xlrange = (col_let, int(row.attrib['r']), int(rows[-1].attrib['r']))
+                        break
+            if xlrange is not None and xlrange[1] <= int(row.attrib['r']) <= xlrange[2]:
                 line = []
                 options = []
                 current_key = f'para{i}'
@@ -592,7 +597,7 @@ class document:
                         [c for c in col.attrib['r'] if c.isalpha()])
                     if col_let == xlrange[0]:
                         current_col = 0
-                    if 0 <= current_col < 3:
+                    if current_col in [0, 1, 2]:
                         cont = ['txt', '']
                         if 't' in col.attrib and col.attrib['t'] == 's':
                             cont = ['txt', strs[int(col[0].text)]]
@@ -630,17 +635,21 @@ class document:
                     steps = [content[1][1]]
                 else:
                     cell_pat = re.compile(r'[A-Z]+[0-9]+')
+                    func_pat = re.compile(r'[A-Z]+(?=\()')
 
                     def acceptable(i1, i2):
-                        return cell_pat.sub(
+                        correct = cell_pat.sub(
                             lambda x: instructions[x.group(0)][i1][i2],
-                            content[1][1]).replace('^', '**').lower()
+                            content[1][1]).replace('^', '**')
+                        correct = func_pat.sub(lambda x: x.group(0).lower(),
+                                               correct)
+                        return correct.replace('^', '**')
+
                     steps = [acceptable(0, 1), acceptable(1, -1)]
                 steps.append(content[1][-1])
-                opt = content[-1][-1] if content[-1][0] == 'opt' else ''
+                opt = content[-1][-1].replace('^', '**') if content[-1][0] == 'opt' else ''
                 script.append(
                     '# ' + cal([var_name, steps, opt]).replace('\n', '\n# '))
-
 
         self.send('\n'.join(script))
 
