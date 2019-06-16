@@ -34,7 +34,7 @@ parser.add_argument('-c', '--clear', action='store_true',
                     help='Clear the calculations and try to '
                     'revert the document to the previous state. '
                     'Only for the calculation ranges in LaTeX files.')
-parser.add_argument('-l', '--log-level', choices=['INFO', 'WARNING', 'ERROR'],
+parser.add_argument('-l', '--log-level', choices=['INFO', 'WARNING', 'ERROR', 'DEBUG'],
                     help='How much info you want to see')
 
 
@@ -56,8 +56,11 @@ def main():
                 d.from_xl(args.script)
         d.write(args.output)
     except Exception as exc:
-        print('ERROR:', exc)
-        exit()
+        if args.log_level == 'DEBUG':
+            raise
+        else:
+            print('ERROR:', exc)
+            exit()
 
 
 if __name__ == '__main__':
