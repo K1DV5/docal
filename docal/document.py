@@ -628,7 +628,10 @@ class document:
         for key, content in instructions.items():
             if content[0][0] == 'txt':
                 para = content[0][1]
-                script.append('# ' + para if para.strip() else '')
+                if para.lstrip().startswith('#'):
+                    script.append(para)
+                else:
+                    script.append('# ' + para if para.strip() else '')
             elif content[0][0] == 'var':
                 var_name = content[0][1]
                 if len(content[1]) == 2:
