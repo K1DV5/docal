@@ -68,7 +68,7 @@ class latexFile:
         self.to_clear = to_clear
         if infile:
             self.infile = self.outfile = infile
-            with open(self.infile) as file:
+            with open(self.infile, encoding='utf-8') as file:
                 self.file_contents = file.read()
             # the collection of tags at the bottom of the file for reversing
             self.tagline = re.search(fr'\n% *{re.escape(self.warning)}'
@@ -153,7 +153,7 @@ class latexFile:
                 ])
 
         logger.info('[writing file] %s', self.outfile)
-        with open(self.outfile, 'w') as file:
+        with open(self.outfile, 'w', encoding='utf-8') as file:
             file.write(self.file_contents)
 
 
@@ -357,7 +357,7 @@ class wordFile:
         result_tex = path.join(
             self.temp_dir, path.basename(self.infile) + '-res.tex')
         result_docx = path.splitext(result_tex)[0] + '.docx'
-        with open(result_tex, 'w') as file:
+        with open(result_tex, 'w', encoding='utf-8') as file:
             file.write(result_str)
         run(['pandoc', result_tex, '-o', result_docx])
         with ZipFile(result_docx) as docx:
@@ -385,7 +385,7 @@ class wordFile:
             tmp_fname = self.tmp_file.filename
             self.tmp_file.close()
         else:
-            with open(self.tmp_file, 'w') as file:
+            with open(self.tmp_file, 'w', encoding='utf-8') as file:
                 file.write('\n'.join([
                     '\n'.join(val) for val in values.values()
                 ]))
@@ -640,6 +640,7 @@ class document:
                 opt = content[-1][-1] if content[-1][0] == 'opt' else ''
                 script.append(
                     '# ' + cal([var_name, steps, opt]).replace('\n', '\n# '))
+
 
         self.send('\n'.join(script))
 
