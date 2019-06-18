@@ -60,7 +60,6 @@ def main():
             raise
         else:
             print('ERROR:', exc)
-            exit()
 
 
 if __name__ == '__main__':

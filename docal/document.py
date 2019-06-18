@@ -47,6 +47,13 @@ from .utils import _split_module
 DEFAULT_FILE = 'Untitled.tex'
 # the tag pattern
 PATTERN = re.compile(r'(?s)([^\w\\]|^)#(\w+?)(\W|$)')
+# for excel file handling
+NS = {
+    'main': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main',
+    'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+    'mc': 'http://schemas.openxmlformats.org/markup-compatibility/2006',
+    'x14ac': 'http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac',
+}
 # surrounding of the content sent for reversing (something that doesn't
 # change the actual content of the document, and works inside lines)
 SURROUNDING = ['{} {{ {}', '{} }} {}']
@@ -189,6 +196,7 @@ class wordFile:
 
     def __init__(self, infile, to_clear=False):
         # temp folder for converted files
+        # self.temp_dir = path.join(environ['TMP'], '.docalTemp')
         self.temp_dir = tempfile.mkdtemp()
         # file taken as input file when not explicitly set:
         if infile:
@@ -390,12 +398,142 @@ class wordFile:
                     '\n'.join(val) for val in values.values()
                 ]))
             tmp_fname = path.splitext(self.tmp_file)[0] + '.docx'
-            run(['pandoc', self.tmp_file, '-f', 'latex', '-o', tmp_fname])
+            pand_err = run(['pandoc', self.tmp_file, '-f', 'latex', '-o', tmp_fname]).returncode
+            if pand_err:
+                raise SyntaxError('Unacceptable syntax for the document')
 
         logger.info('[writing file] %s', self.outfile)
         move(tmp_fname, self.outfile)
 
         rmtree(self.temp_dir)
+
+
+class ExcelCalc:
+    '''
+    accept an excel file, extract the calculations in it and incorporate
+    it in the document.'''
+
+    cell_pat = re.compile(r'[A-Z]+[0-9]+')
+    func_pat = re.compile(r'[A-Z]+(?=\()')
+
+    def __init__(self, fname, xlrange=None):
+
+        with ZipFile(fname, 'r') as zin:
+            sheet_xml = zin.read('xl/worksheets/sheet1.xml').decode('utf-8')
+            str_xml = zin.read('xl/sharedStrings.xml').decode('utf-8')
+
+        sheet_tree = ET.fromstring(sheet_xml)
+        str_tree = ET.fromstring(str_xml)
+        self.rows = sheet_tree.find('{%s}sheetData' % NS['main'])
+        self.strs = [node[0].text for node in str_tree]
+        self.range = self.find_range(xlrange)
+        self.info = self.extract_info()
+
+        self.converted = self.info_2_script()
+
+    def find_range(self, given_range):
+        '''convert a given range to a more useful one:
+        (the letter, the starting index in tree, the row number of last)'''
+
+        if given_range:
+            for i_row, row in enumerate(self.rows):
+                if int(row.attrib['r']) == given_range[1]:
+                    xlrange = (given_range[0], i_row, given_range[2])
+        else:
+            found = False
+            for i_row, row in enumerate(self.rows):
+                for cell in row:
+                    if 't' in cell.attrib and cell.attrib['t'] == 's' \
+                            and self.strs[int(cell[0].text)]:
+                        col_let = ''.join(
+                            [c for c in cell.attrib['r'] if c.isalpha()])
+                        xlrange = (col_let, i_row, int(self.rows[-1].attrib['r']))
+                        found = True
+                        break
+                if found:
+                    break
+
+        return xlrange
+
+    def process_cell(self, cell, line, current_col, current_key):
+        cont = ['txt', '']
+        if 't' in cell.attrib and cell.attrib['t'] == 's':
+            cont = ['txt', self.strs[int(cell[0].text)]]
+        elif cell.findall('{%s}f' % NS['main']):
+            cont = ['expr', cell[0].text, cell[1].text]
+        elif len(cell):
+            cont = ['val', cell[0].text]
+
+        if current_col == 0:
+            line.append(cont)
+            current_col += 1
+        elif current_col == 1:
+            if line[0][0] == 'txt' and cont[1].strip():
+                line[0][0] = 'var'
+                line[0][1] = f'"{line[0][1]}"'
+                if cont[0] == 'txt':
+                    cont[1] = f'"{cont[1]}"'
+                line.append(cont)
+                current_key = cell.attrib['r']
+                current_col += 1
+        else:
+            if line[0][0] == 'var':
+                if cont[0] == 'txt':
+                    line.append(['opt', cont[1]])
+                    current_col += 1
+        
+        return line, current_col, current_key
+
+    def extract_info(self):
+
+        # store calcs in dict with cell addreses as keys
+        info = {}
+
+        for i_row, row in enumerate(self.rows[self.range[1]:]):
+            if int(row.attrib['r']) <= self.range[2]:
+                line = []
+                # default key unless changed (below)
+                current_key = f'para{i_row}'
+                current_col = -1
+                for cell in row:
+                    col_let = ''.join(
+                        [c for c in cell.attrib['r'] if c.isalpha()])
+                    if col_let == self.range[0]:
+                        current_col = 0
+                    if current_col in [0, 1, 2]:
+                        line, current_col, current_key = \
+                                self.process_cell(cell, line, current_col, current_key)
+                info[current_key] = line
+        return info
+    
+    def form2expr(self, ins1, ins2, content):
+        correct = self.cell_pat.sub(
+            lambda x: self.info[x.group(0)][ins1][ins2],
+            content[1][1]).replace('^', '**')
+        correct = self.func_pat.sub(lambda x: x.group(0).lower(), correct)
+        return correct.replace('^', '**')
+
+    def info_2_script(self):
+        script = []
+        for key, content in self.info.items():
+            if content[0][0] == 'txt':
+                para = content[0][1]
+                if para.lstrip().startswith('#'):
+                    script.append(para)
+                else:
+                    script.append('# ' + para if para.strip() else '')
+            elif content[0][0] == 'var':
+                var_name = content[0][1]
+                if len(content[1]) == 2:
+                    steps = [content[1][1]]
+                else:
+                    steps = [self.form2expr(0, 1, content), self.form2expr(1, -1, content)]
+                steps.append(content[1][-1])
+                opt = content[-1][-1].replace('^', '**') if content[-1][0] == 'opt' else ''
+                script.append(
+                    '# ' + cal([var_name, steps, opt]).replace('\n', '\n# '))
+
+        return '\n'.join(script)
 
 
 class LogRecorder(logging.Handler):
@@ -555,107 +693,10 @@ class document:
                     self.current_tag = tag
 
     def from_xl(self, fname, xlrange=None):
-        '''
-        accept an excel file, extract the calculations in it and incorporate
-        it in the document.'''
 
-        NS = {
-            'main': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main',
-            'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
-            'mc': 'http://schemas.openxmlformats.org/markup-compatibility/2006',
-            'x14ac': 'http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac',
-        }
-
-        with ZipFile(fname, 'r') as zin:
-            sheet_xml = zin.read('xl/worksheets/sheet1.xml').decode('utf-8')
-            str_xml = zin.read('xl/sharedStrings.xml').decode('utf-8')
-
-        sheet_tree = ET.fromstring(sheet_xml)
-        str_tree = ET.fromstring(str_xml)
-        strs = [node[0].text for node in str_tree]
-
-        # store calcs in dict with cell addreses as keys
-        instructions = {}
-
-        rows = sheet_tree.find('{%s}sheetData' % NS['main'])
-
-        for i, row in enumerate(rows):
-            if xlrange is None:
-                for col in row:
-                    if 't' in col.attrib and col.attrib['t'] == 's' and strs[int(col[0].text)]:
-                        col_let = ''.join(
-                            [c for c in col.attrib['r'] if c.isalpha()])
-                        xlrange = (col_let, int(row.attrib['r']), int(rows[-1].attrib['r']))
-                        break
-            if xlrange is not None and xlrange[1] <= int(row.attrib['r']) <= xlrange[2]:
-                line = []
-                options = []
-                current_key = f'para{i}'
-                current_col = -1
-                for col in row:
-                    col_let = ''.join(
-                        [c for c in col.attrib['r'] if c.isalpha()])
-                    if col_let == xlrange[0]:
-                        current_col = 0
-                    if current_col in [0, 1, 2]:
-                        cont = ['txt', '']
-                        if 't' in col.attrib and col.attrib['t'] == 's':
-                            cont = ['txt', strs[int(col[0].text)]]
-                        elif col.findall('{%s}f' % NS['main']):
-                            cont = ['expr', col[0].text, col[1].text]
-                        elif len(col):
-                            cont = ['val', col[0].text]
-
-                        if current_col == 0:
-                            line.append(cont)
-                            current_col += 1
-                        elif current_col == 1:
-                            if line[0][0] == 'txt':
-                                if cont[0] in ['expr', 'val']:
-                                    line[0][0] = 'var'
-                                    line[0][1] = f'"{line[0][1]}"'
-                                    line.append(cont)
-                                    current_key = col.attrib['r']
-                                    current_col += 1
-                        else:
-                            if line[0][0] == 'var':
-                                if cont[0] == 'txt':
-                                    line.append(['opt', cont[1]])
-                                    current_col += 1
-                instructions[current_key] = line
-
-        script = []
-        for key, content in instructions.items():
-            if content[0][0] == 'txt':
-                para = content[0][1]
-                if para.lstrip().startswith('#'):
-                    script.append(para)
-                else:
-                    script.append('# ' + para if para.strip() else '')
-            elif content[0][0] == 'var':
-                var_name = content[0][1]
-                if len(content[1]) == 2:
-                    steps = [content[1][1]]
-                else:
-                    cell_pat = re.compile(r'[A-Z]+[0-9]+')
-                    func_pat = re.compile(r'[A-Z]+(?=\()')
-
-                    def acceptable(i1, i2):
-                        correct = cell_pat.sub(
-                            lambda x: instructions[x.group(0)][i1][i2],
-                            content[1][1]).replace('^', '**')
-                        correct = func_pat.sub(lambda x: x.group(0).lower(),
-                                               correct)
-                        return correct.replace('^', '**')
-
-                    steps = [acceptable(0, 1), acceptable(1, -1)]
-                steps.append(content[1][-1])
-                opt = content[-1][-1].replace('^', '**') if content[-1][0] == 'opt' else ''
-                script.append(
-                    '# ' + cal([var_name, steps, opt]).replace('\n', '\n# '))
-
-        self.send('\n'.join(script))
-
+        excel = ExcelCalc(fname, xlrange)
+        self.send(excel.converted)
+    
     def from_normal(norm):
         '''
         accept an ascii input (equations) and comments without preceding with
