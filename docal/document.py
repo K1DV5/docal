@@ -170,25 +170,25 @@ class wordFile:
     declaration = '<?xml version="1.0" encoding="utf-8" standalone="yes"?>\n'
     # always required namespaces
     namespaces = {
-        "wpc": "http://schemas.microsoft.com/office/word/2010/wordprocessingcanvas",
+        "wpc": "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas",
         "cx": "http://schemas.microsoft.com/office/drawing/2014/chartex",
         "cx1": "http://schemas.microsoft.com/office/drawing/2015/9/8/chartex",
         "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",
         "o": "urn:schemas-microsoft-com:office:office",
-        "r": "http://schemas.openxmlformats.org/officedocument/2006/relationships",
-        "m": "http://schemas.openxmlformats.org/officedocument/2006/math",
+        "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+        "m": "http://schemas.openxmlformats.org/officeDocument/2006/math",
         "v": "urn:schemas-microsoft-com:vml",
-        "wp14": "http://schemas.microsoft.com/office/word/2010/wordprocessingdrawing",
-        "wp": "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingdrawing",
+        "wp14": "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing",
+        "wp": "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
         "w10": "urn:schemas-microsoft-com:office:word",
         "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
         "w14": "http://schemas.microsoft.com/office/word/2010/wordml",
         "w15": "http://schemas.microsoft.com/office/word/2012/wordml",
         "w16se": "http://schemas.microsoft.com/office/word/2015/wordml/symex",
-        "wpg": "http://schemas.microsoft.com/office/word/2010/wordprocessinggroup",
-        "wpi": "http://schemas.microsoft.com/office/word/2010/wordprocessingink",
+        "wpg": "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup",
+        "wpi": "http://schemas.microsoft.com/office/word/2010/wordprocessingInk",
         "wne": "http://schemas.microsoft.com/office/word/2006/wordml",
-        "wps": "http://schemas.microsoft.com/office/word/2010/wordprocessingshape",
+        "wps": "http://schemas.microsoft.com/office/word/2010/wordprocessingShape",
     }
 
     # the internal form of the parsed tags for internal use to avoid normal # usage
@@ -458,7 +458,7 @@ class ExcelCalc:
     def process_cell(self, cell, line, current_col, current_key):
         cont = ['txt', '']
         if 't' in cell.attrib and cell.attrib['t'] == 's':
-            cont = ['txt', self.strs[int(cell[0].text)]]
+            cont = ['txt', self.strs[int(cell[0].text.strip())]]
         elif cell.findall('{%s}f' % NS['main']):
             cont = ['expr', cell[0].text, cell[1].text]
         elif len(cell):
