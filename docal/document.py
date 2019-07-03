@@ -21,8 +21,6 @@ replaced by contents from the python file.
 
 # for tag replacements
 import re
-# to know types of strings (assignment or module)
-import ast
 # to run pandoc
 from subprocess import run
 # for path manips
@@ -230,22 +228,22 @@ class wordFile:
 
     def normalized_contents(self, paragraph):
         pref_w = f'{{{self.namespaces["w"]}}}'
-        ignored = [pref_w + tag for tag in ['bookmarkStart', 'bookmarkEnd']]
+        ignored = [pref_w + tag for tag in ['bookmarkStart', 'bookmarkEnd', 'proofErr']]
         conts = []
-        for r in paragraph:
-            if r.tag == pref_w + 'r':
+        for child in paragraph:
+            if child.tag == pref_w + 'r':
                 if conts:
                     if type(conts[-1]) == list:
-                        conts[-1].append(r)
+                        conts[-1].append(child)
                     else:
-                        conts.append(['', r])
+                        conts.append(['', child])
                 else:
-                    conts.append(['', r])
-                for t in r:
+                    conts.append(['', child])
+                for t in child:
                     if t.tag == pref_w + 't':
                         conts[-1][0] += t.text
-            elif r.tag not in ignored:
-                conts.append(r)
+            elif conts and type(conts[-1]) != list or child.tag not in ignored:
+                conts.append(child)
         return conts
 
     def extract_tags_info(self, tree):
@@ -470,7 +468,7 @@ class ExcelCalc:
         elif current_col == 1:
             if line[0][0] == 'txt' and cont[1].strip():
                 line[0][0] = 'var'
-                line[0][1] = f'"{line[0][1]}"'
+                line[0][1] = f'{line[0][1]}'
                 if cont[0] == 'txt':
                     cont[1] = f'"{cont[1]}"'
                 line.append(cont)
@@ -520,6 +518,8 @@ class ExcelCalc:
                 para = content[0][1]
                 if para.lstrip().startswith('#'):
                     script.append(para)
+                elif para.lstrip().startswith('$'):
+                    script.append('#' + para)
                 else:
                     script.append('# ' + para if para.strip() else '')
             elif content[0][0] == 'var':
@@ -530,8 +530,14 @@ class ExcelCalc:
                     steps = [self.form2expr(0, 1, content), self.form2expr(1, -1, content)]
                 steps.append(content[1][-1])
                 opt = content[-1][-1].replace('^', '**') if content[-1][0] == 'opt' else ''
+                try:  # check if the var name is python legal
+                    latexify(var_name + ' = 3')
+                except SyntaxError:
+                    eqn_xl = cal([f'"{var_name}"', steps, opt])
+                else:
+                    eqn_xl = cal([var_name, steps, opt])
                 script.append(
-                    '# ' + cal([var_name, steps, opt]).replace('\n', '\n# '))
+                    '# ' + eqn_xl.replace('\n', '\n# '))
 
         return '\n'.join(script)
 
