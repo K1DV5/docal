@@ -120,7 +120,7 @@ class SyntaxWord:
     def accent(self, acc, base):
         return self.acc.format(MATH_ACCENTS[acc], base)
 
-    def prime(self, acc, base):
+    def prime(self, base, prime):
         return self.sup.format(base, self.txt.format(PRIMES[prime]))
 
     def delmtd(self, contained, kind=0):
@@ -185,7 +185,7 @@ class SyntaxLatex:
     def accent(self, acc, base):
         return fr'\{acc}{{{base}}}'
 
-    def prime(self, acc, base):
+    def prime(self, base, prime):
         return f'{{{base}}}{prime}'
 
     def delmtd(self, contained, kind=0):
@@ -205,9 +205,12 @@ class SyntaxLatex:
         return srnds[0] + inner + srnds[1]
 
 
-# init now to prevent unnecessary inits that are the same
-SYN_LATEX = SyntaxLatex()
-SYN_WORD = SyntaxWord()
+# syntax selector
+def select_syntax(typ):
+    if typ == 'word':
+        return SyntaxWord()
+    else:
+        return SyntaxLatex()
 
 
 def _prep4lx(quantity, syn_obj, mat_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
@@ -318,12 +321,8 @@ class MathVisitor(ast.NodeVisitor):
         self.subs = subs
         self.mat_size = mat_size
         self.dict = working_dict
-        if typ == 'word':
-            self.s = SYN_WORD
-        else:
-            self.s = SYN_LATEX
-        if not ital:
-            self.s.txt = self.s.txt_rom
+        self.s = select_syntax(typ)
+        self.ital = ital
 
     def format_name(self, name_str: str) -> str:
         '''
@@ -356,8 +355,8 @@ class MathVisitor(ast.NodeVisitor):
             # change in ... as [Dd]elta...
             elif part.startswith('Delta') or part.startswith('delta'):
                 delta, var = part[:len('delta')], part[len('delta'):]
-                parts_final[index] = self.s.greek(delta) + self.format_name(var)
-            elif len(part) > 1:
+                parts_final[index] = self.s.greek(delta) + self.s.txt.format(' ') + self.format_name(var)
+            elif len(part) > 1 or not self.ital:
                 parts_final[index] = self.s.txt_rom.format(part)
             elif part:
                 parts_final[index] = self.s.txt.format(part)
@@ -481,7 +480,8 @@ class MathVisitor(ast.NodeVisitor):
                 if str(self.dict[n.id]) == n.id:
                     return self.format_name(str(self.dict[n.id]))
                 qty = self.visit(_prep4lx(self.dict[n.id], self.s, self.mat_size))
-                unit = self.s.halfsp + to_math(self.dict[n.id + UNIT_PF], div="/", ital=False) \
+                typ = 'word' if isinstance(self.s, SyntaxWord) else 'latex'
+                unit = self.s.halfsp + to_math(self.dict[n.id + UNIT_PF], div="/", ital=False, typ=typ) \
                     if n.id + UNIT_PF in self.dict.keys() and self.dict[n.id + UNIT_PF] \
                     and self.dict[n.id + UNIT_PF] != '_' else ''
                 # if the quantity is raised to some power and has a unit,
@@ -735,7 +735,7 @@ def to_math(expr, mul='*', div='frac', subs=False, mat_size=DEFAULT_MAT_SIZE, wo
     return the representation of the expr in the appropriate syntax
     '''
 
-    syntax = SYN_WORD if typ == 'word' else SYN_LATEX
+    syntax = select_syntax(typ)
 
     if isinstance(expr, str):
         if expr.strip():
@@ -748,51 +748,52 @@ def to_math(expr, mul='*', div='frac', subs=False, mat_size=DEFAULT_MAT_SIZE, wo
     return MathVisitor(mul, div, subs, mat_size, working_dict, typ, ital).visit(pt)
 
 
-def eqn(*equation_list, norm=True, disp=True, surr=True, vert=True, div='frac', mul='*', typ='word') -> str:
-    '''main api for equations'''
-
-    if typ == 'word':
-        syntax = SYN_WORD
-    else:
-        syntax = SYN_LATEX
-
-    # split and flatten in case there are any |, and split by =
-    equation_list = [_split(eq, last=None) for sub_eq in equation_list for eq in sub_eq.split('|')]
-
-    if norm:
-        if len(equation_list) == 1:
-            inner = to_math('=='.join(equation_list[0]), mul=mul, div=div, typ=typ)
+def build_eqn(eq_list, disp=True, vert=True, typ='latex', srnd=True):
+    syntax = select_syntax(typ)
+    if len(eq_list) == 1:
+        if len(eq_list[0]) == 1:
+            inner = eq_list[0][0]
         else:
-            if vert and disp:
-                # prepare the segments of each equation for the syntax object in the form
-                # [['x', '5*d'], ['', '5*5'], ['', '25']] (list of lists)
-                equations = []
-                for eq in equation_list:
-                    # join the first if there are many to align at the last =
-                    if len(eq) > 1:
-                        eq = ['=='.join(eq[:-1]), eq[-1]]
-                    equations.append([to_math(e, mul=mul, div=div, typ=typ) for e in eq])
-                inner = syntax.eqarray(equations)
-            else:
-                inner = to_math('=='.join(
-                    ['=='.join([eq for eq in equation_list])]),
-                    mul=mul, div=div, typ=typ)
+            inner = syntax.txt.format('=').join(eq_list[0])
     else:
-        if len(equation_list) == 1:
-            inner = syntax.txt.format('=').join(equation_list[0])
+        if vert and disp:
+            inner = syntax.eqarray([[syntax.txt.format('=').join(eq[:-1]),
+                                     eq[-1]] for eq in eq_list])
         else:
-            if vert and disp:
-                inner = syntax.eqarray([[syntax.txt.format('=').join(eq[:-1]),
-                                         eq[-1]] for eq in equation_list])
-            else:
-                inner = syntax.txt.format('=').join(
-                        [syntax.txt.format('=').join(eq)
-                            for eq in equation_list])
-
-    if surr:
+            inner = ''.join([syntax.txt.format('=').join(eq) for eq in eq_list])
+    if srnd:
         if disp:
             return syntax.math_disp.format(inner)
         else:
             return syntax.math_inln.format(inner)
     return inner
+
+
+def eqn(*equation_list, norm=True, disp=True, srnd=True, vert=True, div='frac', mul='*', typ='word') -> str:
+    '''main api for equations'''
+
+    syntax = select_syntax(typ)
+
+    # split and flatten in case there are any |, and split by =
+    equation_list = [_split(eq, last=None) for sub_eq in equation_list for eq in sub_eq.split('|')]
+
+    # prepare the segments of each equation for the syntax object in the form
+    # [['x', '5*d'], ['', '5*5'], ['', '25']] (list of lists)
+    equations = []
+    if norm:
+        if len(equation_list) == 1:
+            equations.append([to_math('=='.join(equation_list[0]), mul=mul, div=div, typ=typ)])
+        else:
+            for eq in equation_list:
+                # join the first if there are many to align at the last =
+                if len(eq) > 1:
+                    eq = ['=='.join(eq[:-1]), eq[-1]]
+                equations.append([to_math(e, mul=mul, div=div, typ=typ) for e in eq])
+    else:
+        if len(equation_list) == 1:
+            equations.append(['', syntax.txt.format('=').join(equation_list[0])])
+        else:
+            for eq in equation_list:
+                equations.append([syntax.txt.format('=').join(eq[:-1]), eq[-1]])
     
+    return build_eqn(equations, disp, vert, typ, srnd)
