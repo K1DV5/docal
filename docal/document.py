@@ -39,7 +39,7 @@ try:
 except ImportError:
     DICT = {}
 from .calculation import cal
-from .parsing import UNIT_PF, eqn, latexify
+from .parsing import UNIT_PF, eqn, to_math
 # to split the calculation string
 from .utils import _split_module
 DEFAULT_FILE = 'Untitled.tex'
@@ -63,6 +63,9 @@ logger = logging.getLogger(__name__)
 
 class latexFile:
     '''handles the latex files'''
+
+    # name for this type (for to_math)
+    name = 'latex'
 
     # warning for tag place protection in document:
     warning = ('BELOW IS AN AUTO GENERATED LIST OF TAGS. '
@@ -123,7 +126,7 @@ class latexFile:
     def _repl(self, match_object, surround: bool, values: dict):
         start, tag, end = [m if m else '' for m in match_object.groups()]
         if tag in values:
-            result = '\n'.join(values[tag])
+            result = '\n'.join([val[1] for val in values[tag]])
             if surround:
                 return (start
                         + SURROUNDING[0]
@@ -154,7 +157,7 @@ class latexFile:
                     self.file_contents = self._subs_separate(values)
             else:
                 self.file_contents = '\n'.join([
-                    '\n'.join(val) for val in values.values()
+                    '\n'.join([v[1] for v in val]) for val in values.values()
                 ])
 
         logger.info('[writing file] %s', self.outfile)
@@ -164,6 +167,8 @@ class latexFile:
 
 class wordFile:
 
+    # name for this type (for to_math)
+    name = 'word'
     # the xml declaration
     declaration = '<?xml version="1.0" encoding="utf-8" standalone="yes"?>\n'
     # always required namespaces
@@ -531,7 +536,7 @@ class ExcelCalc:
                 steps.append(content[1][-1])
                 opt = content[-1][-1].replace('^', '**') if content[-1][0] == 'opt' else ''
                 try:  # check if the var name is python legal
-                    latexify(var_name + ' = 3')
+                    to_math(var_name + ' = 3')
                 except SyntaxError:
                     eqn_xl = cal([f'"{var_name}"', steps, opt])
                 else:
@@ -604,11 +609,16 @@ class document:
     def _format_value(self, var, working_dict=DICT):
         if var in working_dict:
             unit_name = var + UNIT_PF
-            unit = fr' \, \mathrm{{{latexify(working_dict[unit_name], div_symbol="/", working_dict=working_dict)}}}'\
+            unit = to_math(working_dict[unit_name],
+                           div="/",
+                           working_dict=working_dict,
+                           typ=self.document_file.name,
+                           ital=False) \
                 if unit_name in working_dict.keys() and working_dict[unit_name] \
                 and working_dict[unit_name] != '_' else ''
-            result = eqn(latexify(
-                working_dict[var]) + unit, norm=False, disp=False)
+            result = eqn(to_math(working_dict[var], typ=self.document_file.name) + unit,
+                         norm=False, disp=False,
+                         typ=self.document_file.name)
         else:
             raise KeyError(f"'{var}' is an undefined variable.")
 
@@ -626,26 +636,20 @@ class document:
                               x.group(1).split('_')) + 'TMP0',
                           line)
             if line.startswith('$$'):
-                line = eqn(line[2:])
-            elif line.startswith('$where'):
-                # usually after equations
-                defns = [defn.split('=')
-                         for defn in line.split(' ', 1)[1].split(',')]
-                defns = eqn(
-                    '|'.join([var + ' = "' + mean + '"' for var, mean in defns]))
-                line = '\nwhere\n' + defns
+                line = ['disp', eqn(line[2:], typ=self.document_file.name)]
             else:
-                line = eqn(line[1:], disp=False)
-            augmented = re.sub(r'(?a)\\mathrm\s*\{\s*(\w+)TMP0\s*\}',
-                               lambda x: latexify(
-                                   working_dict['_'.join(x.group(1).split('TMP0'))]),
-                               line)
+                line = ['inline', eqn(line[1:], disp=False, typ=self.document_file.name)]
+            # editted
+            line[1] = re.sub(r'(?a)\\mathrm\s*\{\s*(\w+)TMP0\s*\}',
+                             lambda x: to_math(
+                                 working_dict['_'.join(x.group(1).split('TMP0'))], typ=self.document_file.name),
+                             line[1])
         else:
-            augmented = PATTERN.sub(lambda x: x.group(1) +
-                                    self._format_value(x.group(2)) +
-                                    x.group(3), line.lstrip())
+            line = ['text', PATTERN.sub(lambda x: x.group(1) +
+                                        self._format_value(x.group(2), working_dict) +
+                                        x.group(3), line.lstrip())]
 
-        return augmented
+        return line
 
     def _process_assignment(self, line, working_dict=DICT):
         '''
@@ -653,7 +657,8 @@ class document:
         '''
         logger.info('[Processing] %s', line)
         # the cal function will execute it so no need for exec
-        return cal(line, working_dict)
+        result = cal(line, working_dict, typ=self.document_file.name)
+        return [result[1], result[0]]
 
     def process_content(self, input_str, working_dict=DICT):
         tag = self.current_tag

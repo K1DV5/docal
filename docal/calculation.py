@@ -8,7 +8,7 @@ module and returns the procedure of the calculations
 import ast
 import logging
 from .document import DICT
-from .parsing import latexify, eqn, DEFAULT_MAT_SIZE, UNIT_PF
+from .parsing import to_math, eqn, DEFAULT_MAT_SIZE, UNIT_PF, select_syntax, build_eqn
 from .utils import _split
 
 log = logging.getLogger(__name__)
@@ -24,19 +24,21 @@ DERIVED = {
 DERIVED = {u: ast.parse(DERIVED[u]).body[0].value for u in DERIVED}
 
 
-def _calculate(expr, options: dict, working_dict=DICT, mul_symbol='*', div_symbol='/'):
+def _calculate(expr, options: dict, working_dict=DICT, mul='*', div='/', typ='latex'):
     '''carryout the necesary calculations and assignments'''
 
     def lx_args(ex, subs=None):
 
-        return latexify(ex,
-                        mat_size=options['mat_size'],
-                        working_dict=working_dict,
-                        mul_symbol=mul_symbol,
-                        div_symbol=div_symbol)
+        return to_math(ex,
+                       mat_size=options['mat_size'],
+                       subs=subs,
+                       working_dict=working_dict,
+                       mul=mul,
+                       div=div,
+                       typ=typ)
 
     if type(expr) != str:
-        result = [latexify(e) for e in expr]
+        result = [to_math(e, typ=typ) for e in expr]
     else:
         result = [
             lx_args(expr),
@@ -66,7 +68,11 @@ def _calculate(expr, options: dict, working_dict=DICT, mul_symbol='*', div_symbo
         else:
             options['unit'] = unitize(expr)
     if options['unit'] and options['unit'] != '_':
-        unit_lx = fr" \,\mathrm{{{latexify(options['unit'], div_symbol='/', working_dict=working_dict)}}}"
+        unit_lx = select_syntax(typ).halfsp + to_math(options['unit'],
+                                                      div='/',
+                                                      working_dict=working_dict,
+                                                      typ=typ,
+                                                      ital=False)
     else:
         unit_lx = ''
     result[-1] += unit_lx + options['note']
@@ -74,7 +80,9 @@ def _calculate(expr, options: dict, working_dict=DICT, mul_symbol='*', div_symbo
     return result
 
 
-def _process_options(additionals):
+def _process_options(additionals, typ):
+
+    syntax = select_syntax(typ)
 
     options = {
         'steps': [],
@@ -118,7 +126,7 @@ def _process_options(additionals):
                     options['unit'] = a
 
     if options['note']:
-        options['note'] = f'\\,\\text{{{options["note"]}}}'
+        options['note'] = syntax.halfsp + syntax.txt_math.format(options["note"])
 
     return options
 
@@ -151,17 +159,18 @@ def _assort_input(input_str):
     return var_name, unp_vars, expression, additionals
 
 
-def cal(input_str: str, working_dict=DICT, mul_symbol='*', div_symbol='frac') -> str:
+def cal(input_str: str, working_dict=DICT, mul='*', div='frac', typ='latex') -> str:
     '''
     evaluate all the calculations, carry out the appropriate assignments,
     and return all the procedures
 
     '''
+    syntax = select_syntax(typ)
     var_name, unp_vars, expr, additionals = _assort_input(input_str) \
         if type(input_str) == str \
         else (input_str[0], None, input_str[1], input_str[2])
-    options = _process_options(additionals)
-    result = _calculate(expr, options, working_dict, mul_symbol, div_symbol)
+    options = _process_options(additionals, typ)
+    result = _calculate(expr, options, working_dict, mul, div, typ=typ)
     if options['mode'] == 'inline':
         displ = False
     elif options['mode'] == 'display':
@@ -172,13 +181,15 @@ def cal(input_str: str, working_dict=DICT, mul_symbol='*', div_symbol='frac') ->
         else:
             displ = True
 
+    disp = 'disp' if displ else 'inline'
+
     if var_name:
         # this is an assignment/equation
-        var_lx = latexify(var_name)
+        var_lx = to_math(var_name, typ=typ)
 
-        procedure = [f'{var_lx} = {result[0]}']
+        procedure = [[var_lx, result[0]]]
         for step in result[1:]:
-            procedure.append('    = ' + step)
+            procedure.append(['', step])
 
         if type(input_str) == str:
             # carry out normal op in main script
@@ -189,18 +200,18 @@ def cal(input_str: str, working_dict=DICT, mul_symbol='*', div_symbol='frac') ->
 
     else:
         if len(result) > 1:
-            procedure = [f'{result[0]} = {result[1]}']
+            procedure = [[result[0], result[1]]]
             if result[2:]:
-                procedure.append('    = ' + result[2])
+                procedure.append(['', result[2]])
         else:
-            procedure = [result[0]]
+            procedure = [[result[0]]]
 
     if options['hidden']:
-        return ''
+        return ('', 'text')
 
-    output = eqn(*procedure, norm=False, disp=displ, vert=options['vert'])
+    output = build_eqn(procedure, displ, options['vert'], typ)
 
-    return output
+    return (output, disp)
 
 
 class UnitHandler(ast.NodeVisitor):
@@ -335,7 +346,7 @@ def unitize(s: str, working_dict=DICT) -> str:
     '''
     look for units of the variable names in the expression, cancel-out units
     that can be canceled out and return an expression of units that can be
-    converted into latex using latexify
+    converted into latex using to_math
     '''
 
     def unit_handler(pu, norm):
