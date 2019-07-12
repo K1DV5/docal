@@ -21,12 +21,11 @@ replaced by contents from the python file.
 
 # for tag replacements
 import re
-# to run pandoc
-from subprocess import run
 # for path manips
 from os import path
 # for word file handling
 import xml.etree.ElementTree as ET
+from xml.sax.saxutils import escape
 from zipfile import ZipFile, ZIP_DEFLATED
 # for temp directory
 import tempfile
@@ -295,32 +294,20 @@ class wordFile:
         return tags_info
 
     def _subs_tags(self, values={}):
-        ans_tree = self._get_ans_tree(values)
-        ans_tag_info = self.extract_tags_info(ans_tree)
+        ans_info = {tag: self.collect_para(val) for tag, val in values.items()}
 
-        indices = [info['index'] for info in ans_tag_info]
-        ans_len = len(ans_tree[0])
-        # add one to skip the tags
-        ranges = list(zip([i + 1 for i in indices], indices[1:] + [ans_len]))
-        # get ans elements in (tag, (start, end)) form
-        ans_info = [(info['tag'], ranges[i])
-                    for i, info in enumerate(ans_tag_info)]
-
-        added = 0  # the added index to make up for the added elements
-        for tag, (start, end) in ans_info:
+        for tag, ans_parts in ans_info:
             matching_infos = [
                 info for info in self.tags_info if info['tag'] == tag]
             if matching_infos:
                 info = matching_infos[0]
                 # remove this entry to revert the left ones from their alt form
                 self.tags_info.remove(info)
-                ans_parts = ans_tree[0][start: end]
                 if info['position'] == 'para':
                     ans_parts.reverse()  # because they are inserted at the same index
                     for ans in ans_parts:
                         self.doc_tree[0].insert(info['index'] + added, ans)
                     self.doc_tree[0].remove(info['address'][0])
-                    added += len(ans_parts) - 1  # minus the tag para (removed)
                 else:
                     loc_para, loc_run, loc_text = info['address']
                     split_text = loc_text.text.split(info['tag-alt'], 1)
@@ -349,7 +336,6 @@ class wordFile:
                             self.doc_tree[0].insert(info['index'] + added, ans)
                         beg_index = info['index'] + added
                         self.doc_tree[0].insert(beg_index, beg_para)
-                        added += len(ans_parts) + 1
             else:
                 logger.error(f'#{tag} not found in the document.')
         # revert the rest of the tags from their alt form
@@ -359,51 +345,87 @@ class wordFile:
             loc_text.text = loc_text.text.replace(
                 info['tag-alt'], '#' + info['tag'])
 
-    def _get_ans_tree(self, values={}):
-        result_str = '\n\n'.join(['#' +
-                                  tag.replace('_', '\\_') +
-                                  '\n\n' +
-                                  '\n'.join(value)
-                                  for tag, value in values.items()])
-        result_tex = path.join(
-            self.temp_dir, path.basename(self.infile) + '-res.tex')
-        result_docx = path.splitext(result_tex)[0] + '.docx'
-        with open(result_tex, 'w', encoding='utf-8') as file:
-            file.write(result_str)
-        run(['pandoc', result_tex, '-o', result_docx])
-        with ZipFile(result_docx) as docx:
-            ans_tree = ET.fromstring(docx.read('word/document.xml'))
+    def collect_para(self, content: list):
+        w = self.namespaces['w']
+        m = self.namespaces['m']
+        para_start = f'<w:p xmlns:w="{w}" xmlns:m="{m}">'
+        para_form = para_start + '{}</w:p>'
+        paras = []
+        para = [['text', '']]
+        for cont in content:
+            if para[-1][0] == 'text':
+                if cont[0] == 'text':
+                    if cont[1].strip():
+                        para[-1][1] += escape(cont[1])
+                    elif para[-1][1].strip():
+                        paras.append(ET.fromstring(para_form.format(''.join([p[1] for p in para]))))
+                        para = [['text', '']]
+                else:
+                    if para[-1][1].strip():
+                        para[-1][1] = f'<w:r><w:t>{para[-1][1]}</w:t></w:r>'
+                    if cont[0] == 'inline':
+                        para.append(cont)
+                    else:
+                        paras.append(ET.fromstring(para_form.format(''.join([p[1] for p in para]))))
+                        paras.append(ET.fromstring(para_start + f'{cont[1]}</w:p>'))
+                        para = [['text', '']]
+            else:
+                if cont[0] == 'inline':
+                    para.append(cont)
+                elif cont[0] == 'text':
+                    if cont[1].strip():
+                        para.append([['text', escape(cont[1])]])
+                    else:
+                        paras.append(ET.fromstring(para_form.format(''.join([p[1] for p in para]))))
+                        para = [['text', '']]
+                else:
+                    paras.append(ET.fromstring(para_form.format(''.join([p[1] for p in para]))))
+                    paras.append(ET.fromstring(para_form.format(cont[1])))
+                    para = [['text', '']]
+        if para[0][1].strip() or len(para) > 1:
+            if para[-1][0] == 'text' and para[-1][1].strip():
+                para[-1][1] = f'<w:r><w:t>{para[-1][0]}</w:t></w:r>'
+            paras.append(ET.fromstring(para_form.format(''.join([p[1] for p in para]))))
 
-        return ans_tree
+        return paras
 
     def write(self, outfile=None, values={}):
+
         if outfile:
             self.outfile = outfile
 
         if self.infile:
             self._subs_tags(values)
-            # take care of namespaces and declaration
-            doc_xml = ET.tostring(self.doc_tree, encoding='unicode')
-            searched = re.match(r'\<w:document.*?\>', doc_xml).group(0)
-            used_nses = re.findall(r'(?<=xmlns\:)\w+', searched)
-            for prefix, uri in self.namespaces.items():
-                if prefix not in used_nses:
-                    self.doc_tree.set('xmlns:' + prefix, uri)
-
-            doc_xml = self.declaration + \
-                ET.tostring(self.doc_tree, encoding='unicode')
-            self.tmp_file.writestr('word/document.xml', doc_xml)
-            tmp_fname = self.tmp_file.filename
-            self.tmp_file.close()
         else:
-            with open(self.tmp_file, 'w', encoding='utf-8') as file:
-                file.write('\n'.join([
-                    '\n'.join(val) for val in values.values()
-                ]))
             tmp_fname = path.splitext(self.tmp_file)[0] + '.docx'
-            pand_err = run(['pandoc', self.tmp_file, '-f', 'latex', '-o', tmp_fname]).returncode
-            if pand_err:
-                raise SyntaxError('Unacceptable syntax for the document')
+            with ZipFile('b.docx', 'r') as zin:
+                file_contents = zin.read('word/document.xml')
+                self.tmp_file = ZipFile(tmp_fname, 'w', compression=ZIP_DEFLATED)
+                for file in zin.namelist():
+                    if file != 'word/document.xml':
+                        self.tmp_file.writestr(file, zin.read(file))
+
+            self.doc_tree = ET.fromstring(file_contents)
+            for child in self.doc_tree[0]:
+                self.doc_tree[0].remove(child)
+            for val in values.values():
+                for para in self.collect_para(val):
+                    self.doc_tree[0].append(para)
+            for prefix, uri in self.namespaces.items():
+                ET.register_namespace(prefix, uri)
+        # take care of namespaces and declaration
+        doc_xml = ET.tostring(self.doc_tree, encoding='unicode')
+        searched = re.match(r'\<w:document.*?\>', doc_xml).group(0)
+        used_nses = re.findall(r'(?<=xmlns\:)\w+', searched)
+        for prefix, uri in self.namespaces.items():
+            if prefix not in used_nses:
+                self.doc_tree.set('xmlns:' + prefix, uri)
+
+        doc_xml = self.declaration + \
+            ET.tostring(self.doc_tree, encoding='unicode')
+        self.tmp_file.writestr('word/document.xml', doc_xml)
+        tmp_fname = self.tmp_file.filename
+        self.tmp_file.close()
 
         logger.info('[writing file] %s', self.outfile)
         move(tmp_fname, self.outfile)
@@ -566,7 +588,7 @@ class document:
         '.tex': latexFile,
     }
 
-    def __init__(self, infile=None, to_clear=False, log_level=None, log_file=False):
+    def __init__(self, infile=None, outfile=None, to_clear=False, log_level=None, log_file=False):
         '''initialize'''
 
         self.to_clear = to_clear
@@ -591,9 +613,17 @@ class document:
                 file_logger = logging.FileHandler(basename + '.log', 'w')
                 file_logger.setFormatter(logging.Formatter(LOG_FORMAT))
                 logger.addHandler(file_logger)
-        else:
-            self.document_file = None
+        elif outfile:
+            ext = path.splitext(outfile)[1]
+            self.document_file = self.file_handlers[ext](
+                None, self.to_clear)
             self.tags = []
+        else:
+            raise ValueError('Need to specify at least one document')
+        if outfile:
+            self.outfile = outfile
+        else:
+            self.outfile = None
         if log_level:
             logger.setLevel(getattr(logging, log_level.upper()))
         # the calculations corresponding to the tags
@@ -732,24 +762,15 @@ class document:
 
         self.send(py_legal)
 
-    def write(self, outfile=None):
+    def write(self):
         '''replace all the tags with the contents of the python script.
         then if the destination file is given, write a typeset-ready latex
-        file or another type of file (based on the extension, using pandoc).
+        file or word file.
         If the destination file is not given, perform an in-place
         substitution on the input file without destroying the chance of
         reverting changes. If this function is run on an in-place substituted
         file, it will revert the file to its original state (with tags).'''
 
-        if not self.document_file:
-            if outfile:
-                ext = path.splitext(outfile)[1]
-                self.document_file = self.file_handlers[ext](
-                    None, self.to_clear)
-            else:
-                self.document_file = self.file_handlers['.tex'](
-                    None, self.to_clear)
-
-        self.document_file.write(outfile, self.contents)
+        self.document_file.write(self.outfile, self.contents)
         logger.info('SUCCESS!!!')
         self.log = self.log_recorder.log

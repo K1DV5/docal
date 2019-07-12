@@ -46,7 +46,7 @@ def main():
     main function in this script
     '''
     try:
-        d = document(args.input, to_clear=args.clear, log_level=args.log_level)
+        d = document(args.input, args.output, to_clear=args.clear, log_level=args.log_level)
         if args.script:
             if args.script.endswith('.py'):
                 with open(args.script, encoding='utf-8') as file:
@@ -54,7 +54,7 @@ def main():
                 d.send(instructions)
             else:
                 d.from_xl(args.script)
-        d.write(args.output)
+        d.write()
     except Exception as exc:
         if args.log_level == 'DEBUG':
             raise
