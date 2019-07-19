@@ -1,3 +1,4 @@
+include docal/template.docx
 include AUTHORS.rst
 include CONTRIBUTING.rst
 include HISTORY.rst

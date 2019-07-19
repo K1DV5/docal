@@ -2,8 +2,7 @@
 '''
 Module document
 
-provides the document class that can be used to
-replace the pythontex and pweave requirement.
+provides the document class
 
 In the latex file,
     use hashtags(#tagname) to reserve places for contents that
@@ -31,6 +30,8 @@ from zipfile import ZipFile, ZIP_DEFLATED
 import tempfile
 # for status tracking
 import logging
+# for included word template access
+from pkg_resources import resource_filename
 from shutil import move, rmtree
 # for working with the document's variables and filename
 try:
@@ -294,7 +295,7 @@ class wordFile:
         return tags_info
 
     def _subs_tags(self, values={}):
-        ans_info = {tag: self.collect_para(val) for tag, val in values.items()}
+        ans_info = {tag: self.para_elts(val) for tag, val in values.items()}
 
         for tag, ans_parts in ans_info:
             matching_infos = [
@@ -345,47 +346,64 @@ class wordFile:
             loc_text.text = loc_text.text.replace(
                 info['tag-alt'], '#' + info['tag'])
 
-    def collect_para(self, content: list):
-        w = self.namespaces['w']
-        m = self.namespaces['m']
-        para_start = f'<w:p xmlns:w="{w}" xmlns:m="{m}">'
-        para_form = para_start + '{}</w:p>'
+    def collect_txt(self, content):
         paras = []
         para = [['text', '']]
         for cont in content:
+            # so that it has a space before the inline eqn
+            space = '' if para[-1][1].endswith(' ') or not para[-1][1] else ' '
             if para[-1][0] == 'text':
                 if cont[0] == 'text':
                     if cont[1].strip():
-                        para[-1][1] += escape(cont[1])
+                        para[-1][1] += space + escape(cont[1])
                     elif para[-1][1].strip():
-                        paras.append(ET.fromstring(para_form.format(''.join([p[1] for p in para]))))
+                        paras.append(para)
                         para = [['text', '']]
                 else:
-                    if para[-1][1].strip():
-                        para[-1][1] = f'<w:r><w:t>{para[-1][1]}</w:t></w:r>'
                     if cont[0] == 'inline':
+                        if para[-1][1].strip():
+                            para[-1][1] += space
                         para.append(cont)
                     else:
-                        paras.append(ET.fromstring(para_form.format(''.join([p[1] for p in para]))))
-                        paras.append(ET.fromstring(para_start + f'{cont[1]}</w:p>'))
-                        para = [['text', '']]
+                        if para[0][1].strip() or len(para) > 1:
+                            paras.append(para)
+                            para = [['text', '']]
+                        paras.append([cont])
             else:
                 if cont[0] == 'inline':
                     para.append(cont)
                 elif cont[0] == 'text':
                     if cont[1].strip():
-                        para.append([['text', escape(cont[1])]])
-                    else:
-                        paras.append(ET.fromstring(para_form.format(''.join([p[1] for p in para]))))
+                        para.append(['text', space + escape(cont[1])])
+                    elif len(para) > 1 or para[0][1].strip():
+                        paras.append(para)
                         para = [['text', '']]
                 else:
-                    paras.append(ET.fromstring(para_form.format(''.join([p[1] for p in para]))))
-                    paras.append(ET.fromstring(para_form.format(cont[1])))
-                    para = [['text', '']]
+                    if para[0][1].strip() or len(para) > 1:
+                        paras.append(para)
+                        para = [['text', '']]
+                    paras.append([cont])
         if para[0][1].strip() or len(para) > 1:
-            if para[-1][0] == 'text' and para[-1][1].strip():
-                para[-1][1] = f'<w:r><w:t>{para[-1][0]}</w:t></w:r>'
-            paras.append(ET.fromstring(para_form.format(''.join([p[1] for p in para]))))
+            paras.append(para)
+        return paras
+
+    def para_elts(self, content: list):
+        w = self.namespaces['w']
+        m = self.namespaces['m']
+        para_start = f'<w:p xmlns:w="{w}" xmlns:m="{m}">'
+        para_form = para_start + '{}</w:p>'
+        run_form = '<w:r><w:t xml:space="preserve">{}</w:t></w:r>'
+        paras = []
+        for para in self.collect_txt(content):
+            para_xml_ls = []
+            for part in para:
+                if part[0] == 'text':
+                    if part[1].strip():
+                        para_xml_ls.append(run_form.format(part[1]))
+                else:
+                    para_xml_ls.append(part[1])
+            para_xml = para_form.format(''.join(para_xml_ls))
+            paras.append(ET.fromstring(para_xml))
 
         return paras
 
@@ -398,7 +416,7 @@ class wordFile:
             self._subs_tags(values)
         else:
             tmp_fname = path.splitext(self.tmp_file)[0] + '.docx'
-            with ZipFile('b.docx', 'r') as zin:
+            with ZipFile(resource_filename(__name__, 'template.docx'), 'r') as zin:
                 file_contents = zin.read('word/document.xml')
                 self.tmp_file = ZipFile(tmp_fname, 'w', compression=ZIP_DEFLATED)
                 for file in zin.namelist():
@@ -409,7 +427,7 @@ class wordFile:
             for child in self.doc_tree[0]:
                 self.doc_tree[0].remove(child)
             for val in values.values():
-                for para in self.collect_para(val):
+                for para in self.para_elts(val):
                     self.doc_tree[0].append(para)
             for prefix, uri in self.namespaces.items():
                 ET.register_namespace(prefix, uri)
