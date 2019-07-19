@@ -315,7 +315,7 @@ def _fit_matrix(matrix, syn_obj, max_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
 
 class MathVisitor(ast.NodeVisitor):
 
-    def __init__(self, mul, div, subs, mat_size, working_dict=DICT, typ='word', ital=True):
+    def __init__(self, mul, div, subs, mat_size, working_dict=DICT, typ='latex', ital=True):
         self.mul = mul
         self.div = div
         self.subs = subs
@@ -730,7 +730,7 @@ class MathVisitor(ast.NodeVisitor):
         return 0
 
 
-def to_math(expr, mul='*', div='frac', subs=False, mat_size=DEFAULT_MAT_SIZE, working_dict=DICT, typ='word', ital=True):
+def to_math(expr, mul='*', div='frac', subs=False, mat_size=DEFAULT_MAT_SIZE, working_dict=DICT, typ='latex', ital=True):
     '''
     return the representation of the expr in the appropriate syntax
     '''
@@ -769,10 +769,10 @@ def build_eqn(eq_list, disp=True, vert=True, typ='latex', srnd=True):
     return inner
 
 
-def eqn(*equation_list, norm=True, disp=True, srnd=True, vert=True, div='frac', mul='*', typ='word') -> str:
+def eqn(*equation_list, norm=True, disp=True, srnd=True, vert=True, div='frac', mul='*', typ='latex') -> str:
     '''main api for equations'''
 
-    syntax = select_syntax(typ)
+    equals = select_syntax(typ).txt.format('=')
 
     # split and flatten in case there are any |, and split by =
     equation_list = [_split(eq, last=None) for sub_eq in equation_list for eq in sub_eq.split('|')]
@@ -782,7 +782,8 @@ def eqn(*equation_list, norm=True, disp=True, srnd=True, vert=True, div='frac', 
     equations = []
     if norm:
         if len(equation_list) == 1:
-            equations.append([to_math('=='.join(equation_list[0]), mul=mul, div=div, typ=typ)])
+            eqns = [to_math(e, mul=mul, div=div, typ=typ) for e in equation_list[0]]
+            equations.append([equals.join(eqns)])
         else:
             for eq in equation_list:
                 # join the first if there are many to align at the last =
@@ -791,9 +792,9 @@ def eqn(*equation_list, norm=True, disp=True, srnd=True, vert=True, div='frac', 
                 equations.append([to_math(e, mul=mul, div=div, typ=typ) for e in eq])
     else:
         if len(equation_list) == 1:
-            equations.append(['', syntax.txt.format('=').join(equation_list[0])])
+            equations.append([equals.join(equation_list[0])])
         else:
             for eq in equation_list:
-                equations.append([syntax.txt.format('=').join(eq[:-1]), eq[-1]])
+                equations.append([equals.join(eq[:-1]), eq[-1]])
     
     return build_eqn(equations, disp, vert, typ, srnd)

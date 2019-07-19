@@ -39,7 +39,7 @@ try:
 except ImportError:
     DICT = {}
 from .calculation import cal
-from .parsing import UNIT_PF, eqn, to_math
+from .parsing import UNIT_PF, eqn, to_math, build_eqn
 # to split the calculation string
 from .utils import _split_module
 DEFAULT_FILE = 'Untitled.tex'
@@ -297,7 +297,8 @@ class wordFile:
     def _subs_tags(self, values={}):
         ans_info = {tag: self.para_elts(val) for tag, val in values.items()}
 
-        for tag, ans_parts in ans_info:
+        added = 0  # the added index to make up for the added elements
+        for tag, ans_parts in ans_info.items():
             matching_infos = [
                 info for info in self.tags_info if info['tag'] == tag]
             if matching_infos:
@@ -309,6 +310,7 @@ class wordFile:
                     for ans in ans_parts:
                         self.doc_tree[0].insert(info['index'] + added, ans)
                     self.doc_tree[0].remove(info['address'][0])
+                    added += len(ans_parts) - 1  # minus the tag para (removed)
                 else:
                     loc_para, loc_run, loc_text = info['address']
                     split_text = loc_text.text.split(info['tag-alt'], 1)
@@ -337,6 +339,7 @@ class wordFile:
                             self.doc_tree[0].insert(info['index'] + added, ans)
                         beg_index = info['index'] + added
                         self.doc_tree[0].insert(beg_index, beg_para)
+                        added += len(ans_parts) + 1
             else:
                 logger.error(f'#{tag} not found in the document.')
         # revert the rest of the tags from their alt form
@@ -371,6 +374,7 @@ class wordFile:
                         paras.append([cont])
             else:
                 if cont[0] == 'inline':
+                    para.append(['text', space])
                     para.append(cont)
                 elif cont[0] == 'text':
                     if cont[1].strip():
@@ -664,13 +668,11 @@ class document:
                            ital=False) \
                 if unit_name in working_dict.keys() and working_dict[unit_name] \
                 and working_dict[unit_name] != '_' else ''
-            result = eqn(to_math(working_dict[var], typ=self.document_file.name) + unit,
-                         norm=False, disp=False,
-                         typ=self.document_file.name)
+            result = to_math(working_dict[var], typ=self.document_file.name)
+            return build_eqn([[result + unit]], disp=False, vert=False,
+                             typ=self.document_file.name)
         else:
             raise KeyError(f"'{var}' is an undefined variable.")
-
-        return result
 
     def _process_comment(self, line, working_dict=DICT):
         '''
@@ -692,12 +694,19 @@ class document:
                              lambda x: to_math(
                                  working_dict['_'.join(x.group(1).split('TMP0'))], typ=self.document_file.name),
                              line[1])
+            parts = [line]
         else:
-            line = ['text', PATTERN.sub(lambda x: x.group(1) +
-                                        self._format_value(x.group(2), working_dict) +
-                                        x.group(3), line.lstrip())]
-
-        return line
+            parts = []
+            even = False
+            for part in re.split(r'(?a)(#\w+)', line.strip()):
+                if even:
+                    parts.append(['inline', self._format_value(part[1:], working_dict)])
+                    even = False
+                else:
+                    parts.append(['text', part])
+                    even = True
+        print(parts)
+        return parts
 
     def _process_assignment(self, line, working_dict=DICT):
         '''
@@ -719,8 +728,8 @@ class document:
                 processed.append(
                     (tag, self._process_assignment(part[0], working_dict)))
             elif part[1] == 'comment':
-                processed.append(
-                    (tag, self._process_comment(part[0], working_dict)))
+                for part in self._process_comment(part[0], working_dict):
+                    processed.append((tag, part))
             elif part[1] == 'stmt':
                 # if it does not appear like an equation or a comment,
                 # just execute it

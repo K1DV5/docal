@@ -204,7 +204,7 @@ def cal(input_str: str, working_dict=DICT, mul='*', div='frac', typ='latex') -> 
             if result[2:]:
                 procedure.append(['', result[2]])
         else:
-            procedure = [[result[0]]]
+            procedure = [result]
 
     if options['hidden']:
         return ('', 'text')
