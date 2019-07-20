@@ -654,7 +654,7 @@ class MathVisitor(ast.NodeVisitor):
         return 300
 
     def visit_Mult(self, n):
-        if self.mul == '*':
+        if self.mul == '*' or not self.mul or self.mul.isspace():
             return self.s.times
         elif self.mul == '.':
             return self.s.cdot

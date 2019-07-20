@@ -68,11 +68,12 @@ def _calculate(expr, options: dict, working_dict=DICT, mul='*', div='/', typ='la
         else:
             options['unit'] = unitize(expr)
     if options['unit'] and options['unit'] != '_':
-        unit_lx = select_syntax(typ).halfsp + to_math(options['unit'],
-                                                      div='/',
-                                                      working_dict=working_dict,
-                                                      typ=typ,
-                                                      ital=False)
+        syntax = select_syntax(typ)
+        unit_lx = syntax.txt.format(syntax.halfsp) + to_math(options['unit'],
+                                                             div='/',
+                                                             working_dict=working_dict,
+                                                             typ=typ,
+                                                             ital=False)
     else:
         unit_lx = ''
     result[-1] += unit_lx + options['note']
@@ -126,7 +127,7 @@ def _process_options(additionals, typ):
                     options['unit'] = a
 
     if options['note']:
-        options['note'] = syntax.halfsp + syntax.txt_math.format(options["note"])
+        options['note'] = syntax.txt.format(syntax.halfsp) + syntax.txt_math.format(options["note"])
 
     return options
 
