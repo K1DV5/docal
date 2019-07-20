@@ -39,7 +39,7 @@ try:
 except ImportError:
     DICT = {}
 from .calculation import cal
-from .parsing import UNIT_PF, eqn, to_math, build_eqn
+from .parsing import UNIT_PF, eqn, to_math, build_eqn, select_syntax
 # to split the calculation string
 from .utils import _split_module
 DEFAULT_FILE = 'Untitled.tex'
@@ -681,19 +681,22 @@ class document:
 
         logger.info('[Processing] %s', line)
         if line.startswith('$'):
-            line = re.sub(r'(?a)#(\w+)',
-                          lambda x: 'TMP0'.join(
-                              x.group(1).split('_')) + 'TMP0',
+            inter = 'TMP0'
+            patt = r'(?a)#(\w+)'
+            vals = {}
+            for v in re.findall(patt, line):
+                vals[inter.join(v.split('_')) + inter] = to_math(
+                        working_dict[v], typ=self.document_file.name)
+            line = re.sub(patt, lambda x: inter.join(
+                              x.group(1).split('_')) + inter,
                           line)
             if line.startswith('$$'):
                 line = ['disp', eqn(line[2:], typ=self.document_file.name)]
             else:
                 line = ['inline', eqn(line[1:], disp=False, typ=self.document_file.name)]
             # editted
-            line[1] = re.sub(r'(?a)\\mathrm\s*\{\s*(\w+)TMP0\s*\}',
-                             lambda x: to_math(
-                                 working_dict['_'.join(x.group(1).split('TMP0'))], typ=self.document_file.name),
-                             line[1])
+            for v, m in vals.items():
+                line[1] = line[1].replace(select_syntax(self.document_file.name).txt_rom.format(v), m)
             parts = [line]
         else:
             parts = []
@@ -705,7 +708,6 @@ class document:
                 else:
                     parts.append(['text', part])
                     even = True
-        print(parts)
         return parts
 
     def _process_assignment(self, line, working_dict=DICT):

@@ -448,9 +448,7 @@ class MathVisitor(ast.NodeVisitor):
             if isinstance(n.args[0], ast.List) or isinstance(n.args[0], ast.Tuple):
                 return self.s.summation.format(len(n.args[0].elts), args)
             else:
-                return self.s.txt.format('∑') + self.s.delmtd(args)
-        elif func == 'log':
-            return self.s.func.format(self.s.func_name.format('ln'), args)
+                return self.s.txt.format(self.s.greek('Sigma')) + self.s.delmtd(args)
         elif func == 'log10':
             return self.s.func.format(self.s.func_name.format('log'), args)
         elif func == 'log2':
