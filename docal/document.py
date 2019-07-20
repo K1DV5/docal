@@ -658,7 +658,8 @@ class document:
         # temp storage for block statements like if and for
         self.incomplete_stmt = ''
 
-    def _format_value(self, var, working_dict=DICT):
+    def _format_value(self, var, srnd=True, working_dict=DICT):
+        syntax = select_syntax(self.document_file.name)
         if var in working_dict:
             unit_name = var + UNIT_PF
             unit = to_math(working_dict[unit_name],
@@ -669,7 +670,8 @@ class document:
                 if unit_name in working_dict.keys() and working_dict[unit_name] \
                 and working_dict[unit_name] != '_' else ''
             result = to_math(working_dict[var], typ=self.document_file.name)
-            return build_eqn([[result + unit]], disp=False, vert=False,
+            return build_eqn([[result + syntax.txt.format(syntax.halfsp) + unit]],
+                             disp=False, vert=False, srnd=srnd,
                              typ=self.document_file.name)
         else:
             raise KeyError(f"'{var}' is an undefined variable.")
@@ -681,33 +683,32 @@ class document:
 
         logger.info('[Processing] %s', line)
         if line.startswith('$'):
-            inter = 'TMP0'
             patt = r'(?a)#(\w+)'
+            inter = 'TMP0'
             vals = {}
             for v in re.findall(patt, line):
-                vals[inter.join(v.split('_')) + inter] = to_math(
-                        working_dict[v], typ=self.document_file.name)
+                vals[inter.join(v.split('_')) + inter] = self._format_value(v, False)
             line = re.sub(patt, lambda x: inter.join(
                               x.group(1).split('_')) + inter,
                           line)
             if line.startswith('$$'):
-                line = ['disp', eqn(line[2:], typ=self.document_file.name)]
+                line = ['disp', eqn(line[2:], mul='*', typ=self.document_file.name)]
             else:
-                line = ['inline', eqn(line[1:], disp=False, typ=self.document_file.name)]
+                line = ['inline', eqn(line[1:], mul='*', disp=False, typ=self.document_file.name)]
             # editted
             for v, m in vals.items():
                 line[1] = line[1].replace(select_syntax(self.document_file.name).txt_rom.format(v), m)
             parts = [line]
         else:
             parts = []
-            even = False
+            ref = False
             for part in re.split(r'(?a)(#\w+)', line.strip()):
-                if even:
+                if ref:
                     parts.append(['inline', self._format_value(part[1:], working_dict)])
-                    even = False
+                    ref = False
                 else:
                     parts.append(['text', part])
-                    even = True
+                    ref = True
         return parts
 
     def _process_assignment(self, line, working_dict=DICT):

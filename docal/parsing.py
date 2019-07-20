@@ -103,7 +103,7 @@ class SyntaxWord:
     times = '×'
     div = '÷'
     cdot = '⋅'
-    halfsp = ''
+    halfsp = '&#8239;'
     neg = '¬'
     gt = '&gt;'
     lt = '&lt;'
@@ -479,7 +479,8 @@ class MathVisitor(ast.NodeVisitor):
                     return self.format_name(str(self.dict[n.id]))
                 qty = self.visit(_prep4lx(self.dict[n.id], self.s, self.mat_size))
                 typ = 'word' if isinstance(self.s, SyntaxWord) else 'latex'
-                unit = self.s.halfsp + to_math(self.dict[n.id + UNIT_PF], div="/", ital=False, typ=typ) \
+                unit = self.s.txt.format(self.s.halfsp) + \
+                    to_math(self.dict[n.id + UNIT_PF], div="/", ital=False, typ=typ) \
                     if n.id + UNIT_PF in self.dict.keys() and self.dict[n.id + UNIT_PF] \
                     and self.dict[n.id + UNIT_PF] != '_' else ''
                 # if the quantity is raised to some power and has a unit,
@@ -547,10 +548,11 @@ class MathVisitor(ast.NodeVisitor):
             right = self.visit(n.right)
         if isinstance(n.op, ast.Mult):
             # unless the right term is a Num or BinOp whose operation is power
-            no_need = not any([isinstance(tmp_right, ast.BinOp)
-                               and isinstance(tmp_right.op, ast.Pow)
-                               and isinstance(tmp_right.left, ast.Num),
-                               isinstance(tmp_right, ast.Num)])
+            no_need = (not self.mul or self.mul.isspace()) and \
+                    not any([isinstance(tmp_right, ast.BinOp)
+                             and isinstance(tmp_right.op, ast.Pow)
+                             and isinstance(tmp_right.left, ast.Num),
+                             isinstance(tmp_right, ast.Num)])
             if no_need:
                 return left + self.s.txt.format(self.s.halfsp) + right
         elif isinstance(n.op, ast.Pow):
@@ -560,7 +562,7 @@ class MathVisitor(ast.NodeVisitor):
                 return self.s.frac.format(left, right)
             elif isinstance(n.op, ast.FloorDiv):
                 return self.s.delmtd(self.s.frac.format(left, right), 3)
-        return left + ' ' + self.s.txt.format(self.visit(n.op)) + ' ' + right
+        return left + self.s.txt.format(self.visit(n.op)) + right
 
     def prec_BinOp(self, n):
         return self.prec(n.op)
@@ -728,7 +730,7 @@ class MathVisitor(ast.NodeVisitor):
         return 0
 
 
-def to_math(expr, mul='*', div='frac', subs=False, mat_size=DEFAULT_MAT_SIZE, working_dict=DICT, typ='latex', ital=True):
+def to_math(expr, mul=' ', div='frac', subs=False, mat_size=DEFAULT_MAT_SIZE, working_dict=DICT, typ='latex', ital=True):
     '''
     return the representation of the expr in the appropriate syntax
     '''
@@ -767,7 +769,7 @@ def build_eqn(eq_list, disp=True, vert=True, typ='latex', srnd=True):
     return inner
 
 
-def eqn(*equation_list, norm=True, disp=True, srnd=True, vert=True, div='frac', mul='*', typ='latex') -> str:
+def eqn(*equation_list, norm=True, disp=True, srnd=True, vert=True, div='frac', mul=' ', typ='latex') -> str:
     '''main api for equations'''
 
     equals = select_syntax(typ).txt.format('=')
