@@ -499,14 +499,14 @@ class MathVisitor(ast.NodeVisitor):
         number = n.n
         if number != 0 and (abs(number) > 1000 or abs(number) < 0.1):
             # in scientific notation
-            num_ls = f'{number:.2E}'.split('E')
+            num_ls = f'{number:.3E}'.split('E')
             # remove the preceding zeros and + in the powers like +07 to just 7
             num_ls[1] = num_ls[1][0].lstrip('+') + num_ls[1][1:].lstrip('0')
             # make them appear as powers of 10
             return self.s.txt.format(num_ls[0]) + self.s.delmtd(self.s.sup.format(self.s.txt.format(10), self.s.txt.format(num_ls[1])))
         if number == int(number):
             return self.s.txt.format(int(number))
-        return self.s.txt.format(round(number, 2))
+        return self.s.txt.format(round(number, 3))
 
     def prec_Num(self, n):
         if hasattr(n, 'is_in_power') and n.is_in_power \

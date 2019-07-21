@@ -684,20 +684,18 @@ class document:
         logger.info('[Processing] %s', line)
         if line.startswith('$'):
             patt = r'(?a)#(\w+)'
-            inter = 'TMP0'
-            vals = {}
-            for v in re.findall(patt, line):
-                vals[inter.join(v.split('_')) + inter] = self._format_value(v, False)
-            line = re.sub(patt, lambda x: inter.join(
-                              x.group(1).split('_')) + inter,
-                          line)
+            # term beginning with a number unlikely to be used
+            pholder = '111.111**PLACEHOLDER00'
+            vals = []
+            for v in re.finditer(patt, line):
+                vals.append(self._format_value(v.group(1), False))
+            line = re.sub(patt, pholder, line)
             if line.startswith('$$'):
-                line = ['disp', eqn(line[2:], mul='*', typ=self.document_file.name)]
+                line = ['disp', eqn(line[2:], typ=self.document_file.name)]
             else:
-                line = ['inline', eqn(line[1:], mul='*', disp=False, typ=self.document_file.name)]
-            # editted
-            for v, m in vals.items():
-                line[1] = line[1].replace(select_syntax(self.document_file.name).txt_rom.format(v), m)
+                line = ['inline', eqn(line[1:], disp=False, typ=self.document_file.name)]
+            for v in vals:
+                line[1] = line[1].replace(to_math(pholder, typ=self.document_file.name), v, 1)
             parts = [line]
         else:
             parts = []
