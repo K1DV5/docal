@@ -9,9 +9,11 @@ import ast
 import re
 import logging
 from .document import DICT
-from .utils import _split
 
 log = logging.getLogger(__name__)
+
+# the tag pattern
+PATTERN = re.compile(r'(?s)([^\w\\]|^)#(\w+?)(\W|$)')
 
 # what will be appended after the names to store units for those names
 UNIT_PF = '___0UNIT0'
@@ -211,6 +213,43 @@ def select_syntax(typ):
         return SyntaxWord()
     else:
         return SyntaxLatex()
+
+
+def _parens_balanced(expr: str) -> bool:
+    '''
+    check if the pairs that must be balanced are actually balanced
+    '''
+    # those that must be matched in equations
+    parens = ['()', '[]', '{}']
+
+    return all([expr.count(p[0]) == expr.count(p[1]) for p in parens])
+
+
+def _split(what: str, char='=', count=None, last=True) -> list:
+    '''split a given equation at the main equal signs and not at the ones
+    used for other purposes like giving a kwarg'''
+
+    balanced = []
+    incomplete = ''
+    for e in what.split(char):
+        e = e.strip()
+        if incomplete or not _parens_balanced(e):
+            incomplete += (char if incomplete else '') + e
+            if incomplete and _parens_balanced(incomplete):
+                balanced.append(incomplete)
+                incomplete = ''
+        else:
+            balanced.append(e)
+    if incomplete:
+        raise SyntaxError('The number of parens is not balanced.')
+    if not count and len(balanced) > 1:
+        if last:
+            # if splitting only at the last = is wanted, join the others
+            balanced = [char.join(balanced[:-1]), balanced[-1]]
+        elif last is not None:
+            balanced = [balanced[0], char.join(balanced[1:])]
+
+    return balanced
 
 
 def _prep4lx(quantity, syn_obj, mat_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):

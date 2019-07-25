@@ -18,6 +18,7 @@ when the python file is run, it writes a tex file with the tags
 replaced by contents from the python file.
 '''
 
+import ast
 # for tag replacements
 import re
 # for path manips
@@ -39,9 +40,8 @@ try:
 except ImportError:
     DICT = {}
 from .calculation import cal
-from .parsing import UNIT_PF, eqn, to_math, build_eqn, select_syntax
-# to split the calculation string
-from .utils import _split_module
+from .parsing import UNIT_PF, eqn, to_math, build_eqn, select_syntax, _parens_balanced
+
 DEFAULT_FILE = 'Untitled.tex'
 # the tag pattern
 PATTERN = re.compile(r'(?s)([^\w\\]|^)#(\w+?)(\W|$)')
@@ -455,46 +455,36 @@ class wordFile:
         rmtree(self.temp_dir)
 
 
-class ExcelCalc:
+class calculations:
     '''
     accept an excel file, extract the calculations in it and incorporate
     it in the document.'''
 
-    cell_pat = re.compile(r'[A-Z]+[0-9]+')
-    func_pat = re.compile(r'[A-Z]+(?=\()')
+    xl_cell_pat = re.compile(r'[A-Z]+[0-9]+')
+    xl_func_pat = re.compile(r'[A-Z]+(?=\()')
+    xl_params = ['file', 'sheet', 'range']
 
-    def __init__(self, fname, xlrange=None):
+    def __init__(self):
+        # for temp saving states
+        self.temp_var = {}
 
-        with ZipFile(fname, 'r') as zin:
-            sheet_xml = zin.read('xl/worksheets/sheet1.xml').decode('utf-8')
-            str_xml = zin.read('xl/sharedStrings.xml').decode('utf-8')
-
-        sheet_tree = ET.fromstring(sheet_xml)
-        str_tree = ET.fromstring(str_xml)
-        self.rows = sheet_tree.find('{%s}sheetData' % NS['main'])
-        self.strs = [node[0].text for node in str_tree]
-        self.range = self.find_range(xlrange)
-        self.info = self.extract_info()
-
-        self.converted = self.info_2_script()
-
-    def find_range(self, given_range):
+    def xl_find_range(self, rows, strs, given_range):
         '''convert a given range to a more useful one:
         (the letter, the starting index in tree, the row number of last)'''
 
         if given_range:
-            for i_row, row in enumerate(self.rows):
+            for i_row, row in enumerate(rows):
                 if int(row.attrib['r']) == given_range[1]:
                     xlrange = (given_range[0], i_row, given_range[2])
         else:
             found = False
-            for i_row, row in enumerate(self.rows):
+            for i_row, row in enumerate(rows):
                 for cell in row:
                     if 't' in cell.attrib and cell.attrib['t'] == 's' \
-                            and self.strs[int(cell[0].text)]:
+                            and strs[int(cell[0].text)]:
                         col_let = ''.join(
                             [c for c in cell.attrib['r'] if c.isalpha()])
-                        xlrange = (col_let, i_row, int(self.rows[-1].attrib['r']))
+                        xlrange = (col_let, i_row, int(rows[-1].attrib['r']))
                         found = True
                         break
                 if found:
@@ -502,10 +492,10 @@ class ExcelCalc:
 
         return xlrange
 
-    def process_cell(self, cell, line, current_col, current_key):
+    def xl_process_cell(self, cell, line, current_col, current_key):
         cont = ['txt', '']
         if 't' in cell.attrib and cell.attrib['t'] == 's':
-            cont = ['txt', self.strs[int(cell[0].text.strip())]]
+            cont = ['txt', self.temp_var['strs'][int(cell[0].text.strip())]]
         elif cell.findall('{%s}f' % NS['main']):
             cont = ['expr', cell[0].text, cell[1].text]
         elif len(cell):
@@ -531,13 +521,13 @@ class ExcelCalc:
         
         return line, current_col, current_key
 
-    def extract_info(self):
+    def xl_extract_info(self, rows, range):
 
         # store calcs in dict with cell addreses as keys
         info = {}
 
-        for i_row, row in enumerate(self.rows[self.range[1]:]):
-            if int(row.attrib['r']) <= self.range[2]:
+        for i_row, row in enumerate(rows[range[1]:]):
+            if int(row.attrib['r']) <= range[2]:
                 line = []
                 # default key unless changed (below)
                 current_key = f'para{i_row}'
@@ -545,24 +535,24 @@ class ExcelCalc:
                 for cell in row:
                     col_let = ''.join(
                         [c for c in cell.attrib['r'] if c.isalpha()])
-                    if col_let == self.range[0]:
+                    if col_let == range[0]:
                         current_col = 0
                     if current_col in [0, 1, 2]:
                         line, current_col, current_key = \
-                                self.process_cell(cell, line, current_col, current_key)
+                                self.xl_process_cell(cell, line, current_col, current_key)
                 info[current_key] = line
         return info
     
-    def form2expr(self, ins1, ins2, content):
-        correct = self.cell_pat.sub(
-            lambda x: self.info[x.group(0)][ins1][ins2],
+    def xl_form2expr(self, ins1, ins2, content):
+        correct = self.xl_cell_pat.sub(
+            lambda x: self.temp_var['info'][x.group(0)][ins1][ins2],
             content[1][1]).replace('^', '**')
-        correct = self.func_pat.sub(lambda x: x.group(0).lower(), correct)
+        correct = self.xl_func_pat.sub(lambda x: x.group(0).lower(), correct)
         return correct.replace('^', '**')
 
-    def info_2_script(self):
+    def xl_info_2_script(self, info):
         script = []
-        for key, content in self.info.items():
+        for key, content in info.items():
             if content[0][0] == 'txt':
                 para = content[0][1]
                 if para.lstrip().startswith('#'):
@@ -576,7 +566,7 @@ class ExcelCalc:
                 if len(content[1]) == 2:
                     steps = [content[1][1]]
                 else:
-                    steps = [self.form2expr(0, 1, content), self.form2expr(1, -1, content)]
+                    steps = [self.xl_form2expr(0, 1, content), self.xl_form2expr(1, -1, content)]
                 steps.append(content[1][-1])
                 opt = content[-1][-1].replace('^', '**') if content[-1][0] == 'opt' else ''
                 try:  # check if the var name is python legal
@@ -586,9 +576,148 @@ class ExcelCalc:
                 else:
                     eqn_xl = cal([var_name, steps, opt])
                 script.append(
-                    '# ' + eqn_xl.replace('\n', '\n# '))
+                    '# ' + eqn_xl[0].replace('\n', '\n# '))
 
         return '\n'.join(script)
+
+    def xl_convert(self, file='', sheet=1, range=None):
+
+        with ZipFile(file, 'r') as zin:
+            sheet_xml = zin.read(f'xl/worksheets/sheet{int(sheet)}.xml').decode('utf-8')
+            str_xml = zin.read('xl/sharedStrings.xml').decode('utf-8')
+
+        sheet_tree = ET.fromstring(sheet_xml)
+        str_tree = ET.fromstring(str_xml)
+        rows = sheet_tree.find('{%s}sheetData' % NS['main'])
+        self.temp_var['strs'] = [node[0].text for node in str_tree]
+        range = self.xl_find_range(rows, self.temp_var['strs'], range)
+        self.temp_var['info'] = self.xl_extract_info(rows, range)
+
+        return self.xl_info_2_script(self.temp_var['info'])
+
+    def _contin_type(self, accumul: str, line: str) -> bool:
+        '''
+        determine whether the line is part of a multi line part
+        (for _split_module)
+        '''
+        if accumul and any([
+            not _parens_balanced(accumul),
+            accumul.rstrip()[-1] in ['\\', ':'],
+            # or the line is indented and not a comment
+            line and line[0].isspace() and not line.lstrip().startswith('#'),
+            not line.strip()
+        ]):
+            return 'contin'
+        elif (not _parens_balanced(line) or
+                line.strip() and not line.lstrip().startswith(
+                    '#') and line.rstrip()[-1] in ['\\', ':']):
+            return 'begin'
+
+    def _identify_part(self, part, comments):
+        '''get the type of a string piece (assignment, expression, etc.)
+        (for _split_module)
+        '''
+
+        part_ast = ast.parse(part).body
+        if not part_ast:
+            tag_match = PATTERN.match(part.strip())
+            if tag_match and tag_match.group(0) == part.strip():
+                return (part.strip()[1:], 'tag')
+            elif part.lstrip().startswith('##'):
+                if comments:
+                    return (part.lstrip()[2:], 'real-comment')
+                else:
+                    return ('', 'comment')
+            elif not part:
+                return ('', 'comment')
+            else:
+                return (part.lstrip()[1:], 'comment')
+        elif isinstance(part_ast[0], ast.Assign):
+            return (part, 'assign')
+        elif isinstance(part_ast[0], ast.Expr):
+            return (part, 'expr')
+
+        return (part, 'stmt')
+
+    def _split_module(self, module: str, char='\n', comments=False):
+        '''
+        split the given script string with the character/str using the rules
+        '''
+        returned = []
+        # incomplete lines accululation, stored as [<accumululated>, <contin type>]
+        accumul = ['', None]
+        for part in module.split('\n'):
+            contin_type = self._contin_type(accumul[0], part)
+            if contin_type:
+                if contin_type == 'contin':
+                    accumul[0] += '\n' + part
+                else:
+                    if accumul[0]:
+                        returned.append(self._identify_part(accumul[0], comments))
+                    accumul = [part, contin_type]
+            else:
+                if accumul[0]:
+                    returned.append(self._identify_part(accumul[0], comments))
+                    accumul[0] = ''
+                returned.append(self._identify_part(part, comments))
+        if accumul[0]:
+            returned.append(self._identify_part(accumul[0], comments))
+
+        return returned
+
+    def repl_asc(self, lines: str):
+
+        lines = lines.split('\n')
+        py_lines = []
+        comment_pat = re.compile(r'^(?=[^#:].*?(\w+\s+?\w+)|(\\\w+).*?$)')
+        for line in lines:
+            # import statements and the like preceded with :
+            line = comment_pat.sub('# ', line)
+            py_lines.append(re.sub(r'^\:', '', line))
+        py_legal = '\n'.join(py_lines)
+        # change power symbol, not in comments
+        py_legal = re.sub(r'(?sm)^([^\#].*?)\^', r'\1**', py_legal)
+        # number coefficients like 2x
+        py_legal = re.sub(r'(?<=[0-9])( ?[a-df-zA-Z_]|\()', '*\\1', py_legal)
+
+        return py_legal
+
+    def repl_xl(self, lines: str):
+        lines = lines.strip().split('\n')
+        params = {
+                'file': '',
+                'sheet': 1,
+                'range': None,
+                }
+        for param in [line.split(':')[:2] for line in lines]:
+            try:
+                key, val = param
+            except ValueError:
+                raise SyntaxError('Invalid syntax, must be in the form [parameter]: [value]')
+            else:
+                if key.strip() in self.xl_params:
+                    params[key.strip()] = val.strip()
+        return self.xl_convert(file=params['file'],
+                               sheet=params['sheet'],
+                               range=params['range'])
+
+    def convert(self, what, typ='python'):
+        if typ == 'python':
+            return self._split_module(what)
+        elif typ == 'dcl':
+            py_strings = []
+            doc_tree = ET.fromstring(what)
+            for child in doc_tree:
+                if child.tag == 'ascii':
+                    py_strings.append(self.repl_asc(child.text))
+                elif child.tag == 'python':
+                    py_strings.append(child.text)
+                elif child.tag == 'excel':
+                    py_strings.append(self.repl_xl(child.text))
+            return self._split_module('\n'.join(py_strings))
+        elif typ == 'excel':
+            # assuming what is a dict
+            return self._split_module(self.xl_convert(**what))
 
 
 class LogRecorder(logging.Handler):
@@ -657,6 +786,8 @@ class document:
         self.incomplete_assign = ''
         # temp storage for block statements like if and for
         self.incomplete_stmt = ''
+        # the calculations object that will convert given things to a list and store
+        self.calc = calculations()
 
     def _format_value(self, var, srnd=True, working_dict=DICT):
         syntax = select_syntax(self.document_file.name)
@@ -718,10 +849,10 @@ class document:
         result = cal(line, working_dict, typ=self.document_file.name)
         return [result[1], result[0]]
 
-    def process_content(self, input_str, working_dict=DICT):
+    def process_content(self, parts, working_dict=DICT):
         tag = self.current_tag
         processed = []
-        for part in _split_module(input_str):
+        for part in parts:
             if part[1] == 'tag':
                 tag = part[0]
                 logger.info('[Change tag] #%s', tag)
@@ -745,50 +876,19 @@ class document:
                             del working_dict[v + UNIT_PF]
         return processed
 
-    def send(self, content):
+    def send(self, content, typ='python'):
         '''add the content to the tag, which will be sent to the document.
         Where it will be inserted is decided by the most recent tag.'''
 
         if not self.to_clear:
             tag = self.current_tag
             logger.info('[Change tag] #%s', tag)
-            for tag, part in self.process_content(content):
-                if tag == '_':
-                    tag = self.current_tag
+            for tag, part in self.process_content(self.calc.convert(content, typ)):
                 if tag not in self.contents.keys():
                     self.contents[tag] = []
                 self.contents[tag].append(part)
                 if tag != self.current_tag:
                     self.current_tag = tag
-
-    def from_xl(self, fname, xlrange=None):
-
-        excel = ExcelCalc(fname, xlrange)
-        self.send(excel.converted)
-    
-    def from_normal(norm):
-        '''
-        accept an ascii input (equations) and comments without preceding with
-        hash and send it as a python-legal input
-
-        import statements and the like:
-        :import this
-        '''
-
-        lines = norm.split('\n')
-        py_lines = []
-        comment_pat = re.compile(r'^(?=[^#:].*?(\w+\s+?\w+)|(\\\w+).*?$)')
-        for line in lines:
-            # import statements and the like preceded with :
-            line = comment_pat.sub('# ', line)
-            py_lines.append(re.sub(r'^\:', '', line))
-        py_legal = '\n'.join(py_lines)
-        # change power symbol, not in comments
-        py_legal = re.sub(r'(?sm)^([^\#].*?)\^', r'\1**', py_legal)
-        # number coefficients like 2x
-        py_legal = re.sub(r'(?<=[0-9])( ?[a-df-zA-Z_]|\()', '*\\1', py_legal)
-
-        self.send(py_legal)
 
     def write(self):
         '''replace all the tags with the contents of the python script.

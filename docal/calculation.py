@@ -8,8 +8,7 @@ module and returns the procedure of the calculations
 import ast
 import logging
 from .document import DICT
-from .parsing import to_math, eqn, DEFAULT_MAT_SIZE, UNIT_PF, select_syntax, build_eqn
-from .utils import _split
+from .parsing import to_math, eqn, DEFAULT_MAT_SIZE, UNIT_PF, select_syntax, build_eqn, _split
 
 log = logging.getLogger(__name__)
 

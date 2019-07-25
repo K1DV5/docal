@@ -9,7 +9,7 @@ from docal import document
 
 def calculation_file(arg: str) -> str:
     'check if the argument is a path to a python script'
-    if arg.endswith('.py') or arg.endswith('.xlsx'):
+    if arg.endswith('.py') or arg.endswith('.xlsx') or arg.endswith('.dcl'):
         return arg
     raise ValueError("The calculation file name must end with '.py'.")
 
@@ -52,8 +52,12 @@ def main():
                 with open(args.script, encoding='utf-8') as file:
                     instructions = file.read()
                 d.send(instructions)
-            else:
-                d.from_xl(args.script)
+            elif args.script.endswith('.xlsx'):
+                d.send({'file': args.script}, 'excel')
+            elif args.script.endswith('.dcl'):
+                with open(args.script, encoding='utf-8') as file:
+                    instructions = file.read()
+                d.send(instructions, typ='dcl')
         d.write()
     except Exception as exc:
         if args.log_level == 'DEBUG':
