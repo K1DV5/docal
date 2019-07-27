@@ -464,9 +464,117 @@ class calculations:
     xl_func_pat = re.compile(r'[A-Z]+(?=\()')
     xl_params = ['file', 'sheet', 'range']
 
-    def __init__(self):
+    def __init__(self, tags, doc_type, working_dict):
+        self.tags = tags
+        self.current_tag = self.tags[0] if self.tags else None
+        if self.current_tag is None:
+            logger.error('There are no tags in the document')
+        self.doc_type = doc_type
         # for temp saving states
         self.temp_var = {}
+        self.working_dict = working_dict
+
+    def process(self, what, typ='python'):
+        if typ == 'python':
+            return self.process_content(what)
+        elif typ == 'dcl':
+            processed = []
+            doc_tree = ET.fromstring(what)
+            for child in doc_tree:
+                if child.tag in ('ascii', 'python'):
+                    if child.tag == 'ascii':
+                        child.text = self.repl_asc(child.text)
+                    for part in self.process_content(child.text):
+                        processed.append(part)
+                elif child.tag == 'excel':
+                    for part in self.repl_xl(child.text):
+                        processed.append(part)
+            return processed
+        elif typ == 'excel':
+            # assuming what is a dict
+            return self.xl_convert(**what)
+
+    def repl_asc(self, lines: str):
+
+        lines = lines.split('\n')
+        py_lines = []
+        comment_pat = re.compile(r'^(?=[^#:].*?(\w+\s+?\w+)|(\\\w+).*?$)')
+        for line in lines:
+            # import statements and the like preceded with :
+            line = comment_pat.sub('# ', line)
+            py_lines.append(re.sub(r'^\:', '', line))
+        py_legal = '\n'.join(py_lines)
+        # change power symbol, not in comments
+        py_legal = re.sub(r'(?sm)^([^\#].*?)\^', r'\1**', py_legal)
+        # number coefficients like 2x
+        py_legal = re.sub(r'(?<=[0-9])( ?[a-df-zA-Z_]|\()', '*\\1', py_legal)
+
+        return py_legal
+
+    def repl_xl(self, lines: str):
+        lines = lines.strip().split('\n')
+        params = {
+                'file': '',
+                'sheet': 1,
+                'range': None,
+                }
+        for param in [line.split(':')[:2] for line in lines]:
+            try:
+                key, val = param
+            except ValueError:
+                raise SyntaxError('Invalid syntax, must be in the form [parameter]: [value]')
+            else:
+                if key.strip() in self.xl_params:
+                    params[key.strip()] = val.strip()
+        return self.xl_convert(file=params['file'],
+                               sheet=params['sheet'],
+                               range=params['range'])
+
+    def xl_convert(self, file='', sheet=1, range=None):
+
+        with ZipFile(file, 'r') as zin:
+            sheet_xml = zin.read(f'xl/worksheets/sheet{int(sheet)}.xml').decode('utf-8')
+            str_xml = zin.read('xl/sharedStrings.xml').decode('utf-8')
+
+        sheet_tree = ET.fromstring(sheet_xml)
+        str_tree = ET.fromstring(str_xml)
+        rows = sheet_tree.find('{%s}sheetData' % NS['main'])
+        self.temp_var['strs'] = [node[0].text for node in str_tree]
+        range = self.xl_find_range(rows, self.temp_var['strs'], range)
+        self.temp_var['info'] = self.xl_extract_info(rows, range)
+
+        return self.xl_info_2_script(self.temp_var['info'])
+
+    def xl_info_2_script(self, info):
+        tag = self.current_tag
+        script = []
+        for key, content in info.items():
+            if content[0][0] == 'txt':
+                para = content[0][1]
+                if para.lstrip().startswith('#'):
+                    # means its a tag
+                    tag = self.current_tag = part[0]
+                    logger.info('[Change tag] #%s', tag)
+                else:
+                    for part in self._process_comment(para):
+                        script.append((tag, part))
+            elif content[0][0] == 'var':
+                var_name = content[0][1]
+                if len(content[1]) == 2:
+                    steps = [content[1][1]]
+                else:
+                    steps = [self.xl_form2expr(0, 1, content), self.xl_form2expr(1, -1, content)]
+                steps.append(content[1][-1])
+                opt = content[-1][-1].replace('^', '**') if content[-1][0] == 'opt' else ''
+                try:  # check if the var name is python legal
+                    to_math(var_name + '=' + steps[-1])
+                except SyntaxError:
+                    eqn_xl = cal([f'"{var_name}"', steps, opt], working_dict=self.working_dict, typ=self.doc_type)
+                else:
+                    eqn_xl = cal([var_name, steps, opt], working_dict=self.working_dict, typ=self.doc_type)
+                script.append((tag, (eqn_xl[1], eqn_xl[0])))
+
+        return script
 
     def xl_find_range(self, rows, strs, given_range):
         '''convert a given range to a more useful one:
@@ -550,50 +658,32 @@ class calculations:
         correct = self.xl_func_pat.sub(lambda x: x.group(0).lower(), correct)
         return correct.replace('^', '**')
 
-    def xl_info_2_script(self, info):
-        script = []
-        for key, content in info.items():
-            if content[0][0] == 'txt':
-                para = content[0][1]
-                if para.lstrip().startswith('#'):
-                    script.append(para)
-                elif para.lstrip().startswith('$'):
-                    script.append('#' + para)
-                else:
-                    script.append('# ' + para if para.strip() else '')
-            elif content[0][0] == 'var':
-                var_name = content[0][1]
-                if len(content[1]) == 2:
-                    steps = [content[1][1]]
-                else:
-                    steps = [self.xl_form2expr(0, 1, content), self.xl_form2expr(1, -1, content)]
-                steps.append(content[1][-1])
-                opt = content[-1][-1].replace('^', '**') if content[-1][0] == 'opt' else ''
-                try:  # check if the var name is python legal
-                    to_math(var_name + ' = 3')
-                except SyntaxError:
-                    eqn_xl = cal([f'"{var_name}"', steps, opt])
-                else:
-                    eqn_xl = cal([var_name, steps, opt])
-                script.append(
-                    '# ' + eqn_xl[0].replace('\n', '\n# '))
-
-        return '\n'.join(script)
-
-    def xl_convert(self, file='', sheet=1, range=None):
-
-        with ZipFile(file, 'r') as zin:
-            sheet_xml = zin.read(f'xl/worksheets/sheet{int(sheet)}.xml').decode('utf-8')
-            str_xml = zin.read('xl/sharedStrings.xml').decode('utf-8')
-
-        sheet_tree = ET.fromstring(sheet_xml)
-        str_tree = ET.fromstring(str_xml)
-        rows = sheet_tree.find('{%s}sheetData' % NS['main'])
-        self.temp_var['strs'] = [node[0].text for node in str_tree]
-        range = self.xl_find_range(rows, self.temp_var['strs'], range)
-        self.temp_var['info'] = self.xl_extract_info(rows, range)
-
-        return self.xl_info_2_script(self.temp_var['info'])
+    def process_content(self, parts):
+        tag = self.current_tag
+        processed = []
+        for part in self._split_module(parts):
+            if part[1] == 'tag':
+                tag = self.current_tag = part[0]
+                logger.info('[Change tag] #%s', tag)
+            elif part[1] in ['assign', 'expr']:
+                processed.append(
+                    (tag, self._process_assignment(part[0])))
+            elif part[1] == 'comment':
+                for part in self._process_comment(part[0]):
+                    processed.append((tag, part))
+            elif part[1] == 'stmt':
+                # if it does not appear like an equation or a comment,
+                # just execute it
+                logger.info('[Executing] %s', part[0])
+                exec(part[0], self.working_dict)
+                if part[0].startswith('del '):
+                    # also delete associated unit strings
+                    variables = [v.strip()
+                                 for v in part[0][len('del '):].split(',')]
+                    for v in variables:
+                        if v + UNIT_PF in self.working_dict:
+                            del self.working_dict[v + UNIT_PF]
+        return processed
 
     def _contin_type(self, accumul: str, line: str) -> bool:
         '''
@@ -665,59 +755,65 @@ class calculations:
 
         return returned
 
-    def repl_asc(self, lines: str):
+    def _format_value(self, var, srnd=True):
+        syntax = select_syntax(self.doc_type)
+        if var in self.working_dict:
+            unit_name = var + UNIT_PF
+            unit = to_math(self.working_dict[unit_name],
+                           div="/",
+                           working_dict=self.working_dict,
+                           typ=self.doc_type,
+                           ital=False) \
+                if unit_name in self.working_dict.keys() and self.working_dict[unit_name] \
+                and self.working_dict[unit_name] != '_' else ''
+            result = to_math(self.working_dict[var], typ=self.doc_type)
+            return build_eqn([[result + syntax.txt.format(syntax.halfsp) + unit]],
+                             disp=False, vert=False, srnd=srnd,
+                             typ=self.doc_type)
+        else:
+            raise KeyError(f"'{var}' is an undefined variable.")
 
-        lines = lines.split('\n')
-        py_lines = []
-        comment_pat = re.compile(r'^(?=[^#:].*?(\w+\s+?\w+)|(\\\w+).*?$)')
-        for line in lines:
-            # import statements and the like preceded with :
-            line = comment_pat.sub('# ', line)
-            py_lines.append(re.sub(r'^\:', '', line))
-        py_legal = '\n'.join(py_lines)
-        # change power symbol, not in comments
-        py_legal = re.sub(r'(?sm)^([^\#].*?)\^', r'\1**', py_legal)
-        # number coefficients like 2x
-        py_legal = re.sub(r'(?<=[0-9])( ?[a-df-zA-Z_]|\()', '*\\1', py_legal)
+    def _process_comment(self, line):
+        '''
+        convert comments to latex paragraphs
+        '''
 
-        return py_legal
-
-    def repl_xl(self, lines: str):
-        lines = lines.strip().split('\n')
-        params = {
-                'file': '',
-                'sheet': 1,
-                'range': None,
-                }
-        for param in [line.split(':')[:2] for line in lines]:
-            try:
-                key, val = param
-            except ValueError:
-                raise SyntaxError('Invalid syntax, must be in the form [parameter]: [value]')
+        logger.info('[Processing] %s', line)
+        if line.startswith('$'):
+            patt = r'(?a)#(\w+)'
+            # term beginning with a number unlikely to be used
+            pholder = '111.111**PLACEHOLDER00'
+            vals = []
+            for v in re.finditer(patt, line):
+                vals.append(self._format_value(v.group(1), False))
+            line = re.sub(patt, pholder, line)
+            if line.startswith('$$'):
+                line = ('disp', eqn(line[2:], typ=self.doc_type))
             else:
-                if key.strip() in self.xl_params:
-                    params[key.strip()] = val.strip()
-        return self.xl_convert(file=params['file'],
-                               sheet=params['sheet'],
-                               range=params['range'])
+                line = ('inline', eqn(line[1:], disp=False, typ=self.doc_type))
+            for v in vals:
+                line[1] = line[1].replace(to_math(pholder, typ=self.doc_type), v, 1)
+            parts = [line]
+        else:
+            parts = []
+            ref = False
+            for part in re.split(r'(?a)(#\w+)', line.strip()):
+                if ref:
+                    parts.append(('inline', self._format_value(part[1:])))
+                    ref = False
+                else:
+                    parts.append(('text', part))
+                    ref = True
+        return parts
 
-    def convert(self, what, typ='python'):
-        if typ == 'python':
-            return self._split_module(what)
-        elif typ == 'dcl':
-            py_strings = []
-            doc_tree = ET.fromstring(what)
-            for child in doc_tree:
-                if child.tag == 'ascii':
-                    py_strings.append(self.repl_asc(child.text))
-                elif child.tag == 'python':
-                    py_strings.append(child.text)
-                elif child.tag == 'excel':
-                    py_strings.append(self.repl_xl(child.text))
-            return self._split_module('\n'.join(py_strings))
-        elif typ == 'excel':
-            # assuming what is a dict
-            return self._split_module(self.xl_convert(**what))
+    def _process_assignment(self, line):
+        '''
+        evaluate assignments and convert to latex form
+        '''
+        logger.info('[Processing] %s', line)
+        # the cal function will execute it so no need for exec
+        result = cal(line, self.working_dict, typ=self.doc_type)
+        return (result[1], result[0])
 
 
 class LogRecorder(logging.Handler):
@@ -759,7 +855,8 @@ class document:
             infile = path.abspath(infile)
             basename, ext = path.splitext(infile)
             self.document_file = self.file_handlers[ext](infile, to_clear)
-            self.tags = self.document_file.tags
+            # the calculations object that will convert given things to a list and store
+            self.calc = calculations(self.document_file.tags, self.document_file.name, DICT)
             if log_file:
                 file_logger = logging.FileHandler(basename + '.log', 'w')
                 file_logger.setFormatter(logging.Formatter(LOG_FORMAT))
@@ -768,7 +865,7 @@ class document:
             ext = path.splitext(outfile)[1]
             self.document_file = self.file_handlers[ext](
                 None, self.to_clear)
-            self.tags = []
+            self.calc = calculations([], self.document_file.name, DICT)
         else:
             raise ValueError('Need to specify at least one document')
         if outfile:
@@ -779,116 +876,20 @@ class document:
             logger.setLevel(getattr(logging, log_level.upper()))
         # the calculations corresponding to the tags
         self.contents = {}
-        self.current_tag = self.tags[0] if self.tags else None
-        if self.current_tag is None:
-            logger.error('There are no tags in the document')
         # temp storage for assignment statements where there are unmatched parens
         self.incomplete_assign = ''
         # temp storage for block statements like if and for
         self.incomplete_stmt = ''
-        # the calculations object that will convert given things to a list and store
-        self.calc = calculations()
-
-    def _format_value(self, var, srnd=True, working_dict=DICT):
-        syntax = select_syntax(self.document_file.name)
-        if var in working_dict:
-            unit_name = var + UNIT_PF
-            unit = to_math(working_dict[unit_name],
-                           div="/",
-                           working_dict=working_dict,
-                           typ=self.document_file.name,
-                           ital=False) \
-                if unit_name in working_dict.keys() and working_dict[unit_name] \
-                and working_dict[unit_name] != '_' else ''
-            result = to_math(working_dict[var], typ=self.document_file.name)
-            return build_eqn([[result + syntax.txt.format(syntax.halfsp) + unit]],
-                             disp=False, vert=False, srnd=srnd,
-                             typ=self.document_file.name)
-        else:
-            raise KeyError(f"'{var}' is an undefined variable.")
-
-    def _process_comment(self, line, working_dict=DICT):
-        '''
-        convert comments to latex paragraphs
-        '''
-
-        logger.info('[Processing] %s', line)
-        if line.startswith('$'):
-            patt = r'(?a)#(\w+)'
-            # term beginning with a number unlikely to be used
-            pholder = '111.111**PLACEHOLDER00'
-            vals = []
-            for v in re.finditer(patt, line):
-                vals.append(self._format_value(v.group(1), False))
-            line = re.sub(patt, pholder, line)
-            if line.startswith('$$'):
-                line = ['disp', eqn(line[2:], typ=self.document_file.name)]
-            else:
-                line = ['inline', eqn(line[1:], disp=False, typ=self.document_file.name)]
-            for v in vals:
-                line[1] = line[1].replace(to_math(pholder, typ=self.document_file.name), v, 1)
-            parts = [line]
-        else:
-            parts = []
-            ref = False
-            for part in re.split(r'(?a)(#\w+)', line.strip()):
-                if ref:
-                    parts.append(['inline', self._format_value(part[1:], working_dict)])
-                    ref = False
-                else:
-                    parts.append(['text', part])
-                    ref = True
-        return parts
-
-    def _process_assignment(self, line, working_dict=DICT):
-        '''
-        evaluate assignments and convert to latex form
-        '''
-        logger.info('[Processing] %s', line)
-        # the cal function will execute it so no need for exec
-        result = cal(line, working_dict, typ=self.document_file.name)
-        return [result[1], result[0]]
-
-    def process_content(self, parts, working_dict=DICT):
-        tag = self.current_tag
-        processed = []
-        for part in parts:
-            if part[1] == 'tag':
-                tag = part[0]
-                logger.info('[Change tag] #%s', tag)
-            elif part[1] in ['assign', 'expr']:
-                processed.append(
-                    (tag, self._process_assignment(part[0], working_dict)))
-            elif part[1] == 'comment':
-                for part in self._process_comment(part[0], working_dict):
-                    processed.append((tag, part))
-            elif part[1] == 'stmt':
-                # if it does not appear like an equation or a comment,
-                # just execute it
-                logger.info('[Executing] %s', part[0])
-                exec(part[0], working_dict)
-                if part[0].startswith('del '):
-                    # also delete associated unit strings
-                    variables = [v.strip()
-                                 for v in part[0][len('del '):].split(',')]
-                    for v in variables:
-                        if v + UNIT_PF in working_dict:
-                            del working_dict[v + UNIT_PF]
-        return processed
 
     def send(self, content, typ='python'):
         '''add the content to the tag, which will be sent to the document.
         Where it will be inserted is decided by the most recent tag.'''
 
         if not self.to_clear:
-            tag = self.current_tag
-            logger.info('[Change tag] #%s', tag)
-            for tag, part in self.process_content(self.calc.convert(content, typ)):
+            for tag, part in self.calc.process(content, typ):
                 if tag not in self.contents.keys():
                     self.contents[tag] = []
                 self.contents[tag].append(part)
-                if tag != self.current_tag:
-                    self.current_tag = tag
 
     def write(self):
         '''replace all the tags with the contents of the python script.
