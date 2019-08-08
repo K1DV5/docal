@@ -492,6 +492,8 @@ class calculations:
                     for part in self.repl_xl(child.text):
                         processed.append(part)
             return processed
+        elif typ == 'ascii':
+            return self.process_content(self.repl_asc(what))
         elif typ == 'excel':
             # assuming what is a dict
             return self.xl_convert(**what)
