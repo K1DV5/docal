@@ -662,9 +662,12 @@ class calculations:
         return info
     
     def xl_form2expr(self, ins1, ins2, content):
-        correct = self.xl_cell_pat.sub(
-            lambda x: self.temp_var['info'][x.group(0)][ins1][ins2],
-            content[1][1]).replace('^', '**')
+        try:
+            correct = self.xl_cell_pat.sub(
+                lambda x: self.temp_var['info'][x.group(0)][ins1][ins2],
+                content[1][1]).replace('^', '**')
+        except KeyError as err:
+            raise ReferenceError(f'Cell reference \'{err.args[0]}\' outside of scanned range')
         correct = self.xl_func_pat.sub(lambda x: x.group(0).lower(), correct)
         return correct.replace('^', '**')
 
