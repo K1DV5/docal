@@ -55,6 +55,7 @@ NS = {
 # surrounding of the content sent for reversing (something that doesn't
 # change the actual content of the document, and works inside lines)
 SURROUNDING = ['{} {{ {}', '{} }} {}']
+EXCEL_SEP = '|'
 
 LOG_FORMAT = '%(levelname)s: %(message)s'
 logging.basicConfig(format=LOG_FORMAT)
@@ -518,11 +519,11 @@ class calculations:
                 'sheet': 1,
                 'range': None,
                 }
-        for param in [line.split(':')[:2] for line in lines]:
+        for param in [line.split(EXCEL_SEP)[:2] for line in lines]:
             try:
                 key, val = param
             except ValueError:
-                raise SyntaxError('Invalid syntax, must be in the form [parameter]: [value]')
+                raise SyntaxError('Invalid syntax, must be in the form [parameter]' + EXCEL_SEP + ' [value]')
             else:
                 if key.strip() in self.xl_params:
                     params[key.strip()] = val.strip()
