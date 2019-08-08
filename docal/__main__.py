@@ -25,7 +25,7 @@ def document_file(arg: str) -> str:
 parser = ArgumentParser(description="Process the script file, inject it to "
                         "the input document and produce the output document")
 parser.add_argument(
-    'script', help='The calculation file/script', type=calculation_file)
+    'script', help='The calculation file/script', type=calculation_file, nargs='?')
 parser.add_argument(
     '-i', '--input', help='The document file to be modified', type=document_file)
 parser.add_argument(
