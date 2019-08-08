@@ -586,6 +586,11 @@ class calculations:
         (the letter, the starting index in tree, the row number of last)'''
 
         if given_range:
+            if type(given_range) == str:
+                # must be in the form "A, 1-10"
+                col_let, n_range = [r.strip() for r in given_range.split(',')]
+                r_start, r_end = [int(r) for r in n_range.split('-')]
+                given_range = (col_let, r_start, r_end)
             for i_row, row in enumerate(rows):
                 if int(row.attrib['r']) == given_range[1]:
                     xlrange = (given_range[0], i_row, given_range[2])
