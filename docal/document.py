@@ -464,6 +464,7 @@ class calculations:
     xl_cell_pat = re.compile(r'[A-Z]+[0-9]+')
     xl_func_pat = re.compile(r'[A-Z]+(?=\()')
     xl_params = ['file', 'sheet', 'range']
+    dcl_pre_code = ['from math import *']
 
     def __init__(self, tags, doc_type, working_dict):
         self.tags = tags
@@ -498,7 +499,8 @@ class calculations:
     def repl_asc(self, lines: str):
 
         lines = lines.split('\n')
-        py_lines = []
+        # by value! not to repeat the last ones
+        py_lines = self.dcl_pre_code[:]
         comment_pat = re.compile(r'^(?=[^#:].*?(\w+\s+?\w+)|(\\\w+).*?$)')
         for line in lines:
             # import statements and the like preceded with :
