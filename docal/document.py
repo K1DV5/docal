@@ -342,10 +342,10 @@ class wordFile:
                         self.doc_tree[0].insert(beg_index, beg_para)
                         added += len(ans_parts) + 1
             else:
-                logger.error(f'#{tag} not found in the document.')
+                logger.warning(f'#{tag} not found in the document.')
         # revert the rest of the tags from their alt form
         for info in self.tags_info:
-            logger.error(f'There is nothing to send to #{info["tag"]}.')
+            logger.warning(f'There is nothing to send to #{info["tag"]}.')
             loc_text = info['address'][2]
             loc_text.text = loc_text.text.replace(
                 info['tag-alt'], '#' + info['tag'])
@@ -469,7 +469,7 @@ class calculations:
         self.tags = tags
         self.current_tag = self.tags[0] if self.tags else None
         if self.current_tag is None:
-            logger.error('There are no tags in the document')
+            logger.warning('There are no tags in the document')
         self.doc_type = doc_type
         # for temp saving states
         self.temp_var = {}
