@@ -9,80 +9,250 @@ import ast
 import re
 import logging
 from .document import DICT
-from .utils import _split
 
 log = logging.getLogger(__name__)
 
-DEFAULT_MAT_SIZE = 10
-
-GREEK_LETTERS = [
-    'alpha', 'nu', 'beta', 'xi', 'Xi', 'gamma', 'Gamma', 'delta', 'Delta',
-    'pi', 'Pi', 'epsilon', 'varepsilon', 'rho', 'varrho', 'zeta', 'sigma',
-    'Sigma', 'eta', 'tau', 'theta', 'vartheta', 'Theta', 'upsilon', 'Upsilon',
-    'iota', 'phi', 'varphi', 'Phi', 'kappa', 'chi', 'lambda', 'Lambda', 'psi',
-    'Psi', 'mu', 'omega', 'Omega'
-]
-
-MATH_ACCENTS = [
-    'hat', 'check', 'breve', 'acute', 'grave', 'tilde', 'bar', 'vec', 'dot', 'ddot'
-]
-
-
-PRIMES = {'prime': "'", '2prime': "''", '3prime': "'''"}
-
-# things that are transformed, used for units and such
-TRANSFORMED = {
-    'degC': '\\,^\\circ \\mathrm{C}',
-    'degF': '\\,^\\circ \\mathrm{F}',
-    'deg': '\\,^\\circ'
-}
+# the tag pattern
+PATTERN = re.compile(r'(?s)([^\w\\]|^)#(\w+?)(\W|$)')
 
 # what will be appended after the names to store units for those names
 UNIT_PF = '___0UNIT0'
 
+DEFAULT_MAT_SIZE = 10
 
-def format_name(name_str: str) -> str:
+GREEK_LETTERS = {
+    'alpha':      'α',
+    'nu':         'ν',
+    'beta':       'β',
+    'xi':         'ξ',
+    'Xi':         'Ξ',
+    'gamma':      'γ',
+    'Gamma':      'Γ',
+    'delta':      'δ',
+    'Delta':      '∆',
+    'pi':         'π',
+    'Pi':         'Π',
+    'epsilon':    'ϵ',
+    'varepsilon': 'ε',
+    'rho':        'ρ',
+    'varrho':     'ϱ',
+    'zeta':       'ζ',
+    'sigma':      'σ',
+    'Sigma':      'Σ',
+    'eta':        'η',
+    'tau':        'τ',
+    'theta':      'θ',
+    'vartheta':   'ϑ',
+    'Theta':      'Θ',
+    'upsilon':    'υ',
+    'Upsilon':    'Υ',
+    'iota':       'ι',
+    'phi':        'φ',
+    'varphi':     'ϕ',
+    'Phi':        'Φ',
+    'kappa':      'κ',
+    'chi':        'χ',
+    'lambda':     'λ',
+    'Lambda':     'Λ',
+    'psi':        'ψ',
+    'Psi':        'Ψ',
+    'mu':         'µ',
+    'omega':      'ω',
+    'Omega':      'Ω',
+    }
+
+MATH_ACCENTS = {
+    'hat': '&#x0302;',
+    'check': '&#x030C;',
+    'breve': '&#x02D8;',
+    'acute': '&#x0301;',
+    'grave': '&#x0300;',
+    'tilde': '&#x0303;',
+    'bar': '&#x0304;',
+    'vec': '&#x20D7;',
+    'dot': '&#x0307;',
+    'ddot': '&#x0308;',
+    'dddot': '&#x20DB;',
+    }
+
+PRIMES = {'prime': "'", '2prime': "''", '3prime': "'''"}
+
+class SyntaxWord:
+
+    # common string blocks (can be formatted)
+    txt = '<m:r><m:t xml:space="preserve">{}</m:t></m:r>'
+    txt_rom = '<m:r><m:rPr><m:nor/></m:rPr><w:rPr><w:rFonts w:ascii="Cambria Math" w:eastAsiaTheme="minorEastAsia" w:hAnsi="Cambria Math"/></w:rPr><m:t xml:space="preserve">{}</m:t></m:r>'
+    txt_math = txt_rom
+    sub = '<m:sSub><m:e>{}</m:e><m:sub>{}</m:sub></m:sSub>'
+    sup = '<m:sSup><m:e>{}</m:e><m:sup>{}</m:sup></m:sSup>'
+    acc = '<m:acc><m:accPr><m:chr m:val="{}"/></m:accPr><m:e>{}</m:e></m:acc>'
+    rad = '<m:rad><m:radPr><m:degHide m:val="1"/></m:radPr><m:deg/><m:e>{}</m:e></m:rad>'
+    summation = '<m:nary><m:naryPr><m:chr m:val="∑"/></m:naryPr><m:sub><m:r><w:rPr><w:rFonts w:ascii="Cambria Math" w:hAnsi="Cambria Math"/></w:rPr><m:t>i=1</m:t></m:r></m:sub><m:sup><m:r><m:t>{}</m:t></m:r></m:sup><m:e>{}</m:e></m:nary>'
+    func_name = '<m:r><m:rPr><m:sty m:val="p"/></m:rPr><m:t>{}</m:t></m:r>'
+    func = '<m:func><m:fName>{}</m:fName><m:e>{}</m:e></m:func>'
+    frac = '<m:f><m:num>{}</m:num><m:den>{}</m:den></m:f>'
+    math_disp = '<m:oMathPara><m:oMath>{}</m:oMath></m:oMathPara>'
+    math_inln = '<m:oMath>{}</m:oMath>'
+
+    # things that are transformed, used for units and such
+    transformed = {
+        'degC': '<m:sSup><m:e><m:r><m:t> </m:t></m:r></m:e><m:sup><m:r><m:t>∘</m:t></m:r></m:sup></m:sSup><m:r><m:rPr><m:nor/></m:rPr><m:t>C</m:t></m:r>',
+        'degF': '<m:sSup><m:e><m:r><m:t> </m:t></m:r></m:e><m:sup><m:r><m:t>∘</m:t></m:r></m:sup></m:sSup><m:r><m:rPr><m:nor/></m:rPr><m:t>F</m:t></m:r>',
+        'deg': '<m:sSup><m:e><m:r><m:t> </m:t></m:r></m:e><m:sup><m:r><m:t>∘</m:t></m:r></m:sup></m:sSup>'
+    }
+
+    # some symbols
+    times = '×'
+    div = '÷'
+    cdot = '⋅'
+    halfsp = '&#8239;'
+    neg = '¬'
+    gt = '&gt;'
+    lt = '&lt;'
+    gte = '&ge;'
+    lte = '&le;'
+    cdots = '⋯'
+    vdots = '⋮'
+    ddots = '⋱'
+
+    # things that can't be accomplished with formatting strings
+    def greek(self, name):
+        return self.txt.format(GREEK_LETTERS[name])
+
+    def accent(self, acc, base):
+        return self.acc.format(MATH_ACCENTS[acc], base)
+
+    def prime(self, base, prime):
+        return self.sup.format(base, self.txt.format(PRIMES[prime]))
+
+    def delmtd(self, contained, kind=0):
+        surround = '<m:dPr><m:begChr m:val="{}"/><m:endChr m:val="{}"/></m:dPr>'
+        kinds = ['[]', '{}', '⌊⌋']
+        form = '<m:d>{}<m:e>{}</m:e></m:d>'
+        if kind == 0:
+            return form.format('', contained)
+        return form.format(surround.format(kinds[kind-1][0], kinds[kind-1][1]), contained)
+
+    def matrix(self, elmts, full=False):
+        if full:  # top level, full matrix
+            m_form = '<m:m>{}</m:m>'
+            rows = ''.join([f'<m:mr><m:e>{e}</m:e></m:mr>' for e in elmts])
+            return self.delmtd(m_form.format(rows), 1)
+        return '</m:e><m:e>'.join(elmts)
+
+    def eqarray(self, eqns: list):
+        form = '<m:eqArr>{}</m:eqArr>'
+        line_form = '<m:e>{}</m:e>'
+        align_chr = self.txt.format('&amp;=')
+        return form.format(''.join([line_form.format(align_chr.join(eq)) for eq in eqns]))
+
+
+class SyntaxLatex:
+    txt = '{}'
+    txt_rom = r'\mathrm{{{}}}'
+    txt_math = '\\text{{{}}}'
+    sub = r'{{{}}}_{{{}}}'
+    sup = '{{{}}}^{{{}}}'
+    acc = '{{{}}}{}'
+    rad = r'\sqrt{{{}}}'
+    summation = r'\sum_{{i=1}}^{{{}}} {{{}}}'
+    func_name = r'\operatorname{{{}}}'
+    func = '{{{}}} {{{}}}'
+    frac = r'\frac{{{}}}{{{}}}'
+    math_disp = '\\[\n{}\n\\]'
+    math_inln = '\\(\\displaystyle {}\\)'
+
+    transformed = {
+    'degC': '\\,^\\circ \\mathrm{C}',
+    'degF': '\\,^\\circ \\mathrm{F}',
+    'deg': '\\,^\\circ'
+    }
+        
+    times = r'\times '
+    div = r'\div '
+    cdot = r'\cdot '
+    halfsp = r'\,'
+    neg = '\\neg'
+    gt = '>'
+    lt = '<'
+    gte = '>='
+    lte = '<='
+    cdots = '\\cdots'
+    vdots = '\\vdots'
+    ddots = '\\ddots'
+
+    def greek(self, name):
+        return '\\' + name
+
+    def accent(self, acc, base):
+        return fr'\{acc}{{{base}}}'
+
+    def prime(self, base, prime):
+        return f'{{{base}}}{prime}'
+
+    def delmtd(self, contained, kind=0):
+        kinds = ['()', '[]', '{}', ('\\lfloor', '\\rfloor')]
+        return f'\\left{kinds[kind][0]}{contained}\\right{kinds[kind][1]}'
+
+    def matrix(self, elmts, full=False):
+        if full:  # top level, full matrix
+            m_form = '\\begin{{matrix}}\n{}\n\end{{matrix}}'
+            rows = '\\\\\n'.join(elmts)
+            return self.delmtd(m_form.format(rows), 1)
+        return ' & '.join(elmts)
+
+    def eqarray(self, eqns: list):
+        srnds = ['\\begin{aligned}\n', '\n\\end{aligned}']
+        inner = '\\\\\n'.join([' &= '.join(eq_ls) for eq_ls in eqns])
+        return srnds[0] + inner + srnds[1]
+
+
+# syntax selector
+def select_syntax(typ):
+    if typ == 'word':
+        return SyntaxWord()
+    else:
+        return SyntaxLatex()
+
+
+def _parens_balanced(expr: str) -> bool:
     '''
-    Turn a variable name into a latex term that has sub/superscripts, accents,
-    upright if needed, and prime signs
+    check if the pairs that must be balanced are actually balanced
     '''
-    parts = name_str.strip(' _').split('_')
-    parts_final = parts[:]
-    accent_locations = []
-    for index, part in enumerate(parts):
-        # no modification is wanted if the first character is 0
-        if part.startswith('0') and len(part) > 1:
-            parts_final[index] = fr'\mathrm{{{part[1:]}}}'
-        # convert to latex commands
-        elif part in GREEK_LETTERS:
-            parts_final[index] = '{\\' + part + '}'
-        # maybe if it is something that is simpler to write than its value
-        elif part in TRANSFORMED:
-            parts_final[index] = TRANSFORMED[part]
-        # enclose the previous item in accent commands
-        elif part in MATH_ACCENTS:
-            # (to choose which to surround)
-            which = index - 2 if not parts[index - 1] else index - 1
-            parts_final[which] = '{\\' + \
-                f'{part}{{{parts_final[which]}}}}}'
-            accent_locations.append(index)
-        # convert primes
-        elif part in PRIMES.keys():
-            which = index - 2 if not parts[index - 1] else index - 1
-            parts_final[which] = '{' + \
-                parts_final[which] + PRIMES[part] + "}"
-            accent_locations.append(index)
-        elif len(part) > 1:
-            parts_final[index] = fr'\mathrm{{{parts_final[index]}}}'
-    # remove the accents
-    parts_final = [part for index, part in enumerate(parts_final)
-                   if index not in accent_locations]
-    name = '_'.join(parts_final).replace('__', '^')
+    # those that must be matched in equations
+    parens = ['()', '[]', '{}']
 
-    return name
+    return all([expr.count(p[0]) == expr.count(p[1]) for p in parens])
 
 
-def _prep4lx(quantity, mat_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
+def _split(what: str, char='=', count=None, last=True) -> list:
+    '''split a given equation at the main equal signs and not at the ones
+    used for other purposes like giving a kwarg'''
+
+    balanced = []
+    incomplete = ''
+    for e in what.split(char):
+        e = e.strip()
+        if incomplete or not _parens_balanced(e):
+            incomplete += (char if incomplete else '') + e
+            if incomplete and _parens_balanced(incomplete):
+                balanced.append(incomplete)
+                incomplete = ''
+        else:
+            balanced.append(e)
+    if incomplete:
+        raise SyntaxError('The number of parens is not balanced.')
+    if not count and len(balanced) > 1:
+        if last:
+            # if splitting only at the last = is wanted, join the others
+            balanced = [char.join(balanced[:-1]), balanced[-1]]
+        elif last is not None:
+            balanced = [balanced[0], char.join(balanced[1:])]
+
+    return balanced
+
+
+def _prep4lx(quantity, syn_obj, mat_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
     '''
     parse the given quantity to an AST object so it can be integrated in _LatexVisitor
     '''
@@ -94,23 +264,23 @@ def _prep4lx(quantity, mat_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
         if isinstance(mat_size, int):
             mat_size = (mat_size, mat_size)
 
-        quantity = _fit_matrix(quantity, mat_size)
+        quantity = _fit_matrix(quantity, syn_obj, mat_size)
 
     return ast.parse(str(quantity)).body[0]
 
 
-def _fit_array(array, mat_size=DEFAULT_MAT_SIZE):
+def _fit_array(array, syn_obj, mat_size=DEFAULT_MAT_SIZE):
     '''
     shorten the given 1 dimensional matrix/array by substituting ellipsis (...)
     '''
 
     if len(array) > mat_size:
-        array = [*array[:mat_size - 2], '\\vdots', array[-1]]
+        array = [*array[:mat_size - 2], syn_obj.vdots, array[-1]]
 
     return array
 
 
-def _fit_big_matrix(matrix, size):
+def _fit_big_matrix(matrix, syn_obj, size):
     '''
     shrink a big matrix by substituting vertical, horizontal and diagonal ...
     '''
@@ -125,14 +295,14 @@ def _fit_big_matrix(matrix, size):
         last_row = [[e] for e in last_row]
     last_element = matrix[-1, -1]
     for index, element in enumerate(mat):
-        element += ['\\cdots', last_col[index][0]]
-    mat.append(['\\vdots'] * (cols - 2) + ['\\ddots', '\\vdots'])
-    mat.append(last_row[0] + ['\\cdots', last_element])
+        element += [syn_obj.cdots, last_col[index][0]]
+    mat.append([syn_obj.vdots] * (cols - 2) + [syn_obj.ddots, syn_obj.vdots])
+    mat.append(last_row[0] + [syn_obj.cdots, last_element])
 
     return mat
 
 
-def _fit_wide_matrix(matrix, max_cols):
+def _fit_wide_matrix(matrix, syn_obj, max_cols):
     '''
     make the wide matrix narrower by substituting horizontal ... in the rows
     '''
@@ -140,24 +310,24 @@ def _fit_wide_matrix(matrix, max_cols):
     mat = matrix[:, :max_cols - 2].tolist()
     last_col = matrix[:, -1].tolist()
     for index, element in enumerate(mat):
-        element += ['\\cdots', last_col[index][0]]
+        element += [syn_obj.cdots, last_col[index][0]]
 
     return mat
 
 
-def _fit_long_matrix(matrix, max_rows):
+def _fit_long_matrix(matrix, syn_obj, max_rows):
     '''
     shorten the matrix by substituting vertical ... in the columns
     '''
 
     mat = matrix[:max_rows - 2, :].tolist()
-    mat += [['\\vdots'] * matrix.shape[1]]
+    mat += [[syn_obj.vdots] * matrix.shape[1]]
     mat += matrix[-1, :].tolist()
 
     return mat
 
 
-def _fit_matrix(matrix, max_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
+def _fit_matrix(matrix, syn_obj, max_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
     '''
     if there is a need, make the given matrix smaller
     '''
@@ -165,16 +335,16 @@ def _fit_matrix(matrix, max_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
     shape = (len(matrix),) if isinstance(matrix, list) else matrix.shape
     # array -> short
     if len(shape) == 1 and shape[0] > max_size[0] or isinstance(matrix, list):
-        mat_ls = _fit_array(matrix, max_size[0])
+        mat_ls = _fit_array(matrix, syn_obj, max_size[0])
     # too big -> small
     elif matrix.shape[0] > max_size[0] and matrix.shape[1] > max_size[1]:
-        mat_ls = _fit_big_matrix(matrix, max_size)
+        mat_ls = _fit_big_matrix(matrix, syn_obj, max_size)
     # too long -> small
     elif matrix.shape[0] > max_size[0] and matrix.shape[1] < max_size[1]:
-        mat_ls = _fit_long_matrix(matrix, max_size[0])
+        mat_ls = _fit_long_matrix(matrix, syn_obj, max_size[0])
     # too wide -> small
     elif matrix.shape[0] < max_size[0] and matrix.shape[1] > max_size[1]:
-        mat_ls = _fit_wide_matrix(matrix, max_size[1])
+        mat_ls = _fit_wide_matrix(matrix, syn_obj, max_size[1])
     # already small so :)
     else:
         mat_ls = matrix.tolist()
@@ -182,14 +352,61 @@ def _fit_matrix(matrix, max_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
     return mat_ls
 
 
-class _LatexVisitor(ast.NodeVisitor):
+class MathVisitor(ast.NodeVisitor):
 
-    def __init__(self, mul_symbol, div_symbol, subs, mat_size, working_dict=DICT):
-        self.mul_symbol = mul_symbol
-        self.div_symbol = div_symbol
+    def __init__(self, mul, div, subs, mat_size, working_dict=DICT, typ='latex', ital=True):
+        self.mul = mul
+        self.div = div
         self.subs = subs
         self.mat_size = mat_size
         self.dict = working_dict
+        self.s = select_syntax(typ)
+        self.ital = ital
+
+    def format_name(self, name_str: str) -> str:
+        '''
+        Turn a variable name into a supported syntax term that has
+        sub/superscripts, accents, upright if needed, and prime signs
+        '''
+        parts = name_str.strip(' _').split('_')
+        parts_final = parts[:]
+        accent_locations = []
+        for index, part in enumerate(parts):
+            # no modification is wanted if the first character is 0
+            if part.startswith('0') and len(part) > 1:
+                parts_final[index] = self.s.txt_rom.format(part[1:])
+            # convert to greek letters
+            elif part in GREEK_LETTERS:
+                parts_final[index] = self.s.greek(part)
+            # maybe if it is something that is simpler to write than its value
+            elif part in self.s.transformed:
+                parts_final[index] = self.s.transformed[part]
+            # convert primes
+            elif part in MATH_ACCENTS:
+                # (to choose which to surround)
+                which = index - 2 if not parts[index - 1] else index - 1
+                parts_final[which] = self.s.accent(part, parts_final[which])
+                accent_locations.append(index)
+            elif part in PRIMES.keys():
+                which = index - 2 if not parts[index - 1] else index - 1
+                parts_final[which] =  self.s.prime(parts_final[which], part)
+                accent_locations.append(index)
+            # change in ... as [Dd]elta...
+            elif part.startswith('Delta') or part.startswith('delta'):
+                delta, var = part[:len('delta')], part[len('delta'):]
+                parts_final[index] = self.s.greek(delta) + self.s.txt.format(' ') + self.format_name(var)
+            elif len(part) > 1 or not self.ital:
+                parts_final[index] = self.s.txt_rom.format(part)
+            elif part:
+                parts_final[index] = self.s.txt.format(part)
+        # remove the accents
+        parts_final = [part for index, part in enumerate(parts_final)
+                       if index not in accent_locations]
+        parts_final = [part.split('_') for part in '_'.join(parts_final).split('__')]
+        parts_final = [self.s.sub.format(p[0], p[1]) if len(p) > 1 else p[0] for p in parts_final]
+        name = self.s.sup.format(parts_final[0], parts_final[1]) if len(parts_final) > 1 else parts_final[0]
+
+        return name
 
     def prec(self, n):
         return getattr(self, 'prec_'+n.__class__.__name__, getattr(self, 'generic_prec'))(n)
@@ -198,7 +415,29 @@ class _LatexVisitor(ast.NodeVisitor):
         return self.visit(n.value)
 
     def visit_Assign(self, n):
-        return ' = '.join([self.visit(t) for t in n.targets + [n.value]])
+        return self.s.txt.format('=').join([self.visit(t) for t in n.targets + [n.value]])
+
+    def visit_Compare(self, n):
+        collect = [self.visit(n.left)]
+        for i, op in enumerate(n.ops):
+            collect.append(self.s.txt.format(self.visit(op)))
+            collect.append(self.visit(n.comparators[i]))
+        return ''.join(collect)
+
+    def visit_Eq(self, n):
+        return self.s.txt.format('=')
+
+    def visit_Gt(self, n):
+        return self.s.gt
+
+    def visit_Lt(self, n):
+        return self.s.lt
+
+    def visit_LtE(self, n):
+        return self.s.lte
+
+    def visit_GtE(self, n):
+        return self.s.gte
 
     # attributes (foo.bar)
     def visit_Attribute(self, n, shallow=False):
@@ -217,11 +456,11 @@ class _LatexVisitor(ast.NodeVisitor):
             if hasattr(n, 'is_in_attr') and n.is_in_attr:
                 return f'{base}.{attr}'
             if shallow:
-                return _prep4lx(eval(f'{base}.{attr}', self.dict), self.mat_size).value
+                return _prep4lx(eval(f'{base}.{attr}', self.dict), self.s, self.mat_size).value
             # get, prep and visit the value
-            return self.visit(_prep4lx(eval(f'{base}.{attr}', self.dict), self.mat_size))
+            return self.visit(_prep4lx(eval(f'{base}.{attr}', self.dict), self.s, self.mat_size))
         # only get the part after the dot
-        return format_name(n.attr)
+        return self.format_name(n.attr)
 
     def prec_Attribute(self, n):
         return 1000
@@ -234,30 +473,28 @@ class _LatexVisitor(ast.NodeVisitor):
             func = n.func.id
         else:
             func = self.visit(n.func)
-        args = ', '.join([self.visit(arg) for arg in n.args])
+        args = self.s.txt.format(', ').join([self.visit(arg) for arg in n.args])
         ignored = ['round', 'matrix', 'Matrix', 'array', 'ndarray']
         if func == 'sqrt':
-            return fr'\sqrt{{{args}}}'
+            return self.s.rad.format(args)
         elif func == 'inv':
-            return f'{{{args}}}^{{-1}}'
+            return self.s.sup.format(args, -1)
         elif func == 'transpose':
-            return f'{{{args}}}^{{T}}'
+            return self.s.sup.format(args, 'T')
         elif func == 'sum':
             if isinstance(n.args[0], ast.Name):
                 n.args[0] = self.visit_Name(n.args[0], True)
             if isinstance(n.args[0], ast.List) or isinstance(n.args[0], ast.Tuple):
-                return fr'\sum_{{i = 1}}^{{{len(n.args[0].elts)}}} {args}'
+                return self.s.summation.format(len(n.args[0].elts), args)
             else:
-                return fr'\sum \left({args}\right)'
-        elif func == 'log':
-            return fr'\ln {args}'
+                return self.s.txt.format(self.s.greek('Sigma')) + self.s.delmtd(args)
         elif func == 'log10':
-            return fr'\log {args}'
+            return self.s.func.format(self.s.func_name.format('log'), args)
         elif func == 'log2':
-            return fr'\log_2 {args}'
+            return self.s.func.format(self.s.sub.format(self.s.func_name.format('log'), self.s.txt.format(2)), args)
         elif func in ignored:
             return self.visit(n.args[0])
-        return fr'\operatorname{{{func}}}\left({args}\right)'
+        return self.s.txt_rom.format(func) + self.s.delmtd(args)
 
     def prec_Call(self, n):
         return 1000
@@ -275,24 +512,45 @@ class _LatexVisitor(ast.NodeVisitor):
             try:
                 # if the raw ast object is needed (for BinOp)
                 if shallow:
-                    return _prep4lx(self.dict[n.id], self.mat_size).value
+                    return _prep4lx(self.dict[n.id], self.s, self.mat_size).value
                 # to prevent infinite recursion:
                 if str(self.dict[n.id]) == n.id:
-                    return format_name(str(self.dict[n.id]))
-                qty = self.visit(_prep4lx(self.dict[n.id], self.mat_size))
-                unit = fr'\, \mathrm{{{latexify(self.dict[n.id + UNIT_PF], div_symbol="/")}}}' \
+                    return self.format_name(str(self.dict[n.id]))
+                qty = self.visit(_prep4lx(self.dict[n.id], self.s, self.mat_size))
+                typ = 'word' if isinstance(self.s, SyntaxWord) else 'latex'
+                unit = self.s.txt.format(self.s.halfsp) + \
+                    to_math(self.dict[n.id + UNIT_PF], div="/", ital=False, typ=typ) \
                     if n.id + UNIT_PF in self.dict.keys() and self.dict[n.id + UNIT_PF] \
                     and self.dict[n.id + UNIT_PF] != '_' else ''
                 # if the quantity is raised to some power and has a unit,
                 # surround it with PARENS
                 if hasattr(n, 'is_in_power') and n.is_in_power and unit and unit != '_':
-                    return f'\\left({qty} {unit}\\right)'
+                    return self.delmtd(qty + unit)
                 return qty + unit
             except KeyError:
                 log.warning('The variable %s has not been defined.', n.id)
-        return format_name(n.id)
+        return self.format_name(n.id)
 
     def prec_Name(self, n):
+        return 1000
+
+    def visit_Num(self, n):
+        number = n.n
+        if number != 0 and (abs(number) > 1000 or abs(number) < 0.1):
+            # in scientific notation
+            num_ls = f'{number:.3E}'.split('E')
+            # remove the preceding zeros and + in the powers like +07 to just 7
+            num_ls[1] = num_ls[1][0].lstrip('+') + num_ls[1][1:].lstrip('0')
+            # make them appear as powers of 10
+            return self.s.txt.format(num_ls[0]) + self.s.delmtd(self.s.sup.format(self.s.txt.format(10), self.s.txt.format(num_ls[1])))
+        if number == int(number):
+            return self.s.txt.format(int(number))
+        return self.s.txt.format(round(number, 3))
+
+    def prec_Num(self, n):
+        if hasattr(n, 'is_in_power') and n.is_in_power \
+                and n.n != 0 and (abs(n.n) > 1000 or abs(n.n) < 0.1):
+            return 300
         return 1000
 
     def visit_UnaryOp(self, n):
@@ -300,9 +558,8 @@ class _LatexVisitor(ast.NodeVisitor):
             n.operand.is_in_unaryop = True
         if self.prec(n.op) >= self.prec(n.operand) \
                 or (hasattr(n, 'is_in_unaryop') and n.is_in_unaryop):
-            return fr'{ self.visit(n.op) } \left({ self.visit(n.operand) }\right)'
-        else:
-            return fr'{ self.visit(n.op) } { self.visit(n.operand) }'
+            return self.s.txt.format(self.visit(n.op)) + self.s.delmtd(self.visit(n.operand))
+        return self.s.txt.format(self.visit(n.op)) + ' ' + self.visit(n.operand)
 
     def prec_UnaryOp(self, n):
         return self.prec(n.op)
@@ -316,33 +573,35 @@ class _LatexVisitor(ast.NodeVisitor):
                 tmp_right = self.visit_Name(n.right, True)
             elif isinstance(n.right, ast.Attribute):
                 tmp_right = self.visit_Attribute(n.right, True)
-        if self.prec(n.op) > self.prec(n.left):
-            left = fr'\left({ self.visit(n.left) }\right)'
+
+        div_and_frac = self.div == 'frac' and isinstance(n.op, ast.Div)
+        if self.prec(n.op) > self.prec(n.left) and not div_and_frac:
+            left = self.s.delmtd(self.visit(n.left))
         else:
             left = self.visit(n.left)
-        if self.prec(n.op) > self.prec(tmp_right):
+        if self.prec(n.op) > self.prec(tmp_right) and \
+                not isinstance(n.op, ast.Pow) and not div_and_frac:
             # not forgetting the units, so n.right
-            right = fr'\left({ self.visit(n.right) }\right)'
+            right = self.s.delmtd(self.visit(n.right))
         else:
             right = self.visit(n.right)
         if isinstance(n.op, ast.Mult):
             # unless the right term is a Num or BinOp whose operation is power
-            no_need = not any([isinstance(tmp_right, ast.BinOp)
-                               and isinstance(tmp_right.op, ast.Pow)
-                               and isinstance(tmp_right.left, ast.Num),
-                               isinstance(tmp_right, ast.Num)])
+            no_need = (not self.mul or self.mul.isspace()) and \
+                    not any([isinstance(tmp_right, ast.BinOp)
+                             and isinstance(tmp_right.op, ast.Pow)
+                             and isinstance(tmp_right.left, ast.Num),
+                             isinstance(tmp_right, ast.Num)])
             if no_need:
-                return fr'{left} \, {right}'
+                return left + self.s.txt.format(self.s.halfsp) + right
         elif isinstance(n.op, ast.Pow):
-            # so that it can be surrounded with PARENS if it has units
-            n.left.is_in_power = True
-            return fr'{self.visit(n.left)}^{{{right}}}'
-        elif self.div_symbol == 'frac':
+            return self.s.sup.format(left, right)
+        elif self.div == 'frac':
             if isinstance(n.op, ast.Div):
-                return fr'\frac{{{left}}}{{{right}}}'
+                return self.s.frac.format(left, right)
             elif isinstance(n.op, ast.FloorDiv):
-                return fr'\left\lfloor\frac{{{left}}}{{{right}}}\right\rfloor'
-        return fr'{left} {self.visit(n.op)} {right}'
+                return self.s.delmtd(self.s.frac.format(left, right), 3)
+        return left + self.s.txt.format(self.visit(n.op)) + right
 
     def prec_BinOp(self, n):
         return self.prec(n.op)
@@ -350,14 +609,12 @@ class _LatexVisitor(ast.NodeVisitor):
     def visit_List(self, n):
         if hasattr(n, 'is_in_list') and n.is_in_list:
             elements = [self.visit(element) for element in n.elts]
-            return ' & '.join(elements)
+            return self.s.matrix(elements)
         for child in ast.iter_child_nodes(n):
             if isinstance(child, ast.List):
                 child.is_in_list = True
         elements = [self.visit(element) for element in n.elts]
-        return ('\\left[\\begin{matrix}\n'
-                + '\\\\\n'.join(elements)
-                + '\n\\end{matrix}\\right]')
+        return self.s.matrix(elements, True)
 
     def prec_List(self, n):
         return 1000
@@ -366,59 +623,59 @@ class _LatexVisitor(ast.NodeVisitor):
         # if it is used as an index for an iterable, add 1 to the elements if
         # they are numbers
         if hasattr(n, 'is_in_index') and n.is_in_index:
-            return ', '.join([str(int(i.n) + 1)
-                              if isinstance(i, ast.Num)
-                              else self.visit(i)
-                              for i in n.elts])
-        return ('\\left('
-                + ', '.join([self.visit(element) for element in n.elts])
-                + '\\right)')
+            return self.s.txt.format(', ').join([self.s.txt.format(int(i.n) + 1)
+                                                 if isinstance(i, ast.Num)
+                                                 else self.visit(i)
+                                                 for i in n.elts])
+        return self.s.delmtd(self.s.txt.format(', ')
+                             .join([self.visit(element) for element in n.elts]))
 
     def prec_Tuple(self, n):
         return 1000
 
     # indexed items (item[4:])
     def visit_Subscript(self, n):
+        sliced = self.visit(n.value)
+        slicer = self.s.delmtd(self.visit(n.slice), 1)
         # if the iterable is kinda not simple, surround it with PARENS
         if isinstance(n.value, ast.BinOp) or isinstance(n.value, ast.UnaryOp):
-            return (f'{{\\left({self.visit(n.value)}\\right)}}'
-                    f'_{{\\left[{self.visit(n.slice)}\\right]}}')
+            return self.s.sub.format(self.s.delmtd(sliced), slicer)
         # write the indices as subscripts
-        return f'{{{self.visit(n.value)}}}_{{\\left[{self.visit(n.slice)}\\right]}}'
+        return self.s.sub.format(sliced, slicer)
 
     def visit_Index(self, n):
         # this will be used by the tuple visitor
         n.value.is_in_index = True
         # if it is a number, add 1 to it
         if isinstance(n.value, ast.Num):
-            return str(int(n.value.n) + 1)
+            return self.s.txt.format(int(n.value.n) + 1)
         return self.visit(n.value)
 
     def visit_Slice(self, n):
         # same thing with adding one
-        lower, upper = [str(int(i.n) + 1)
+        lower, upper = [self.s.txt.format(int(i.n) + 1)
                         if isinstance(i, ast.Num)
                         else self.visit(i)
                         for i in [n.lower, n.upper]]
         # join the upper and lower limits with -
-        return self.visit(lower) + '-' + self.visit(upper)
+        return self.visit(lower) + self.s.txt.format('-') + self.visit(upper)
 
     def visit_ExtSlice(self, n):
-        return ', '.join([self.visit(s) for s in n.dims])
+        return self.s.txt.format(', ').join([self.visit(s) for s in n.dims])
 
     def visit_Str(self, n):
         # if whole string contains only word characters
         if re.match(r'\w*', n.s).span()[1] == len(n.s):
-            return format_name(n.s)
+            return self.format_name(n.s)
         # or if it seems like an equation
         elif re.search(r'[^=]=[^w]', n.s):
             try:
-                # can't use latexify because the equations may be
+                # can't use to_expr because the equations may be
                 # python illegal and latex legal like 3*4 = 5/6
                 return eqn(n.s, surr=False, vert=False)
             except SyntaxError:  # if the equation is just beyond understanding
                 pass
-        return n.s
+        return self.s.txt_math.format(n.s)
 
     def prec_Str(self, n):
         return 1000
@@ -436,29 +693,20 @@ class _LatexVisitor(ast.NodeVisitor):
         return 300
 
     def visit_Mult(self, n):
-        if self.mul_symbol == '*':
-            return '\\times'
-        elif self.mul_symbol == '.':
-            return '\\cdot'
-        return r'\,'
+        if self.mul == '*' or not self.mul or self.mul.isspace():
+            return self.s.times
+        elif self.mul == '.':
+            return self.s.cdot
+        return self.s.halfsp
 
     def prec_Mult(self, n):
         return 400
 
-    def visit_Mod(self, n):
-        return '\\bmod'
-
-    def prec_Mod(self, n):
-        return 500
-
-    def prec_Pow(self, n):
-        return 700
-
     def visit_Div(self, n):
-        if self.div_symbol == '/':
-            return '\\slash'
+        if self.div == '/':
+            return '/'
         else:
-            return '\\div'
+            return self.s.div
 
     def prec_Div(self, n):
         return 400
@@ -466,29 +714,38 @@ class _LatexVisitor(ast.NodeVisitor):
     def prec_FloorDiv(self, n):
         return 400
 
+    def prec_Pow(self, n):
+        return 700
+
+    def visit_Mod(self, n):
+        return self.s.txt_math.format(' mod ')
+
+    def prec_Mod(self, n):
+        return 500
+
     def visit_LShift(self, n):
-        return '\\operatorname{shiftLeft}'
+        return self.s.func_name('shiftLeft')
 
     def visit_RShift(self, n):
-        return '\\operatorname{shiftRight}'
+        return self.s.func_name('shiftRight')
 
     def visit_BitOr(self, n):
-        return '\\operatorname{or}'
+        return self.s.func_name('or')
 
     def visit_BitXor(self, n):
-        return '\\operatorname{xor}'
+        return self.s.func_name('xor')
 
     def visit_BitAnd(self, n):
-        return '\\operatorname{and}'
+        return self.s.func_name('and')
 
     def visit_Invert(self, n):
-        return '\\operatorname{invert}'
+        return self.s.func_name('invert')
 
     def prec_Invert(self, n):
         return 800
 
     def visit_Not(self, n):
-        return '\\neg'
+        return self.s.neg
 
     def prec_Not(self, n):
         return 800
@@ -505,25 +762,6 @@ class _LatexVisitor(ast.NodeVisitor):
     def prec_USub(self, n):
         return 800
 
-    def visit_Num(self, n):
-        number = n.n
-        if number != 0 and (abs(number) > 1000 or abs(number) < 0.1):
-            # in scientific notation
-            num_ls = f'{number:.2E}'.split('E')
-            # remove the preceding zeros and + in the powers like +07 to just 7
-            num_ls[1] = num_ls[1][0].lstrip('+') + num_ls[1][1:].lstrip('0')
-            # make them appear as powers of 10
-            return num_ls[0] + '\\left(10^{' + num_ls[1] + '}\\right)'
-        if number == int(number):
-            return str(int(number))
-        return str(round(number, 2))
-
-    def prec_Num(self, n):
-        if hasattr(n, 'is_in_power') and n.is_in_power \
-                and n.n != 0 and (abs(n.n) > 1000 or abs(n.n) < 0.1):
-            return 300
-        return 1000
-
     def generic_visit(self, n):
         return str(n)
 
@@ -531,10 +769,12 @@ class _LatexVisitor(ast.NodeVisitor):
         return 0
 
 
-def latexify(expr, mul_symbol='*', div_symbol='frac', subs=False, mat_size=DEFAULT_MAT_SIZE, working_dict=DICT):
+def to_math(expr, mul=' ', div='frac', subs=False, mat_size=DEFAULT_MAT_SIZE, working_dict=DICT, typ='latex', ital=True):
     '''
-    convert the given expr to a latex string using _LatexVisitor
+    return the representation of the expr in the appropriate syntax
     '''
+
+    syntax = select_syntax(typ)
 
     if isinstance(expr, str):
         if expr.strip():
@@ -542,39 +782,58 @@ def latexify(expr, mul_symbol='*', div_symbol='frac', subs=False, mat_size=DEFAU
         else:
             return ''
     else:
-        pt = _prep4lx(expr, mat_size)
+        pt = _prep4lx(expr, syntax, mat_size)
 
-    return _LatexVisitor(mul_symbol, div_symbol, subs, mat_size, working_dict).visit(pt)
+    return MathVisitor(mul, div, subs, mat_size, working_dict, typ, ital).visit(pt)
 
 
-def eqn(*equation_list, norm: bool = True, disp: bool = True, surr: bool = True,
-        vert: bool = True) -> str:
+def build_eqn(eq_list, disp=True, vert=True, typ='latex', srnd=True):
+    syntax = select_syntax(typ)
+    if len(eq_list) == 1:
+        if len(eq_list[0]) == 1:
+            inner = eq_list[0][0]
+        else:
+            inner = syntax.txt.format('=').join(eq_list[0])
+    else:
+        if vert and disp:
+            inner = syntax.eqarray([[syntax.txt.format('=').join(eq[:-1]),
+                                     eq[-1]] for eq in eq_list])
+        else:
+            inner = ''.join([syntax.txt.format('=').join(eq) for eq in eq_list])
+    if srnd:
+        if disp:
+            return syntax.math_disp.format(inner)
+        else:
+            return syntax.math_inln.format(inner)
+    return inner
+
+
+def eqn(*equation_list, norm=True, disp=True, srnd=True, vert=True, div='frac', mul=' ', typ='latex') -> str:
     '''main api for equations'''
 
-    equals = ' = '
-    joint = ' \\; '
+    equals = select_syntax(typ).txt.format('=')
 
-    if disp:
-        if len(equation_list) > 1:
-            surroundings = [
-                '\\begin{align}\n\\begin{split}\n', '\n\\end{split}\n\\end{align}']
-            if vert:
-                joint = '\\\\\n'
-                equals = ' &= '
-        else:
-            surroundings = ['\\begin{equation}\n', '\n\\end{equation}']
-    else:
-        surroundings = ['\\(\\displaystyle ', ' \\)']
+    # split and flatten in case there are any |, and split by =
+    equation_list = [_split(eq, last=None) for sub_eq in equation_list for eq in sub_eq.split('|')]
 
+    # prepare the segments of each equation for the syntax object in the form
+    # [['x', '5*d'], ['', '5*5'], ['', '25']] (list of lists)
+    equations = []
     if norm:
-        equations = []
-        for eq in equation_list:
-            left, right = _split(eq)
-            left = ' = '.join([latexify(e) for e in _split(left, last=False)])
-            equations.append(equals.join([left, latexify(right)]))
+        if len(equation_list) == 1:
+            eqns = [to_math(e, mul=mul, div=div, typ=typ) for e in equation_list[0]]
+            equations.append([equals.join(eqns)])
+        else:
+            for eq in equation_list:
+                # join the first if there are many to align at the last =
+                if len(eq) > 1:
+                    eq = ['=='.join(eq[:-1]), eq[-1]]
+                equations.append([to_math(e, mul=mul, div=div, typ=typ) for e in eq])
     else:
-        equations = [equals.join(_split(eq)) for eq in equation_list]
-
-    if surr:
-        return surroundings[0] + joint.join(equations) + surroundings[1]
-    return joint.join(equations)
+        if len(equation_list) == 1:
+            equations.append([equals.join(equation_list[0])])
+        else:
+            for eq in equation_list:
+                equations.append([equals.join(eq[:-1]), eq[-1]])
+    
+    return build_eqn(equations, disp, vert, typ, srnd)
