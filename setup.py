@@ -1,6 +1,6 @@
+# -{del dist\* | python %f sdist bdist_wheel}
 # -{python %f install}
 # -{twine upload dist/*}
-# -{del dist\* | python %f sdist bdist_wheel}
 """
 :copyright: (c) 2019 by K1DV5
 :license: MIT, see LICENSE for more details.
