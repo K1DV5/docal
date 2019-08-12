@@ -1,14 +1,14 @@
+# -{del dist\* | python %f sdist bdist_wheel}
 # -{python %f install}
 # -{twine upload dist/*}
-# -{python %f sdist bdist_wheel}
 """
 :copyright: (c) 2019 by K1DV5
 :license: MIT, see LICENSE for more details.
 """
 
-VERSION = '1.0.0'
-
 from setuptools import setup, find_packages
+
+VERSION = '2.0.0'
 
 with open('README.rst') as readme_file:
     readme = readme_file.read()
@@ -33,7 +33,7 @@ setup(
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
     ],
-    description="Inject Python calculations into Word and LaTeX documents with ease!",
+    description="Inject calculations into Word and LaTeX documents with ease!",
     entry_points={
         'console_scripts': [
             'docal=docal.__main__:main',
