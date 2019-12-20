@@ -1,3 +1,7 @@
 todo
 .RnD
 **/__pycache__
+build/
+dist/
+docal.egg-info/
+

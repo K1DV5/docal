@@ -102,10 +102,7 @@ def _process_options(additionals, typ):
             elif a.startswith('#'):
                 options['note'] = a[1:]
             elif a.startswith('m') and a[1:].isdigit():
-                if len(a) == 2:
-                    options['mat_size'] = int(a[1])
-                else:
-                    options['mat_size'] = (int(a[1]), int(a[2]))
+                options['mat_size'] = (int(a[1:]), int(a[1:]))
             elif a == '$':
                 options['mode'] = 'inline'
             elif a == '$$':
