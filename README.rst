@@ -89,7 +89,7 @@ Typical workflow
   .. codeblock:: shell
      docal -s [calculation-file] -i [input-file] -o [output-file]
 
-  so for example,
+so for example,
 
   .. codeblock:: shell
      docal -s calcs.py -i document.tex -o document-out.tex

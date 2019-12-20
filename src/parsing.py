@@ -167,7 +167,7 @@ class SyntaxLatex:
     'degF': '\\,^\\circ \\mathrm{F}',
     'deg': '\\,^\\circ'
     }
-        
+
     times = r'\times '
     div = r'\div '
     cdot = r'\cdot '
@@ -196,7 +196,7 @@ class SyntaxLatex:
 
     def matrix(self, elmts, full=False):
         if full:  # top level, full matrix
-            m_form = '\\begin{{matrix}}\n{}\n\end{{matrix}}'
+            m_form = '\\begin{{matrix}}\n{}\n\\end{{matrix}}'
             rows = '\\\\\n'.join(elmts)
             return self.delmtd(m_form.format(rows), 1)
         return ' & '.join(elmts)
@@ -525,7 +525,7 @@ class MathVisitor(ast.NodeVisitor):
                 # if the quantity is raised to some power and has a unit,
                 # surround it with PARENS
                 if hasattr(n, 'is_in_power') and n.is_in_power and unit and unit != '_':
-                    return self.delmtd(qty + unit)
+                    return self.s.delmtd(qty + unit)
                 return qty + unit
             except KeyError:
                 log.warning('The variable %s has not been defined.', n.id)
@@ -672,7 +672,7 @@ class MathVisitor(ast.NodeVisitor):
             try:
                 # can't use to_expr because the equations may be
                 # python illegal and latex legal like 3*4 = 5/6
-                return eqn(n.s, surr=False, vert=False)
+                return eqn(n.s, srnd=False, vert=False)
             except SyntaxError:  # if the equation is just beyond understanding
                 pass
         return self.s.txt_math.format(n.s)
@@ -835,5 +835,5 @@ def eqn(*equation_list, norm=True, disp=True, srnd=True, vert=True, div='frac', 
         else:
             for eq in equation_list:
                 equations.append([equals.join(eq[:-1]), eq[-1]])
-    
+
     return build_eqn(equations, disp, vert, typ, srnd)

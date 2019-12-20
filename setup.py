@@ -1,6 +1,6 @@
-# -{del dist\* | python %f sdist bdist_wheel}
 # -{python %f install}
 # -{twine upload dist/*}
+# -{del dist\* | python %f sdist bdist_wheel}
 """
 :copyright: (c) 2019 by K1DV5
 :license: MIT, see LICENSE for more details.
@@ -45,9 +45,9 @@ setup(
     keywords='docal',
     name='docal',
     packages=find_packages(include=['docal']),
-    setup_requires=setup_requirements,
-    test_suite='tests',
-    tests_require=test_requirements,
+    # setup_requires=setup_requirements,
+    # test_suite='tests',
+    # tests_require=test_requirements,
     url='https://github.com/K1DV5/docal',
     version=VERSION,
     zip_safe=False,
