@@ -3,8 +3,6 @@ docal
 
 [![image](https://img.shields.io/pypi/v/docal.svg)](https://pypi.python.org/pypi/docal)
 
-> [![Documentation Status](https://readthedocs.org/projects/docal/badge/?version=latest)](https://docal.readthedocs.io/en/latest/?badge=latest)
-
 Inject Python calculations into Word and LaTeX documents with ease!
 
 - Free software: MIT license
@@ -43,9 +41,9 @@ at all, you should go to [Python\'s homepage](https://www.python.org)
 and install it, making sure to check the box \"add python to path\"
 during installation.
 
-If you want to work with word documents, you should have [Pandoc
-\<https://pandoc.org\>]{.title-ref} installed on your system (and in
-your path). Because docal internally only works with tex files and when
+If you want to work with word documents, you should have
+[Pandoc](https://pandoc.org) installed on your system (and in
+your PATH). Because docal internally only works with tex files and when
 a word file is given, it internally converts it to tex, modifies it and
 converts it back to word, using pandoc.
 
@@ -81,7 +79,7 @@ Usage
 - The tool is invoked with the following command:
 
   ```shell
-  docal \[calculation-file\] -i \[input-file\] -o \[output-file\]
+  docal [calculation-file] -i [input-file] -o [output-file]
   ```
 
   so for example,
@@ -174,18 +172,23 @@ from math import *
 
 #foo
 
-# The first side of the first triangle is x_1 = 5 #m # and the
-second, y_1 = 6 #m # Therefore the length of the hypotenuse will
-be, z_1 = sqrt(x_1**2 + y_1**2) #m
+# The first side of the first triangle is
+x_1 = 5 #m
+# and the second,
+y_1 = 6 #m
+# Therefore the length of the hypotenuse will be,
+z_1 = sqrt(x_1**2 + y_1**2) #m
 
 #bar
 
-# Now the second triangle has sides that have lengths of x_2 = 3
-y_2 = 4 # and therefore has a hypotenuse of z_2 = sqrt(x_2**2 +
-y_2**2) #m,13
+# Now the second triangle has sides that have lengths of
+x_2 = 3
+y_2 = 4
+# and therefore has a hypotenuse of
+z_2 = sqrt(x_2**2 + y_2**2) #m,13
 
-# Then, we can say that the hypotenuse of the first triangle which is
-#z_1 long # is longer than that of the second which is #z_2 long.
+# Then, we can say that the hypotenuse of the first triangle which is #z_1 long
+# is longer than that of the second which is #z_2 long.
 ```
 
 Now, If we run the command 
