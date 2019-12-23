@@ -534,20 +534,36 @@ class MathVisitor(ast.NodeVisitor):
     def prec_Name(self, n):
         return 1000
 
-    def visit_Num(self, n):
-        number = n.n
-        if number != 0 and (abs(number) > 1000 or abs(number) < 0.1):
-            # in scientific notation
-            num_ls = f'{number:.3E}'.split('E')
-            # remove the preceding zeros and + in the powers like +07 to just 7
-            num_ls[1] = num_ls[1][0].lstrip('+') + num_ls[1][1:].lstrip('0')
-            # make them appear as powers of 10
-            return self.s.txt.format(num_ls[0]) + self.s.delmtd(self.s.sup.format(self.s.txt.format(10), self.s.txt.format(num_ls[1])))
-        if number == int(number):
-            return self.s.txt.format(int(number))
-        return self.s.txt.format(round(number, 3))
+    def visit_Constant(self, n):
+        kind = type(n.value)
+        if kind == int:
+            n.value = n.value
+            if n.value != 0 and (abs(n.value) > 1000 or abs(n.value) < 0.1):
+                # in scientific notation
+                num_ls = f'{n.value:.3E}'.split('E')
+                # remove the preceding zeros and + in the powers like +07 to just 7
+                num_ls[1] = num_ls[1][0].lstrip('+') + num_ls[1][1:].lstrip('0')
+                # make them appear as powers of 10
+                return self.s.txt.format(num_ls[0]) + self.s.delmtd(self.s.sup.format(self.s.txt.format(10), self.s.txt.format(num_ls[1])))
+            if n.value == int(n.value):
+                return self.s.txt.format(int(n.value))
+            return self.s.txt.format(round(n.value, 3))
+        elif kind == str:
+            # if whole string contains only word characters
+            if re.match(r'\w*', n.value).span()[1] == len(n.value):
+                return self.format_name(n.value)
+            # or if it seems like an equation
+            elif re.search(r'[^=]=[^w]', n.value):
+                try:
+                    # can't use to_expr because the equations may be
+                    # python illegal and latex legal like 3*4 = 5/6
+                    return eqn(n.value, srnd=False, vert=False)
+                except SyntaxError:  # if the equation is just beyond understanding
+                    pass
+            return self.s.txt_math.format(n.value)
+        return str(n.value)
 
-    def prec_Num(self, n):
+    def prec_Constant(self, n):
         if hasattr(n, 'is_in_power') and n.is_in_power \
                 and n.n != 0 and (abs(n.n) > 1000 or abs(n.n) < 0.1):
             return 300
@@ -573,7 +589,9 @@ class MathVisitor(ast.NodeVisitor):
                 tmp_right = self.visit_Name(n.right, True)
             elif isinstance(n.right, ast.Attribute):
                 tmp_right = self.visit_Attribute(n.right, True)
-
+        # to surround with parens if it has units
+        if isinstance(n.op, ast.Pow):
+            n.left.is_in_power = True
         div_and_frac = self.div == 'frac' and isinstance(n.op, ast.Div)
         if self.prec(n.op) > self.prec(n.left) and not div_and_frac:
             left = self.s.delmtd(self.visit(n.left))
@@ -663,23 +681,6 @@ class MathVisitor(ast.NodeVisitor):
     def visit_ExtSlice(self, n):
         return self.s.txt.format(', ').join([self.visit(s) for s in n.dims])
 
-    def visit_Str(self, n):
-        # if whole string contains only word characters
-        if re.match(r'\w*', n.s).span()[1] == len(n.s):
-            return self.format_name(n.s)
-        # or if it seems like an equation
-        elif re.search(r'[^=]=[^w]', n.s):
-            try:
-                # can't use to_expr because the equations may be
-                # python illegal and latex legal like 3*4 = 5/6
-                return eqn(n.s, srnd=False, vert=False)
-            except SyntaxError:  # if the equation is just beyond understanding
-                pass
-        return self.s.txt_math.format(n.s)
-
-    def prec_Str(self, n):
-        return 1000
-
     def visit_Sub(self, n):
         return '-'
 
@@ -766,7 +767,7 @@ class MathVisitor(ast.NodeVisitor):
         return str(n)
 
     def generic_prec(self, n):
-        return 0
+        return 1000
 
 
 def to_math(expr, mul=' ', div='frac', subs=False, mat_size=DEFAULT_MAT_SIZE, working_dict=DICT, typ='latex', ital=True):
