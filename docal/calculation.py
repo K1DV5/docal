@@ -8,7 +8,7 @@ module and returns the procedure of the calculations
 import ast
 import logging
 from .document import DICT
-from .parsing import to_math, eqn, DEFAULT_MAT_SIZE, UNIT_PF, select_syntax, build_eqn, _split
+from .parsing import to_math, eqn, UNIT_PF, select_syntax, build_eqn, _split
 
 log = logging.getLogger(__name__)
 
@@ -52,6 +52,7 @@ def _calculate(expr, options: dict, working_dict=DICT, mul='*', div='/', typ='la
             result = [result[0], result[2]]
         else:
             result = list(dict.fromkeys(result))
+    syntax = select_syntax(typ)
     # detect if the user is trying to give a different unit and give warning
     if type(expr) == str:
         if options['unit']:
@@ -67,7 +68,6 @@ def _calculate(expr, options: dict, working_dict=DICT, mul='*', div='/', typ='la
         else:
             options['unit'] = unitize(expr)
     if options['unit'] and options['unit'] != '_':
-        syntax = select_syntax(typ)
         unit_lx = syntax.txt.format(syntax.halfsp) + to_math(options['unit'],
                                                              div='/',
                                                              working_dict=working_dict,
@@ -75,24 +75,17 @@ def _calculate(expr, options: dict, working_dict=DICT, mul='*', div='/', typ='la
                                                              ital=False)
     else:
         unit_lx = ''
-    result[-1] += unit_lx + options['note']
+    
+    result[-1] += unit_lx
+    if (options['note'] is not None):
+        result[-1] += syntax.txt.format(syntax.halfsp) + syntax.txt_math.format(options["note"])
 
     return result
 
 
-def _process_options(additionals, typ):
+def _process_options(additionals, defaults: dict):
 
-    syntax = select_syntax(typ)
-
-    options = {
-        'steps': [],
-        'mat_size': DEFAULT_MAT_SIZE,
-        'unit': '',
-        'mode': 'default',
-        'vert': True,
-        'note': '',
-        'hidden': False
-    }
+    options = {}
 
     if additionals:
         for a in [a.strip() for a in additionals.split(',')]:
@@ -122,10 +115,8 @@ def _process_options(additionals, typ):
                 else:
                     options['unit'] = a
 
-    if options['note']:
-        options['note'] = syntax.txt.format(syntax.halfsp) + syntax.txt_math.format(options["note"])
-
-    return options
+    # merge the options, with the specific one taking precedence
+    return {**defaults, **options}
 
 
 def _assort_input(input_str):
@@ -162,11 +153,10 @@ def cal(input_str: str, working_dict=DICT, mul='*', div='frac', typ='latex') -> 
     and return all the procedures
 
     '''
-    syntax = select_syntax(typ)
     var_name, unp_vars, expr, additionals = _assort_input(input_str) \
         if type(input_str) == str \
         else (input_str[0], None, input_str[1], input_str[2])
-    options = _process_options(additionals, typ)
+    options = _process_options(additionals, working_dict['__DOCAL_OPTIONS__'])
     result = _calculate(expr, options, working_dict, mul, div, typ=typ)
     if options['mode'] == 'inline':
         displ = False

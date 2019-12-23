@@ -39,8 +39,8 @@ try:
     from __main__ import __dict__ as DICT
 except ImportError:
     DICT = {}
-from .calculation import cal
-from .parsing import UNIT_PF, eqn, to_math, build_eqn, select_syntax, _parens_balanced
+from .calculation import cal, _process_options
+from .parsing import UNIT_PF, eqn, to_math, build_eqn, select_syntax, _parens_balanced, DEFAULT_MAT_SIZE
 
 DEFAULT_FILE = 'Untitled.tex'
 # the tag pattern
@@ -475,6 +475,17 @@ class calculations:
         # for temp saving states
         self.temp_var = {}
         self.working_dict = working_dict
+        # default calculation options
+        self.default_options = {
+                    'steps': [],
+                    'mat_size': DEFAULT_MAT_SIZE,
+                    'unit': '',
+                    'mode': 'default',
+                    'vert': True,
+                    'note': None,
+                    'hidden': False
+                }
+        self.working_dict['__DOCAL_OPTIONS__'] = self.default_options
 
     def process(self, what, typ='python'):
         if typ == 'python':
@@ -696,6 +707,10 @@ class calculations:
                     for v in variables:
                         if v + UNIT_PF in self.working_dict:
                             del self.working_dict[v + UNIT_PF]
+            elif part[1] == 'options':
+                # set options for calculations that follow
+                self.working_dict['__DOCAL_OPTIONS__'] = \
+                        _process_options(part[0], self.default_options)
         return processed
 
     def _contin_type(self, accumul: str, line: str) -> bool:
@@ -731,6 +746,8 @@ class calculations:
                     return (part.lstrip()[2:], 'real-comment')
                 else:
                     return ('', 'comment')
+            elif part.lstrip().startswith('#@'):
+                return (part.lstrip()[2:], 'options')
             elif not part:
                 return ('', 'comment')
             else:
