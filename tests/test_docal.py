@@ -2,7 +2,6 @@
 import sys
 
 sys.path.append('..')
-import src
 from os import path
 from subprocess import run
 from docal import document, parsing
@@ -42,5 +41,8 @@ def test_latexify():
         file.write(template.replace('#eqn', out[0][1][1]))
     tex_path = path.join(path.dirname(path.abspath(__file__)), 'tex/tt.tex')
     run(['python', 'D:/Documents/Code/.dotfiles/misc/do.py', tex_path])
+
+def test_process():
+    proc = calculations([], 'latex', locals()).process
 
 test_latexify()

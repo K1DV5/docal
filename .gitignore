@@ -4,4 +4,5 @@ todo
 build/
 dist/
 docal.egg-info/
+tests/test
 
