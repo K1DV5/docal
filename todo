@@ -1,7 +1,9 @@
 
 todo:
-1.	add documentation
+    change readme format to markdown
+    add documentation
 
 problems:
     unnecessary parens
     unnecessary ellipsis
+
