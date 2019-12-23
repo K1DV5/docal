@@ -8,14 +8,10 @@
 
 from setuptools import setup, find_packages
 
-VERSION = '2.0.0'
+VERSION = '2.1.0'
 
 with open('README.rst') as readme_file:
     readme = readme_file.read()
-
-setup_requirements = ['pytest-runner', ]
-
-test_requirements = ['pytest', ]
 
 setup(
     author="Kidus Adugna",
@@ -42,9 +38,6 @@ setup(
     keywords='docal',
     name='docal',
     packages=['docal'],
-    # setup_requires=setup_requirements,
-    # test_suite='tests',
-    # tests_require=test_requirements,
     url='https://github.com/K1DV5/docal',
     version=VERSION,
     zip_safe=False,
