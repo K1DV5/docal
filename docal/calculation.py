@@ -23,7 +23,7 @@ DERIVED = {
 DERIVED = {u: ast.parse(DERIVED[u]).body[0].value for u in DERIVED}
 
 
-def _calculate(expr, options: dict, working_dict=DICT, mul='*', div='/', typ='latex'):
+def _calculate(expr, options: dict, working_dict=DICT, mul=' ', div='/', typ='latex'):
     '''carryout the necesary calculations and assignments'''
 
     def lx_args(ex, subs=None):
@@ -147,7 +147,7 @@ def _assort_input(input_str):
     return var_name, unp_vars, expression, additionals
 
 
-def cal(input_str: str, working_dict=DICT, mul='*', div='frac', typ='latex') -> str:
+def cal(input_str: str, working_dict=DICT, mul=' ', div='frac', typ='latex') -> str:
     '''
     evaluate all the calculations, carry out the appropriate assignments,
     and return all the procedures

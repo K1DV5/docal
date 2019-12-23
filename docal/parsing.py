@@ -608,8 +608,8 @@ class MathVisitor(ast.NodeVisitor):
             no_need = (not self.mul or self.mul.isspace()) and \
                     not any([isinstance(tmp_right, ast.BinOp)
                              and isinstance(tmp_right.op, ast.Pow)
-                             and isinstance(tmp_right.left, ast.Num),
-                             isinstance(tmp_right, ast.Num)])
+                             and isinstance(tmp_right.left, ast.Constant),
+                             isinstance(tmp_right, ast.Constant)])
             if no_need:
                 return left + self.s.txt.format(self.s.halfsp) + right
         elif isinstance(n.op, ast.Pow):
@@ -642,7 +642,7 @@ class MathVisitor(ast.NodeVisitor):
         # they are numbers
         if hasattr(n, 'is_in_index') and n.is_in_index:
             return self.s.txt.format(', ').join([self.s.txt.format(int(i.n) + 1)
-                                                 if isinstance(i, ast.Num)
+                                                 if isinstance(i, ast.Constant)
                                                  else self.visit(i)
                                                  for i in n.elts])
         return self.s.delmtd(self.s.txt.format(', ')
@@ -665,14 +665,14 @@ class MathVisitor(ast.NodeVisitor):
         # this will be used by the tuple visitor
         n.value.is_in_index = True
         # if it is a number, add 1 to it
-        if isinstance(n.value, ast.Num):
+        if isinstance(n.value, ast.Constant):
             return self.s.txt.format(int(n.value.n) + 1)
         return self.visit(n.value)
 
     def visit_Slice(self, n):
         # same thing with adding one
         lower, upper = [self.s.txt.format(int(i.n) + 1)
-                        if isinstance(i, ast.Num)
+                        if isinstance(i, ast.Constant)
                         else self.visit(i)
                         for i in [n.lower, n.upper]]
         # join the upper and lower limits with -
