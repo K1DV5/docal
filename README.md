@@ -22,13 +22,10 @@ Installation
 
 ### Requirements
 
-**Quick note**: in this document, shell means `cmd` (command prompt) or
-`powershell` for Windows users and `sh` or `bash` for Linux and MacOS
-users.
-
 A basic understanding of Python in general is necessary to have a smooth
-experience here. If you want to work with a little more advanvced stuff,
-like arrays and matrices, more knowledge about python is necessary.
+experience here (although you will do fine even if you don\'t).If you want to
+work with a little more advanvced stuff, like arrays and matrices, more
+knowledge about python is necessary.
 
 It must be obvious by now but you should have Python installed on your
 system. You can check that by opening your shell (see above) and typing

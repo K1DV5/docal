@@ -1,6 +1,6 @@
-# -{python %f install}
 # -{twine upload dist/*}
 # -{del dist\* | python %f sdist bdist_wheel}
+# -{python %f install}
 """
 :copyright: (c) 2019 by K1DV5
 :license: MIT, see LICENSE for more details.
@@ -10,7 +10,7 @@ from setuptools import setup, find_packages
 
 VERSION = '2.1.0'
 
-with open('README.rst') as readme_file:
+with open('README.md') as readme_file:
     readme = readme_file.read()
 
 setup(
@@ -34,6 +34,7 @@ setup(
     },
     license="MIT license",
     long_description=readme,
+    long_description_content_type='text/markdown',
     include_package_data=True,
     keywords='docal',
     name='docal',
