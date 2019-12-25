@@ -188,7 +188,7 @@ class SyntaxLatex:
         return fr'\{acc}{{{base}}}'
 
     def prime(self, base, prime):
-        return f'{{{base}}}{prime}'
+        return f'{{{base}}}{PRIMES[prime]}'
 
     def delmtd(self, contained, kind=0):
         kinds = ['()', '[]', '{}', ('\\lfloor', '\\rfloor')]
@@ -354,11 +354,12 @@ def _fit_matrix(matrix, syn_obj, max_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
 
 class MathVisitor(ast.NodeVisitor):
 
-    def __init__(self, mul, div, subs, mat_size, working_dict=DICT, typ='latex', ital=True):
+    def __init__(self, mul, div, subs, mat_size, decimal=3, working_dict=DICT, typ='latex', ital=True):
         self.mul = mul
         self.div = div
         self.subs = subs
         self.mat_size = mat_size
+        self.decimal = int(decimal)
         self.dict = working_dict
         self.s = select_syntax(typ)
         self.ital = ital
@@ -519,7 +520,7 @@ class MathVisitor(ast.NodeVisitor):
                 qty = self.visit(_prep4lx(self.dict[n.id], self.s, self.mat_size))
                 typ = 'word' if isinstance(self.s, SyntaxWord) else 'latex'
                 unit = self.s.txt.format(self.s.halfsp) + \
-                    to_math(self.dict[n.id + UNIT_PF], div="/", ital=False, typ=typ) \
+                    to_math(self.dict[n.id + UNIT_PF], div="/", ital=False, decimal=self.decimal, typ=typ) \
                     if n.id + UNIT_PF in self.dict.keys() and self.dict[n.id + UNIT_PF] \
                     and self.dict[n.id + UNIT_PF] != '_' else ''
                 # if the quantity is raised to some power and has a unit,
@@ -536,18 +537,19 @@ class MathVisitor(ast.NodeVisitor):
 
     def visit_Constant(self, n):
         kind = type(n.value)
-        if kind == int:
+        if kind in [int, float]:
             n.value = n.value
             if n.value != 0 and (abs(n.value) > 1000 or abs(n.value) < 0.1):
                 # in scientific notation
-                num_ls = f'{n.value:.3E}'.split('E')
+                num_ls = (f'%.{self.decimal}E' % n.value).split('E')
+                # num_ls = f'{n.value:.3E}'.split('E')
                 # remove the preceding zeros and + in the powers like +07 to just 7
                 num_ls[1] = num_ls[1][0].lstrip('+') + num_ls[1][1:].lstrip('0')
                 # make them appear as powers of 10
                 return self.s.txt.format(num_ls[0]) + self.s.delmtd(self.s.sup.format(self.s.txt.format(10), self.s.txt.format(num_ls[1])))
             if n.value == int(n.value):
                 return self.s.txt.format(int(n.value))
-            return self.s.txt.format(round(n.value, 3))
+            return self.s.txt.format(round(n.value, self.decimal))
         elif kind == str:
             # if whole string contains only word characters
             if re.match(r'\w*', n.value).span()[1] == len(n.value):
@@ -557,7 +559,7 @@ class MathVisitor(ast.NodeVisitor):
                 try:
                     # can't use to_expr because the equations may be
                     # python illegal and latex legal like 3*4 = 5/6
-                    return eqn(n.value, srnd=False, vert=False)
+                    return eqn(n.value, srnd=False, vert=False, decimal=self.decimal)
                 except SyntaxError:  # if the equation is just beyond understanding
                     pass
             return self.s.txt_math.format(n.value)
@@ -770,7 +772,7 @@ class MathVisitor(ast.NodeVisitor):
         return 1000
 
 
-def to_math(expr, mul=' ', div='frac', subs=False, mat_size=DEFAULT_MAT_SIZE, working_dict=DICT, typ='latex', ital=True):
+def to_math(expr, mul=' ', div='frac', subs=False, mat_size=DEFAULT_MAT_SIZE, decimal=3, working_dict=DICT, typ='latex', ital=True):
     '''
     return the representation of the expr in the appropriate syntax
     '''
@@ -785,7 +787,7 @@ def to_math(expr, mul=' ', div='frac', subs=False, mat_size=DEFAULT_MAT_SIZE, wo
     else:
         pt = _prep4lx(expr, syntax, mat_size)
 
-    return MathVisitor(mul, div, subs, mat_size, working_dict, typ, ital).visit(pt)
+    return MathVisitor(mul, div, subs, mat_size, decimal, working_dict, typ, ital).visit(pt)
 
 
 def build_eqn(eq_list, disp=True, vert=True, typ='latex', srnd=True):
@@ -809,7 +811,7 @@ def build_eqn(eq_list, disp=True, vert=True, typ='latex', srnd=True):
     return inner
 
 
-def eqn(*equation_list, norm=True, disp=True, srnd=True, vert=True, div='frac', mul=' ', typ='latex') -> str:
+def eqn(*equation_list, norm=True, disp=True, srnd=True, vert=True, div='frac', mul=' ', decimal=3, typ='latex') -> str:
     '''main api for equations'''
 
     equals = select_syntax(typ).txt.format('=')
@@ -822,14 +824,14 @@ def eqn(*equation_list, norm=True, disp=True, srnd=True, vert=True, div='frac', 
     equations = []
     if norm:
         if len(equation_list) == 1:
-            eqns = [to_math(e, mul=mul, div=div, typ=typ) for e in equation_list[0]]
+            eqns = [to_math(e, mul=mul, div=div, decimal=decimal, typ=typ) for e in equation_list[0]]
             equations.append([equals.join(eqns)])
         else:
             for eq in equation_list:
                 # join the first if there are many to align at the last =
                 if len(eq) > 1:
                     eq = ['=='.join(eq[:-1]), eq[-1]]
-                equations.append([to_math(e, mul=mul, div=div, typ=typ) for e in eq])
+                equations.append([to_math(e, mul=mul, div=div, decimal=decimal, typ=typ) for e in eq])
     else:
         if len(equation_list) == 1:
             equations.append([equals.join(equation_list[0])])

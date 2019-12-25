@@ -30,6 +30,7 @@ def _calculate(expr, options: dict, working_dict=DICT, mul=' ', div='/', typ='la
 
         return to_math(ex,
                        mat_size=options['mat_size'],
+                       decimal=options['decimal'],
                        subs=subs,
                        working_dict=working_dict,
                        mul=mul,
@@ -37,7 +38,7 @@ def _calculate(expr, options: dict, working_dict=DICT, mul=' ', div='/', typ='la
                        typ=typ)
 
     if type(expr) != str:
-        result = [to_math(e, typ=typ) for e in expr]
+        result = [to_math(e, decimal=options['decimal'], typ=typ) for e in expr]
     else:
         result = [
             lx_args(expr),
@@ -96,6 +97,8 @@ def _process_options(additionals, defaults: dict):
                 options['note'] = a[1:]
             elif a.startswith('m') and a[1:].isdigit():
                 options['mat_size'] = (int(a[1:]), int(a[1:]))
+            elif a.startswith('d') and a[1:].isdigit():
+                options['decimal'] = int(a[1:])
             elif a == '$':
                 options['mode'] = 'inline'
             elif a == '$$':

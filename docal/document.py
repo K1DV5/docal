@@ -483,7 +483,8 @@ class calculations:
                     'mode': 'default',
                     'vert': True,
                     'note': None,
-                    'hidden': False
+                    'hidden': False,
+                    'decimal': 3
                 }
         self.working_dict['__DOCAL_OPTIONS__'] = self.default_options
 
