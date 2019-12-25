@@ -1,21 +1,21 @@
 import sys
 
-sys.path.append('..')
+# the local will take precedence
+sys.path.insert(1, '..')
 
+from subprocess import run
 import docal
 from docal import document
+from os import path
 
-tex = 'test/t.tex'
+tex = path.abspath('./test/t.tex')
 d = document(tex, tex)
 
 d.send(r'''
-#@ kg, #the answer
 x = 5
-y = 5*x
-#@
-v = 45
+# then
 ''')
 
 d.write()
 
-
+run(['do.bat', tex])

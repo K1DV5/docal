@@ -840,3 +840,59 @@ def eqn(*equation_list, norm=True, disp=True, srnd=True, vert=True, div='frac', 
                 equations.append([equals.join(eq[:-1]), eq[-1]])
 
     return build_eqn(equations, disp, vert, typ, srnd)
+
+
+class Comment():
+    '''polyfill for ast's missing comments'''
+    def __init__(self, line, lineno):
+        self.kind = None
+        self.content = None
+        self.lineno = lineno
+        self.end_lineno = lineno
+        self.get_props(line)
+
+    def get_props(self, line):
+        tag_match = PATTERN.match(line.strip())
+        if tag_match and tag_match.group(0) == line.strip():
+            self.kind = 'tag'
+            self.content = line[1:].strip()
+        elif line.lstrip().startswith('##'):
+            self.kind = 'comment'
+            self.content = line.lstrip()[2:]
+        elif line.lstrip().startswith('#@'):
+            self.kind = 'options'
+            self.content = line[2:].strip()
+        elif line:
+            self.kind = 'text'
+            self.content = line[1:].strip()
+
+    def __repr__(self):
+        return f'Comment({self.kind}, {self.content})'
+
+def _get_comments(lines, lineno, comments=True):
+    '''get comments from string'''
+    comments = []
+    for line in lines:
+        comment = Comment(line, lineno)
+        if comment.content is not None:
+            comments.append(Comment(line, lineno))
+        lineno += 1
+    return comments
+
+
+def _get_parts(code):
+    '''parse code into ast including comments'''
+    parts = ast.parse(code).body
+    lines = [0] + code.split('\n')
+
+    collect = []
+    line = 1
+    for p in parts:
+        collect += _get_comments(lines[line: p.lineno], line)
+        line = p.end_lineno + 1
+        if isinstance(p, ast.Assign):
+            p.options = lines[p.end_lineno].rsplit('#', 1)[-1]
+        collect.append(p)
+    collect += _get_comments(lines[line:], line)
+    return collect
+

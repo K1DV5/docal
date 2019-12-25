@@ -40,7 +40,7 @@ try:
 except ImportError:
     DICT = {}
 from .calculation import cal, _process_options
-from .parsing import UNIT_PF, eqn, to_math, build_eqn, select_syntax, _parens_balanced, DEFAULT_MAT_SIZE
+from .parsing import UNIT_PF, eqn, to_math, build_eqn, select_syntax, _parens_balanced, DEFAULT_MAT_SIZE, _get_parts, Comment
 
 DEFAULT_FILE = 'Untitled.tex'
 # the tag pattern
@@ -686,105 +686,36 @@ class calculations:
     def process_content(self, parts):
         tag = self.current_tag
         processed = []
-        for part in self._split_module(parts):
-            if part[1] == 'tag':
-                tag = self.current_tag = part[0]
-                logger.info('[Change tag] #%s', tag)
-            elif part[1] in ['assign', 'expr']:
-                processed.append(
-                    (tag, self._process_assignment(part[0])))
-            elif part[1] == 'comment':
-                for part in self._process_comment(part[0]):
-                    processed.append((tag, part))
-            elif part[1] == 'stmt':
+        for part in _get_parts(parts):
+            if isinstance(part, Comment):
+                if part.kind == 'tag':
+                    tag = self.current_tag = part[0]
+                    logger.info('[Change tag] #%s', tag)
+                elif part.kind == 'text':
+                    for line in self._process_comment(part.content):
+                        processed.append((tag, line))
+                elif part.kind == 'options':
+                    # set options for calculations that follow
+                    self.working_dict['__DOCAL_OPTIONS__'] = \
+                            _process_options(part[0], self.default_options)
+            elif isinstance(part, ast.Assign):
+                processed.append((tag, self._process_assignment(part)))
+            elif isinstance(part, ast.Expr):
+                processed.append((tag, self._process_assignment(part)))
+            else:
                 # if it does not appear like an equation or a comment,
                 # just execute it
-                logger.info('[Executing] %s', part[0])
-                exec(part[0], self.working_dict)
-                if part[0].startswith('del '):
+                logger.info('[Executing] line %s', part.lineno)
+                co = compile(ast.Module([part], []), '<calculation>', 'exec')
+                exec(co, globals())
+                if isinstance(part, ast.Delete):
                     # also delete associated unit strings
-                    variables = [v.strip()
-                                 for v in part[0][len('del '):].split(',')]
-                    for v in variables:
-                        if v + UNIT_PF in self.working_dict:
-                            del self.working_dict[v + UNIT_PF]
-            elif part[1] == 'options':
-                # set options for calculations that follow
-                self.working_dict['__DOCAL_OPTIONS__'] = \
-                        _process_options(part[0], self.default_options)
+                    for t in part.targets:
+                        unit_var = t.id + UNIT_PF
+                        if unit_var in self.working_dict:
+                            del self.working_dict[unit_var]
+
         return processed
-
-    def _contin_type(self, accumul: str, line: str) -> bool:
-        '''
-        determine whether the line is part of a multi line part
-        (for _split_module)
-        '''
-        if accumul and any([
-            not _parens_balanced(accumul),
-            accumul.rstrip()[-1] in ['\\', ':'],
-            # or the line is indented and not a comment
-            line and line[0].isspace() and not line.lstrip().startswith('#'),
-            not line.strip()
-        ]):
-            return 'contin'
-        elif (not _parens_balanced(line) or
-                line.strip() and not line.lstrip().startswith(
-                    '#') and line.rstrip()[-1] in ['\\', ':']):
-            return 'begin'
-
-    def _identify_part(self, part, comments):
-        '''get the type of a string piece (assignment, expression, etc.)
-        (for _split_module)
-        '''
-
-        part_ast = ast.parse(part).body
-        if not part_ast:
-            tag_match = PATTERN.match(part.strip())
-            if tag_match and tag_match.group(0) == part.strip():
-                return (part.strip()[1:], 'tag')
-            elif part.lstrip().startswith('##'):
-                if comments:
-                    return (part.lstrip()[2:], 'real-comment')
-                else:
-                    return ('', 'comment')
-            elif part.lstrip().startswith('#@'):
-                return (part.lstrip()[2:], 'options')
-            elif not part:
-                return ('', 'comment')
-            else:
-                return (part.lstrip()[1:], 'comment')
-        elif isinstance(part_ast[0], ast.Assign):
-            return (part, 'assign')
-        elif isinstance(part_ast[0], ast.Expr):
-            return (part, 'expr')
-
-        return (part, 'stmt')
-
-    def _split_module(self, module: str, char='\n', comments=False):
-        '''
-        split the given script string with the character/str using the rules
-        '''
-        returned = []
-        # incomplete lines accululation, stored as [<accumululated>, <contin type>]
-        accumul = ['', None]
-        for part in module.split('\n'):
-            contin_type = self._contin_type(accumul[0], part)
-            if contin_type:
-                if contin_type == 'contin':
-                    accumul[0] += '\n' + part
-                else:
-                    if accumul[0]:
-                        returned.append(self._identify_part(accumul[0], comments))
-                    accumul = [part, contin_type]
-            else:
-                if accumul[0]:
-                    returned.append(self._identify_part(accumul[0], comments))
-                    accumul[0] = ''
-                returned.append(self._identify_part(part, comments))
-        if accumul[0]:
-            returned.append(self._identify_part(accumul[0], comments))
-
-        return returned
 
     def _format_value(self, var, srnd=True):
         syntax = select_syntax(self.doc_type)
@@ -841,7 +772,7 @@ class calculations:
         '''
         evaluate assignments and convert to latex form
         '''
-        logger.info('[Processing] %s', line)
+        logger.info('[Processing] line %s', line.lineno)
         # the cal function will execute it so no need for exec
         result = cal(line, self.working_dict, typ=self.doc_type)
         return (result[1], result[0])
