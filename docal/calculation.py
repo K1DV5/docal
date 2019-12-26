@@ -37,13 +37,16 @@ def _calculate(expr, options: dict, working_dict=DICT, mul=' ', div='/', typ='la
                        div=div,
                        typ=typ)
 
-    if type(expr) != str:
+    if type(expr) == list:
         result = [to_math(e, decimal=options['decimal'], typ=typ) for e in expr]
     else:
+        value = eval(expr if type(expr) == str else
+                     compile(ast.Expression(expr), '<calculation>', 'eval'),
+                     working_dict)
         result = [
             lx_args(expr),
             lx_args(expr, subs=True),
-            lx_args(eval(expr, working_dict))
+            lx_args(value)
         ]
 
     if options['steps']:
@@ -122,45 +125,17 @@ def _process_options(additionals, defaults: dict):
     return {**defaults, **options}
 
 
-def _assort_input(input_str):
-    '''look above'''
-
-    # only split once, because the # char is used for notes below
-    input_parts = [part.strip()
-                   for part in _split(input_str.strip(), '#', last=False)]
-    if len(input_parts) == 1:
-        additionals = ''
-        equation = input_str
-    else:
-        equation = input_parts[0]
-        additionals = input_parts[1]
-
-    if '=' in equation:
-        var_name, expression = _split(equation)
-    else:
-        var_name, expression = None, equation
-
-    if var_name:
-        unp_vars = [n.id
-                    for n in ast.walk(ast.parse(var_name).body[0])
-                    if isinstance(n, ast.Name)]
-    else:
-        unp_vars = None
-
-    return var_name, unp_vars, expression, additionals
-
-
 def cal(input_str: str, working_dict=DICT, mul=' ', div='frac', typ='latex') -> str:
     '''
     evaluate all the calculations, carry out the appropriate assignments,
     and return all the procedures
 
     '''
-    var_name, unp_vars, expr, additionals = _assort_input(input_str) \
-        if type(input_str) == str \
-        else (input_str[0], None, input_str[1], input_str[2])
-    options = _process_options(additionals, working_dict['__DOCAL_OPTIONS__'])
-    result = _calculate(expr, options, working_dict, mul, div, typ=typ)
+    # var_name, unp_vars, expr, additionals = _assort_input(input_str) \
+    #     if type(input_str) == str \
+    #     else (input_str[0], None, input_str[1], input_str[2])
+    options = _process_options(input_str.options, working_dict['__DOCAL_OPTIONS__'])
+    result = _calculate(input_str.value, options, working_dict, mul, div, typ=typ)
     if options['mode'] == 'inline':
         displ = False
     elif options['mode'] == 'display':
@@ -173,19 +148,20 @@ def cal(input_str: str, working_dict=DICT, mul=' ', div='frac', typ='latex') -> 
 
     disp = 'disp' if displ else 'inline'
 
-    if var_name:
-        # this is an assignment/equation
-        var_lx = to_math(var_name, typ=typ)
+    if isinstance(input_str, ast.Assign):
+        var_names = [v.id for v in input_str.targets]
+        var_lx = ' = '.join([to_math(var_name, typ=typ) for var_name in input_str.targets])
 
         procedure = [[var_lx, result[0]]]
         for step in result[1:]:
             procedure.append(['', step])
 
-        if type(input_str) == str:
+        if isinstance(input_str, ast.Assign):
             # carry out normal op in main script
-            exec(input_str, working_dict)
+            co = compile(ast.Module([input_str], []), '<calculation>', 'exec')
+            exec(co, working_dict)
             # for later unit retrieval
-            for var in unp_vars:
+            for var in var_names:
                 exec(f'{var}{UNIT_PF} = "{options["unit"]}"', working_dict)
 
     else:

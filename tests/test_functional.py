@@ -6,13 +6,14 @@ sys.path.insert(1, '..')
 from subprocess import run
 import docal
 from docal import document
-from os import path
 
-tex = path.abspath('./test/t.tex')
+tex = 'test/t.tex'
 d = document(tex, tex)
 
 d.send(r'''
-x = 5
+x = 5 #kg
+y= 34*\
+x
 # then
 ''')
 

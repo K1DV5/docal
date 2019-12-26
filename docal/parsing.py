@@ -779,11 +779,12 @@ def to_math(expr, mul=' ', div='frac', subs=False, mat_size=DEFAULT_MAT_SIZE, de
 
     syntax = select_syntax(typ)
 
-    if isinstance(expr, str):
-        if expr.strip():
-            pt = ast.parse(expr.strip()).body[0]
-        else:
+    if isinstance(expr, ast.AST):
+        pt = expr
+    elif isinstance(expr, str):
+        if not expr.strip():
             return ''
+        pt = ast.parse(expr.strip()).body[0]
     else:
         pt = _prep4lx(expr, syntax, mat_size)
 
@@ -891,7 +892,7 @@ def _get_parts(code):
         collect += _get_comments(lines[line: p.lineno], line)
         line = p.end_lineno + 1
         if isinstance(p, ast.Assign):
-            p.options = lines[p.end_lineno].rsplit('#', 1)[-1]
+            p.options = lines[p.end_lineno][p.end_col_offset:].strip()[1:]
         collect.append(p)
     collect += _get_comments(lines[line:], line)
     return collect
