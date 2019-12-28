@@ -47,10 +47,11 @@ def _calculate(expr: ast.AST, options: dict, working_dict: dict, mul=' ', div='/
 
     if options['steps']:
         result = [result[s] for s in options['steps'] if 0 <= s <= 2]
-    # else:  # remove repeated steps (retaining order)
-    elif hasattr(expr, 'value') and (isinstance(expr.value, ast.Name)
-                                     or not isinstance(expr.value, ast.BinOp)
-                                     or not isinstance(expr.value, ast.UnaryOp)):
+    # remove repeated steps (retaining order)
+    elif isinstance(expr, ast.Constant) or callable(value):
+        result = [result[2]]
+    elif isinstance(expr, ast.Name) or (not isinstance(expr, ast.BinOp)
+                                        and not isinstance(expr, ast.UnaryOp)):
         result = [result[0], result[2]]
     else:
         result = list(dict.fromkeys(result))
