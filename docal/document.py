@@ -40,7 +40,7 @@ try:
 except ImportError:
     DICT = {}
 from .calculation import cal, _process_options
-from .parsing import UNIT_PF, eqn, to_math, build_eqn, select_syntax, _parens_balanced, DEFAULT_MAT_SIZE, _get_parts, Comment
+from .parsing import UNIT_PF, eqn, to_math, build_eqn, select_syntax, DEFAULT_MAT_SIZE, _get_parts, Comment
 
 DEFAULT_FILE = 'Untitled.tex'
 # the tag pattern
@@ -484,7 +484,9 @@ class calculations:
                     'vert': True,
                     'note': None,
                     'hidden': False,
-                    'decimal': 3
+                    'decimal': 3,
+                    'result' : None,
+                    'newlines': 0
                 }
         self.working_dict['__DOCAL_OPTIONS__'] = self.default_options
 
@@ -683,7 +685,7 @@ class calculations:
         correct = self.xl_func_pat.sub(lambda x: x.group(0).lower(), correct)
         return correct.replace('^', '**')
 
-    def process_content(self, parts):
+    def process_content(self, parts): # exported
         tag = self.current_tag
         processed = []
         for part in _get_parts(parts):
@@ -697,7 +699,7 @@ class calculations:
                 elif part.kind == 'options':
                     # set options for calculations that follow
                     self.working_dict['__DOCAL_OPTIONS__'] = \
-                            _process_options(part[0], self.default_options)
+                            _process_options(part.content, self.default_options)
             elif isinstance(part, ast.Assign):
                 processed.append((tag, self._process_assignment(part)))
             elif isinstance(part, ast.Expr):
@@ -838,10 +840,6 @@ class document:
             logger.setLevel(getattr(logging, log_level.upper()))
         # the calculations corresponding to the tags
         self.contents = {}
-        # temp storage for assignment statements where there are unmatched parens
-        self.incomplete_assign = ''
-        # temp storage for block statements like if and for
-        self.incomplete_stmt = ''
 
     def send(self, content, typ='python'):
         '''add the content to the tag, which will be sent to the document.

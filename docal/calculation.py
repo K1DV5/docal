@@ -8,7 +8,7 @@ module and returns the procedure of the calculations
 import ast
 import logging
 from .document import DICT
-from .parsing import to_math, eqn, UNIT_PF, select_syntax, build_eqn, _split
+from .parsing import to_math, eqn, UNIT_PF, select_syntax, build_eqn
 
 log = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ DERIVED = {
 DERIVED = {u: ast.parse(DERIVED[u]).body[0].value for u in DERIVED}
 
 
-def _calculate(expr, options: dict, working_dict=DICT, mul=' ', div='/', typ='latex'):
+def _calculate(expr: ast.AST, options: dict, working_dict=DICT, mul=' ', div='/', typ='latex'):
     '''carryout the necesary calculations and assignments'''
 
     def lx_args(ex, subs=None):
@@ -37,17 +37,15 @@ def _calculate(expr, options: dict, working_dict=DICT, mul=' ', div='/', typ='la
                        div=div,
                        typ=typ)
 
-    if type(expr) == list:
-        result = [to_math(e, decimal=options['decimal'], typ=typ) for e in expr]
-    else:
-        value = eval(expr if type(expr) == str else
-                     compile(ast.Expression(expr), '<calculation>', 'eval'),
-                     working_dict)
-        result = [
-            lx_args(expr),
-            lx_args(expr, subs=True),
-            lx_args(value)
-        ]
+    value = eval(compile(
+        ast.Expression(expr if options['result'] is None else options['result']),
+        '<calculation>', 'eval'),
+                 working_dict)
+    result = [
+        lx_args(expr),
+        lx_args(expr, subs=True),
+        lx_args(value)
+    ]
 
     if options['steps']:
         result = [result[s] for s in options['steps'] if 0 <= s <= 2]
@@ -81,23 +79,50 @@ def _calculate(expr, options: dict, working_dict=DICT, mul=' ', div='/', typ='la
         unit_lx = ''
     
     result[-1] += unit_lx
-    if (options['note'] is not None):
-        result[-1] += syntax.txt.format(syntax.halfsp) + syntax.txt_math.format(options["note"])
+    if options['note'] is not None:
+        result[-1] += syntax.txt.format(syntax.halfsp) + syntax.txt_math.format(options['note'])
 
     return result
 
+def _parens_balanced(expr: str) -> bool:
+    '''
+    check if the pairs that must be balanced are actually balanced
+    '''
+    # those that must be matched in equations
+    parens = ['()', '[]', '{}']
+
+    return all([expr.count(p[0]) == expr.count(p[1]) for p in parens])
+
+def _split_opts(what: str) -> list:
+    '''split a given string at the main equal signs and not at the ones
+    used for other purposes like giving a kwarg'''
+
+    char = ','
+    balanced = []
+    incomplete = ''
+    for e in what.split(char):
+        if incomplete or not _parens_balanced(e):
+            incomplete += (char if incomplete else '') + e
+            if incomplete and _parens_balanced(incomplete):
+                balanced.append(incomplete.strip())
+                incomplete = ''
+        else:
+            balanced.append(e.strip())
+    return balanced
 
 def _process_options(additionals, defaults: dict):
 
     options = {}
 
     if additionals:
-        for a in [a.strip() for a in additionals.split(',')]:
+        for a in _split_opts(additionals):
             if a.isdigit():
                 options['steps'] = [int(num) - 1 for num in a]
             # only the first # is used to split the line (see above) so others
             elif a.startswith('#'):
-                options['note'] = a[1:]
+                note = a[1:].strip() # remove the hash
+                options['note'] = note[1:-1] \
+                    if note.startswith('(') and note.endswith(')') else note
             elif a.startswith('m') and a[1:].isdigit():
                 options['mat_size'] = (int(a[1:]), int(a[1:]))
             elif a.startswith('d') and a[1:].isdigit():
@@ -112,6 +137,10 @@ def _process_options(additionals, defaults: dict):
                 options['vert'] = False
             elif a == ';':
                 options['hidden'] = True
+            elif a.startswith('='):
+                options['result'] = ast.parse(a[1:]).body[0].value
+            elif set(a) == {'\\'}:
+                options['newlines'] = len(a)
             else:
                 # if it is a valid python expression, take it as a unit
                 try:
@@ -125,15 +154,12 @@ def _process_options(additionals, defaults: dict):
     return {**defaults, **options}
 
 
-def cal(input_str: str, working_dict=DICT, mul=' ', div='frac', typ='latex') -> str:
+def cal(input_str: ast.AST, working_dict=DICT, mul=' ', div='frac', typ='latex') -> str:
     '''
     evaluate all the calculations, carry out the appropriate assignments,
     and return all the procedures
 
     '''
-    # var_name, unp_vars, expr, additionals = _assort_input(input_str) \
-    #     if type(input_str) == str \
-    #     else (input_str[0], None, input_str[1], input_str[2])
     options = _process_options(input_str.options, working_dict['__DOCAL_OPTIONS__'])
     result = _calculate(input_str.value, options, working_dict, mul, div, typ=typ)
     if options['mode'] == 'inline':
@@ -156,13 +182,12 @@ def cal(input_str: str, working_dict=DICT, mul=' ', div='frac', typ='latex') -> 
         for step in result[1:]:
             procedure.append(['', step])
 
-        if isinstance(input_str, ast.Assign):
-            # carry out normal op in main script
-            co = compile(ast.Module([input_str], []), '<calculation>', 'exec')
-            exec(co, working_dict)
-            # for later unit retrieval
-            for var in var_names:
-                exec(f'{var}{UNIT_PF} = "{options["unit"]}"', working_dict)
+        # carry out normal op in main script
+        co = compile(ast.Module([input_str], []), '<calculation>', 'exec')
+        exec(co, working_dict)
+        # for later unit retrieval
+        for var in var_names:
+            exec(f'{var}{UNIT_PF} = "{options["unit"]}"', working_dict)
 
     else:
         if len(result) > 1:
@@ -175,7 +200,7 @@ def cal(input_str: str, working_dict=DICT, mul=' ', div='frac', typ='latex') -> 
     if options['hidden']:
         return ('', 'text')
 
-    output = build_eqn(procedure, displ, options['vert'], typ)
+    output = build_eqn(procedure, displ, options['vert'], typ) + '\n' * options['newlines']
 
     return (output, disp)
 
