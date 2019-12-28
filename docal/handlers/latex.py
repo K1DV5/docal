@@ -1,5 +1,8 @@
 from os import path
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_FILE = 'Untitled.tex'
 
@@ -10,60 +13,58 @@ PATTERN = re.compile(r'(?s)([^\w\\]|^)#(\w+?)(\W|$)')
 # change the actual content of the document, and works inside lines)
 SURROUNDING = ['{} {{ {}', '{} }} {}']
 
-GREEK_LETTERS = {
-    'alpha':      'α',
-    'nu':         'ν',
-    'beta':       'β',
-    'xi':         'ξ',
-    'Xi':         'Ξ',
-    'gamma':      'γ',
-    'Gamma':      'Γ',
-    'delta':      'δ',
-    'Delta':      '∆',
-    'pi':         'π',
-    'Pi':         'Π',
-    'epsilon':    'ϵ',
-    'varepsilon': 'ε',
-    'rho':        'ρ',
-    'varrho':     'ϱ',
-    'zeta':       'ζ',
-    'sigma':      'σ',
-    'Sigma':      'Σ',
-    'eta':        'η',
-    'tau':        'τ',
-    'theta':      'θ',
-    'vartheta':   'ϑ',
-    'Theta':      'Θ',
-    'upsilon':    'υ',
-    'Upsilon':    'Υ',
-    'iota':       'ι',
-    'phi':        'φ',
-    'varphi':     'ϕ',
-    'Phi':        'Φ',
-    'kappa':      'κ',
-    'chi':        'χ',
-    'lambda':     'λ',
-    'Lambda':     'Λ',
-    'psi':        'ψ',
-    'Psi':        'Ψ',
-    'mu':         'µ',
-    'omega':      'ω',
-    'Omega':      'Ω',
-    }
+GREEK_LETTERS = ['alpha',
+                 'nu',
+                 'beta',
+                 'xi',
+                 'Xi',
+                 'gamma',
+                 'Gamma',
+                 'delta',
+                 'Delta',
+                 'pi',
+                 'Pi',
+                 'epsilon',
+                 'varepsilon',
+                 'rho',
+                 'varrho',
+                 'zeta',
+                 'sigma',
+                 'Sigma',
+                 'eta',
+                 'tau',
+                 'theta',
+                 'vartheta',
+                 'Theta',
+                 'upsilon',
+                 'Upsilon',
+                 'iota',
+                 'phi',
+                 'varphi',
+                 'Phi',
+                 'kappa',
+                 'chi',
+                 'lambda',
+                 'Lambda',
+                 'psi',
+                 'Psi',
+                 'mu',
+                 'omega',
+                 'Omega',
+                 ]
 
-MATH_ACCENTS = {
-    'hat': '&#x0302;',
-    'check': '&#x030C;',
-    'breve': '&#x02D8;',
-    'acute': '&#x0301;',
-    'grave': '&#x0300;',
-    'tilde': '&#x0303;',
-    'bar': '&#x0304;',
-    'vec': '&#x20D7;',
-    'dot': '&#x0307;',
-    'ddot': '&#x0308;',
-    'dddot': '&#x20DB;',
-    }
+MATH_ACCENTS = ['hat',
+                'check',
+                'breve',
+                'acute',
+                'grave',
+                'tilde',
+                'bar',
+                'vec',
+                'dot',
+                'ddot',
+                'dddot',
+                ]
 
 PRIMES = {'prime': "'", '2prime': "''", '3prime': "'''"}
 
@@ -143,10 +144,9 @@ class handler:
 
     syntax = syntax()
 
-    def __init__(self, infile, to_clear, logger):
+    def __init__(self, infile, to_clear):
 
         self.to_clear = to_clear
-        self.logger = logger
         if infile:
             self.infile = self.outfile = infile
             with open(self.infile, encoding='utf-8') as file:
@@ -210,7 +210,7 @@ class handler:
                         + end)
 
             return start + result + end
-        self.logger.error(f"There is nothing to send to #{tag}.")
+        logger.error(f"There is nothing to send to #{tag}.")
         return start + '#' + tag + end
 
     def write(self, outfile=None, values={}):
@@ -223,7 +223,7 @@ class handler:
                     if tag in self.tags:
                         self.calc_tags.append(tag)
                     else:
-                        self.logger.error(f'#{tag} not found in the document.')
+                        logger.error(f'#{tag} not found in the document.')
                 if path.abspath(self.outfile) == path.abspath(self.infile):
                     self.file_contents = self._subs_in_place(values)
                 else:
@@ -233,7 +233,7 @@ class handler:
                     '\n'.join([v[1] for v in val]) for val in values.values()
                 ])
 
-        self.logger.info('[writing file] %s', self.outfile)
+        logger.info('[writing file] %s', self.outfile)
         with open(self.outfile, 'w', encoding='utf-8') as file:
             file.write(self.file_contents)
 

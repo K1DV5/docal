@@ -68,12 +68,12 @@ class document:
         if infile:
             infile = path.abspath(infile)
             basename, ext = path.splitext(infile)
-            self.document_file = handler(infile, to_clear, logger)
+            self.document_file = handler(infile, to_clear)
             # the calculations object that will convert given things to a list and store
             self.tags = self.document_file.tags
         elif outfile:
             ext = path.splitext(outfile)[1]
-            self.document_file = handler(None, self.to_clear, logger)
+            self.document_file = handler(None, self.to_clear)
             self.tags = []
         else:
             raise ValueError('Need to specify at least one document')

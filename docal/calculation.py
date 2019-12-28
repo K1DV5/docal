@@ -176,7 +176,8 @@ def cal(input_str: ast.AST, working_dict={}, mul=' ', div='frac', syntax=None) -
     if options['hidden']:
         return ('', 'text')
 
-    output = build_eqn(procedure, displ, options['vert'], syntax) + '\n' * options['newlines']
+    joint = '' if isinstance(input_str.value, ast.Lambda) else '='
+    output = build_eqn(procedure, displ, options['vert'], syntax, joint=joint) + '\n' * options['newlines']
 
     return (output, disp)
 

@@ -559,18 +559,18 @@ def to_math(expr, mul=' ', div='frac', subs=False, mat_size=DEFAULT_MAT_SIZE, de
     return MathVisitor(mul, div, subs, mat_size, decimal, working_dict, syntax, ital).visit(pt)
 
 
-def build_eqn(eq_list, disp=True, vert=True, syntax=None, srnd=True):
+def build_eqn(eq_list, disp=True, vert=True, syntax=None, srnd=True, joint='='):
     if len(eq_list) == 1:
         if len(eq_list[0]) == 1:
             inner = eq_list[0][0]
         else:
-            inner = syntax.txt.format('=').join(eq_list[0])
+            inner = syntax.txt.format(joint).join(eq_list[0])
     else:
         if vert and disp:
-            inner = syntax.eqarray([[syntax.txt.format('=').join(eq[:-1]),
+            inner = syntax.eqarray([[syntax.txt.format(joint).join(eq[:-1]),
                                      eq[-1]] for eq in eq_list])
         else:
-            inner = ''.join([syntax.txt.format('=').join(eq) for eq in eq_list])
+            inner = ''.join([syntax.txt.format(joint).join(eq) for eq in eq_list])
     if srnd:
         if disp:
             return syntax.math_disp.format(inner)
