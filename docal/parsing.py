@@ -8,7 +8,6 @@ https://stackoverflow.com/questions/3867028/converting-a-python-numeric-expressi
 import ast
 import re
 import logging
-from .document import DICT
 
 log = logging.getLogger(__name__)
 
@@ -215,43 +214,6 @@ def select_syntax(typ):
         return SyntaxLatex()
 
 
-def _parens_balanced(expr: str) -> bool:
-    '''
-    check if the pairs that must be balanced are actually balanced
-    '''
-    # those that must be matched in equations
-    parens = ['()', '[]', '{}']
-
-    return all([expr.count(p[0]) == expr.count(p[1]) for p in parens])
-
-
-def _split(what: str, char='=', count=None, last=True) -> list:
-    '''split a given equation at the main equal signs and not at the ones
-    used for other purposes like giving a kwarg'''
-
-    balanced = []
-    incomplete = ''
-    for e in what.split(char):
-        e = e.strip()
-        if incomplete or not _parens_balanced(e):
-            incomplete += (char if incomplete else '') + e
-            if incomplete and _parens_balanced(incomplete):
-                balanced.append(incomplete)
-                incomplete = ''
-        else:
-            balanced.append(e)
-    if incomplete:
-        raise SyntaxError('The number of parens is not balanced.')
-    if not count and len(balanced) > 1:
-        if last:
-            # if splitting only at the last = is wanted, join the others
-            balanced = [char.join(balanced[:-1]), balanced[-1]]
-        elif last is not None:
-            balanced = [balanced[0], char.join(balanced[1:])]
-
-    return balanced
-
-
 def _prep4lx(quantity, syn_obj, mat_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
     '''
     parse the given quantity to an AST object so it can be integrated in _LatexVisitor
@@ -354,7 +316,7 @@ def _fit_matrix(matrix, syn_obj, max_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
 
 class MathVisitor(ast.NodeVisitor):
 
-    def __init__(self, mul, div, subs, mat_size, decimal=3, working_dict=DICT, typ='latex', ital=True):
+    def __init__(self, mul, div, subs, mat_size, decimal=3, working_dict={}, typ='latex', ital=True):
         self.mul = mul
         self.div = div
         self.subs = subs
@@ -501,7 +463,11 @@ class MathVisitor(ast.NodeVisitor):
         return 1000
 
     def visit_Lambda(self, n):
-        return self.visit(n.body)
+        args = self.s.txt.format(', ').join([self.format_name(a.arg) for a in n.args.args])
+        return self.s.delmtd(args) + self.s.txt.format('=') + self.visit(n.body)
+
+    def visit_arg(self, n):
+        return self.format_name(n.arg)
 
     def prec_Lambda(self, n):
         return self.prec(n.body)
@@ -772,7 +738,7 @@ class MathVisitor(ast.NodeVisitor):
         return 1000
 
 
-def to_math(expr, mul=' ', div='frac', subs=False, mat_size=DEFAULT_MAT_SIZE, decimal=3, working_dict=DICT, typ='latex', ital=True):
+def to_math(expr, mul=' ', div='frac', subs=False, mat_size=DEFAULT_MAT_SIZE, decimal=3, working_dict={}, typ='latex', ital=True):
     '''
     return the representation of the expr in the appropriate syntax
     '''

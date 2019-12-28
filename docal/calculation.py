@@ -7,8 +7,7 @@ module and returns the procedure of the calculations
 
 import ast
 import logging
-from .document import DICT
-from .parsing import to_math, eqn, UNIT_PF, select_syntax, build_eqn
+from .parsing import to_math, MathVisitor, eqn, UNIT_PF, select_syntax, build_eqn
 
 log = logging.getLogger(__name__)
 
@@ -23,37 +22,38 @@ DERIVED = {
 DERIVED = {u: ast.parse(DERIVED[u]).body[0].value for u in DERIVED}
 
 
-def _calculate(expr: ast.AST, options: dict, working_dict=DICT, mul=' ', div='/', typ='latex'):
+def _calculate(expr: ast.AST, options: dict, working_dict: dict, mul=' ', div='/', typ='latex'):
     '''carryout the necesary calculations and assignments'''
 
     def lx_args(ex, subs=None):
 
-        return to_math(ex,
-                       mat_size=options['mat_size'],
-                       decimal=options['decimal'],
-                       subs=subs,
-                       working_dict=working_dict,
+        return MathVisitor(
                        mul=mul,
                        div=div,
-                       typ=typ)
+                       subs=subs,
+                       mat_size=options['mat_size'],
+                       decimal=options['decimal'],
+                       working_dict=working_dict,
+                       typ=typ).visit(ex)
 
-    value = eval(compile(
-        ast.Expression(expr if options['result'] is None else options['result']),
-        '<calculation>', 'eval'),
+    value_ast = expr if options['result'] is None else options['result']
+    value = eval(compile(ast.Expression(value_ast), '<calculation>', 'eval'),
                  working_dict)
     result = [
         lx_args(expr),
         lx_args(expr, subs=True),
-        lx_args(value)
+        lx_args(value if not callable(value) else value_ast)
     ]
 
     if options['steps']:
         result = [result[s] for s in options['steps'] if 0 <= s <= 2]
-    else:  # remove repeated steps (retaining order)
-        if type(expr) == str and isinstance(ast.parse(expr).body[0].value, ast.Name):
-            result = [result[0], result[2]]
-        else:
-            result = list(dict.fromkeys(result))
+    # else:  # remove repeated steps (retaining order)
+    elif hasattr(expr, 'value') and (isinstance(expr.value, ast.Name)
+                                     or not isinstance(expr.value, ast.BinOp)
+                                     or not isinstance(expr.value, ast.UnaryOp)):
+        result = [result[0], result[2]]
+    else:
+        result = list(dict.fromkeys(result))
     syntax = select_syntax(typ)
     # detect if the user is trying to give a different unit and give warning
     if type(expr) == str:
@@ -154,7 +154,7 @@ def _process_options(additionals, defaults: dict):
     return {**defaults, **options}
 
 
-def cal(input_str: ast.AST, working_dict=DICT, mul=' ', div='frac', typ='latex') -> str:
+def cal(input_str: ast.AST, working_dict={}, mul=' ', div='frac', typ='latex') -> str:
     '''
     evaluate all the calculations, carry out the appropriate assignments,
     and return all the procedures
@@ -182,6 +182,8 @@ def cal(input_str: ast.AST, working_dict=DICT, mul=' ', div='frac', typ='latex')
         for step in result[1:]:
             procedure.append(['', step])
 
+        if options['result'] is not None:
+            input_str.value = options['result'] # override the value stored
         # carry out normal op in main script
         co = compile(ast.Module([input_str], []), '<calculation>', 'exec')
         exec(co, working_dict)
@@ -210,7 +212,7 @@ class UnitHandler(ast.NodeVisitor):
     simplify the given expression as a combination of units
     '''
 
-    def __init__(self, norm=False, working_dict=DICT):
+    def __init__(self, norm=False, working_dict={}):
         self.norm = norm
         self.dict = working_dict
 
@@ -333,7 +335,7 @@ class UnitHandler(ast.NodeVisitor):
         return [{}, {}]
 
 
-def unitize(s: str, working_dict=DICT) -> str:
+def unitize(s: str, working_dict={}) -> str:
     '''
     look for units of the variable names in the expression, cancel-out units
     that can be canceled out and return an expression of units that can be

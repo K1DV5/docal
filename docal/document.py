@@ -34,13 +34,11 @@ import logging
 # for included word template access
 from pkg_resources import resource_filename
 from shutil import move, rmtree
-# for working with the document's variables and filename
-try:
-    from __main__ import __dict__ as DICT
-except ImportError:
-    DICT = {}
 from .calculation import cal, _process_options
 from .parsing import UNIT_PF, eqn, to_math, build_eqn, select_syntax, DEFAULT_MAT_SIZE, _get_parts, Comment
+
+# default working area
+DICT = {}
 
 DEFAULT_FILE = 'Untitled.tex'
 # the tag pattern
@@ -799,7 +797,7 @@ class document:
         '.tex': latexFile,
     }
 
-    def __init__(self, infile=None, outfile=None, to_clear=False, log_level=None, log_file=False):
+    def __init__(self, infile=None, outfile=None, to_clear=False, log_level=None, log_file=False, working_dict=DICT):
         '''initialize'''
 
         self.to_clear = to_clear
@@ -829,7 +827,7 @@ class document:
             ext = path.splitext(outfile)[1]
             self.document_file = self.file_handlers[ext](
                 None, self.to_clear)
-            self.calc = calculations([], self.document_file.name, DICT)
+            self.calc = calculations([], self.document_file.name, working_dict)
         else:
             raise ValueError('Need to specify at least one document')
         if outfile:
