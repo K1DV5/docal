@@ -5,6 +5,8 @@ from argparse import ArgumentParser
 from os import path
 from glob import glob
 from docal import document
+# for included word template access
+from pkg_resources import resource_filename
 
 
 def calculation_file(arg: str) -> str:

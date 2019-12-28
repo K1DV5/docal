@@ -2,20 +2,8 @@
 '''
 Module document
 
-provides the document class
-
-In the latex file,
-    use hashtags(#tagname) to reserve places for contents that
-    will come from the python script.
-In a separate python script,
-    import this class.
-    use methods tag('tagname') for something like tags(placeholders)
-    write your calculations under those tags using ins(contents) to choose
-        what goes to the document tag place.
-    Finally use the write() method to write the final file.
-
-when the python file is run, it writes a tex file with the tags
-replaced by contents from the python file.
+provides the document class to arrange processing the calculation
+and inserting into the document
 '''
 
 import ast
@@ -23,56 +11,80 @@ import ast
 import re
 # for path manips
 from os import path
-# for word file handling
-import xml.etree.ElementTree as ET
-from xml.sax.saxutils import escape
-from zipfile import ZipFile, ZIP_DEFLATED
 # for temp directory
 import tempfile
 # for status tracking
 import logging
-# for included word template access
-from pkg_resources import resource_filename
-from shutil import move, rmtree
 from .calculation import cal, _process_options
-from .parsing import UNIT_PF, eqn, to_math, build_eqn, select_syntax, DEFAULT_MAT_SIZE, _get_parts, Comment
+from .parsing import UNIT_PF, eqn, to_math, build_eqn, DEFAULT_MAT_SIZE, _get_parts, Comment
 
 # default working area
 DICT = {}
-
-DEFAULT_FILE = 'Untitled.tex'
-# the tag pattern
-PATTERN = re.compile(r'(?s)([^\w\\]|^)#(\w+?)(\W|$)')
-# for excel file handling
-NS = {
-    'main': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main',
-    'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
-    'mc': 'http://schemas.openxmlformats.org/markup-compatibility/2006',
-    'x14ac': 'http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac',
-}
-# surrounding of the content sent for reversing (something that doesn't
-# change the actual content of the document, and works inside lines)
-SURROUNDING = ['{} {{ {}', '{} }} {}']
-EXCEL_SEP = '|'
 
 LOG_FORMAT = '%(levelname)s: %(message)s'
 logging.basicConfig(format=LOG_FORMAT)
 logger = logging.getLogger(__name__)
 
+class LogRecorder(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.log = []
 
-class calculations:
-    '''
-    accept an excel file, extract the calculations in it and incorporate
-    it in the document.'''
+    def emit(self, record):
+        self.log.append(self.format(record))
 
-    def __init__(self, tags, doc_type, working_dict):
-        self.tags = tags
+
+class document:
+    '''organize the process by taking tags from the filetype-specific classes,
+    making a dictionary for them, and calling the write method of those classes
+    giving them the dictionary'''
+
+    def __init__(self, infile=None, outfile=None, handler=None, to_clear=False, log_level=None, log_file=None, working_dict=DICT):
+        '''initialize'''
+
+        if handler is None:
+            raise ValueError('File handler required.')
+        self.syntax = handler.syntax
+        self.to_clear = to_clear
+        # ===========LOGGING==================
+        # clear previous handlers so the logs are only for the current run
+        log_formatter = logging.Formatter(LOG_FORMAT)
+        # log messages
+        self.log = []
+        self.log_recorder = LogRecorder()
+        self.log_recorder.setFormatter(log_formatter)
+        # to avoid repeatedly adding the same handler
+        logger.handlers = []
+        logger.addHandler(self.log_recorder)
+        if log_level:
+            logger.setLevel(getattr(logging, log_level.upper()))
+        if log_file is not None:
+            file_logger = logging.FileHandler(log_file, 'w')
+            file_logger.setFormatter(logging.Formatter(LOG_FORMAT))
+            logger.addHandler(file_logger)
+        if log_level:
+            logger.setLevel(getattr(logging, log_level.upper()))
+        # =========FILE HANDLING================
+        if infile:
+            infile = path.abspath(infile)
+            basename, ext = path.splitext(infile)
+            self.document_file = handler(infile, to_clear, logger)
+            # the calculations object that will convert given things to a list and store
+            self.tags = self.document_file.tags
+        elif outfile:
+            ext = path.splitext(outfile)[1]
+            self.document_file = handler(None, self.to_clear, logger)
+            self.tags = []
+        else:
+            raise ValueError('Need to specify at least one document')
         self.current_tag = self.tags[0] if self.tags else None
         if self.current_tag is None:
             logger.warning('There are no tags in the document')
-        self.doc_type = doc_type
-        # for temp saving states
-        self.temp_var = {}
+        self.outfile = outfile
+        # =========CALCULATION================
+        # the calculations corresponding to the tags
+        self.contents = {}
+        # working area
         self.working_dict = working_dict
         # default calculation options
         self.default_options = {
@@ -89,29 +101,17 @@ class calculations:
                 }
         self.working_dict['__DOCAL_OPTIONS__'] = self.default_options
 
-    def process(self, what, typ='python'):
-        if typ == 'python':
-            return self.process_content(what)
-        elif typ == 'dcl':
-            processed = []
-            doc_tree = ET.fromstring(what)
-            for child in doc_tree:
-                if child.tag in ('ascii', 'python'):
-                    if child.tag == 'ascii':
-                        child.text = self.repl_asc(child.text)
-                    for part in self.process_content(child.text):
-                        processed.append(part)
-                elif child.tag == 'excel':
-                    for part in self.repl_xl(child.text):
-                        processed.append(part)
-            return processed
-        elif typ == 'ascii':
-            return self.process_content(self.repl_asc(what))
-        elif typ == 'excel':
-            # assuming what is a dict
-            return self.xl_convert(**what)
+    def send(self, content):
+        '''add the content to the tag, which will be sent to the document.
+        Where it will be inserted is decided by the most recent tag.'''
 
-    def process_content(self, parts): # exported
+        if not self.to_clear:
+            for tag, part in self.process(content):
+                if tag not in self.contents.keys():
+                    self.contents[tag] = []
+                self.contents[tag].append(part)
+
+    def process(self, parts): # exported
         tag = self.current_tag
         processed = []
         for part in _get_parts(parts):
@@ -202,89 +202,13 @@ class calculations:
         '''
         logger.info('[Processing] line %s', line.lineno)
         # the cal function will execute it so no need for exec
-        result = cal(line, self.working_dict, typ=self.doc_type)
+        result = cal(line, self.working_dict, syntax=self.syntax)
         return (result[1], result[0])
 
-
-class LogRecorder(logging.Handler):
-    def __init__(self):
-        super().__init__()
-        self.log = []
-
-    def emit(self, record):
-        self.log.append(self.format(record))
-
-
-class document:
-    '''organize the process by taking tags from the filetype-specific classes,
-    making a dictionary for them, and calling the write method of those classes
-    giving them the dictionary'''
-
-    file_handlers = {
-        '.docx': wordFile,
-        '.tex': latexFile,
-    }
-
-    def __init__(self, infile=None, outfile=None, to_clear=False, log_level=None, log_file=False, working_dict=DICT):
-        '''initialize'''
-
-        self.to_clear = to_clear
-        # clear previous handlers so the logs are only for the current run
-        log_formatter = logging.Formatter(LOG_FORMAT)
-        # log messages
-        self.log = []
-        self.log_recorder = LogRecorder()
-        self.log_recorder.setFormatter(log_formatter)
-        # to avoid repeatedly adding the same handler
-        logger.handlers = []
-        logger.addHandler(self.log_recorder)
-        if log_level:
-            logger.setLevel(getattr(logging, log_level.upper()))
-        # the document
-        if infile:
-            infile = path.abspath(infile)
-            basename, ext = path.splitext(infile)
-            self.document_file = self.file_handlers[ext](infile, to_clear)
-            # the calculations object that will convert given things to a list and store
-            self.calc = calculations(self.document_file.tags, self.document_file.name, DICT)
-            if log_file:
-                file_logger = logging.FileHandler(basename + '.log', 'w')
-                file_logger.setFormatter(logging.Formatter(LOG_FORMAT))
-                logger.addHandler(file_logger)
-        elif outfile:
-            ext = path.splitext(outfile)[1]
-            self.document_file = self.file_handlers[ext](
-                None, self.to_clear)
-            self.calc = calculations([], self.document_file.name, working_dict)
-        else:
-            raise ValueError('Need to specify at least one document')
-        if outfile:
-            self.outfile = outfile
-        else:
-            self.outfile = None
-        if log_level:
-            logger.setLevel(getattr(logging, log_level.upper()))
-        # the calculations corresponding to the tags
-        self.contents = {}
-
-    def send(self, content, typ='python'):
-        '''add the content to the tag, which will be sent to the document.
-        Where it will be inserted is decided by the most recent tag.'''
-
-        if not self.to_clear:
-            for tag, part in self.calc.process(content, typ):
-                if tag not in self.contents.keys():
-                    self.contents[tag] = []
-                self.contents[tag].append(part)
-
     def write(self):
-        '''replace all the tags with the contents of the python script.
-        then if the destination file is given, write a typeset-ready latex
-        file or word file.
-        If the destination file is not given, perform an in-place
-        substitution on the input file without destroying the chance of
-        reverting changes. If this function is run on an in-place substituted
-        file, it will revert the file to its original state (with tags).'''
+        '''
+        tell the respective handler to write the file
+        '''
 
         self.document_file.write(self.outfile, self.contents)
         logger.info('SUCCESS!!!')

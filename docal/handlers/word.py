@@ -1,3 +1,8 @@
+# for word file handling
+import xml.etree.ElementTree as ET
+from xml.sax.saxutils import escape
+from zipfile import ZipFile, ZIP_DEFLATED
+
 GREEK_LETTERS = {
     'alpha':      'α',
     'nu':         'ν',

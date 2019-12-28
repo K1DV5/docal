@@ -19,14 +19,6 @@ UNIT_PF = '___0UNIT0'
 
 DEFAULT_MAT_SIZE = 10
 
-# syntax selector
-def select_syntax(typ):
-    if typ == 'word':
-        return SyntaxWord()
-    else:
-        return SyntaxLatex()
-
-
 def _prep4lx(quantity, syn_obj, mat_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
     '''
     parse the given quantity to an AST object so it can be integrated in _LatexVisitor
@@ -129,14 +121,14 @@ def _fit_matrix(matrix, syn_obj, max_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
 
 class MathVisitor(ast.NodeVisitor):
 
-    def __init__(self, mul, div, subs, mat_size, decimal=3, working_dict={}, typ='latex', ital=True):
+    def __init__(self, mul, div, subs, mat_size, decimal=3, working_dict={}, syntax=None, ital=True):
         self.mul = mul
         self.div = div
         self.subs = subs
         self.mat_size = mat_size
         self.decimal = int(decimal)
         self.dict = working_dict
-        self.s = select_syntax(typ)
+        self.s = syntax
         self.ital = ital
 
     def format_name(self, name_str: str) -> str:
@@ -152,18 +144,18 @@ class MathVisitor(ast.NodeVisitor):
             if part.startswith('0') and len(part) > 1:
                 parts_final[index] = self.s.txt_rom.format(part[1:])
             # convert to greek letters
-            elif part in GREEK_LETTERS:
+            elif part in self.s.greek_letters:
                 parts_final[index] = self.s.greek(part)
             # maybe if it is something that is simpler to write than its value
             elif part in self.s.transformed:
                 parts_final[index] = self.s.transformed[part]
             # convert primes
-            elif part in MATH_ACCENTS:
+            elif part in self.s.math_accents:
                 # (to choose which to surround)
                 which = index - 2 if not parts[index - 1] else index - 1
                 parts_final[which] = self.s.accent(part, parts_final[which])
                 accent_locations.append(index)
-            elif part in PRIMES.keys():
+            elif part in self.s.primes.keys():
                 which = index - 2 if not parts[index - 1] else index - 1
                 parts_final[which] =  self.s.prime(parts_final[which], part)
                 accent_locations.append(index)
@@ -297,9 +289,8 @@ class MathVisitor(ast.NodeVisitor):
                 if str(self.dict[n.id]) == n.id:
                     return self.format_name(str(self.dict[n.id]))
                 qty = self.visit(_prep4lx(self.dict[n.id], self.s, self.mat_size))
-                typ = 'word' if isinstance(self.s, SyntaxWord) else 'latex'
                 unit = self.s.txt.format(self.s.halfsp) + \
-                    to_math(self.dict[n.id + UNIT_PF], div="/", ital=False, decimal=self.decimal, typ=typ) \
+                    to_math(self.dict[n.id + UNIT_PF], div="/", ital=False, decimal=self.decimal, syntax=self.s) \
                     if n.id + UNIT_PF in self.dict.keys() and self.dict[n.id + UNIT_PF] \
                     and self.dict[n.id + UNIT_PF] != '_' else ''
                 # if the quantity is raised to some power and has a unit,
@@ -551,12 +542,10 @@ class MathVisitor(ast.NodeVisitor):
         return 1000
 
 
-def to_math(expr, mul=' ', div='frac', subs=False, mat_size=DEFAULT_MAT_SIZE, decimal=3, working_dict={}, typ='latex', ital=True):
+def to_math(expr, mul=' ', div='frac', subs=False, mat_size=DEFAULT_MAT_SIZE, decimal=3, working_dict={}, syntax=None, ital=True):
     '''
     return the representation of the expr in the appropriate syntax
     '''
-
-    syntax = select_syntax(typ)
 
     if isinstance(expr, ast.AST):
         pt = expr
@@ -567,11 +556,10 @@ def to_math(expr, mul=' ', div='frac', subs=False, mat_size=DEFAULT_MAT_SIZE, de
     else:
         pt = _prep4lx(expr, syntax, mat_size)
 
-    return MathVisitor(mul, div, subs, mat_size, decimal, working_dict, typ, ital).visit(pt)
+    return MathVisitor(mul, div, subs, mat_size, decimal, working_dict, syntax, ital).visit(pt)
 
 
-def build_eqn(eq_list, disp=True, vert=True, typ='latex', srnd=True):
-    syntax = select_syntax(typ)
+def build_eqn(eq_list, disp=True, vert=True, syntax=None, srnd=True):
     if len(eq_list) == 1:
         if len(eq_list[0]) == 1:
             inner = eq_list[0][0]
@@ -590,11 +578,36 @@ def build_eqn(eq_list, disp=True, vert=True, typ='latex', srnd=True):
             return syntax.math_inln.format(inner)
     return inner
 
+def _parens_balanced(expr: str) -> bool:
+    '''
+    check if the pairs that must be balanced are actually balanced
+    '''
+    # those that must be matched in equations
+    parens = ['()', '[]', '{}']
 
-def eqn(*equation_list, norm=True, disp=True, srnd=True, vert=True, div='frac', mul=' ', decimal=3, typ='latex') -> str:
+    return all([expr.count(p[0]) == expr.count(p[1]) for p in parens])
+
+def _split(what: str, char='=') -> list:
+    '''split a given string at the main equal signs and not at the ones
+    used for other purposes like giving a kwarg'''
+
+    balanced = []
+    incomplete = ''
+    for e in what.split(char):
+        if incomplete or not _parens_balanced(e):
+            incomplete += (char if incomplete else '') + e
+            if incomplete and _parens_balanced(incomplete):
+                balanced.append(incomplete.strip())
+                incomplete = ''
+        else:
+            balanced.append(e.strip())
+    return balanced
+
+
+def eqn(*equation_list, norm=True, disp=True, srnd=True, vert=True, div='frac', mul=' ', decimal=3, syntax=None) -> str:
     '''main api for equations'''
 
-    equals = select_syntax(typ).txt.format('=')
+    equals = syntax.txt.format('=')
 
     # split and flatten in case there are any |, and split by =
     equation_list = [_split(eq, last=None) for sub_eq in equation_list for eq in sub_eq.split('|')]
@@ -604,14 +617,14 @@ def eqn(*equation_list, norm=True, disp=True, srnd=True, vert=True, div='frac', 
     equations = []
     if norm:
         if len(equation_list) == 1:
-            eqns = [to_math(e, mul=mul, div=div, decimal=decimal, typ=typ) for e in equation_list[0]]
+            eqns = [to_math(e, mul=mul, div=div, decimal=decimal, syntax=syntax) for e in equation_list[0]]
             equations.append([equals.join(eqns)])
         else:
             for eq in equation_list:
                 # join the first if there are many to align at the last =
                 if len(eq) > 1:
                     eq = ['=='.join(eq[:-1]), eq[-1]]
-                equations.append([to_math(e, mul=mul, div=div, decimal=decimal, typ=typ) for e in eq])
+                equations.append([to_math(e, mul=mul, div=div, decimal=decimal, syntax=syntax) for e in eq])
     else:
         if len(equation_list) == 1:
             equations.append([equals.join(equation_list[0])])
@@ -619,7 +632,7 @@ def eqn(*equation_list, norm=True, disp=True, srnd=True, vert=True, div='frac', 
             for eq in equation_list:
                 equations.append([equals.join(eq[:-1]), eq[-1]])
 
-    return build_eqn(equations, disp, vert, typ, srnd)
+    return build_eqn(equations, disp, vert, syntax, srnd)
 
 
 class Comment():

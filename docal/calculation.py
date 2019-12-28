@@ -7,7 +7,7 @@ module and returns the procedure of the calculations
 
 import ast
 import logging
-from .parsing import to_math, MathVisitor, eqn, UNIT_PF, select_syntax, build_eqn
+from .parsing import to_math, MathVisitor, eqn, UNIT_PF, build_eqn, _split
 
 log = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ DERIVED = {
 DERIVED = {u: ast.parse(DERIVED[u]).body[0].value for u in DERIVED}
 
 
-def _calculate(expr: ast.AST, options: dict, working_dict: dict, mul=' ', div='/', typ='latex'):
+def _calculate(expr: ast.AST, options: dict, working_dict: dict, mul=' ', div='/', syntax=None):
     '''carryout the necesary calculations and assignments'''
 
     def lx_args(ex, subs=None):
@@ -34,7 +34,7 @@ def _calculate(expr: ast.AST, options: dict, working_dict: dict, mul=' ', div='/
                        mat_size=options['mat_size'],
                        decimal=options['decimal'],
                        working_dict=working_dict,
-                       typ=typ).visit(ex)
+                       syntax=syntax).visit(ex)
 
     value_ast = expr if options['result'] is None else options['result']
     value = eval(compile(ast.Expression(value_ast), '<calculation>', 'eval'),
@@ -55,7 +55,6 @@ def _calculate(expr: ast.AST, options: dict, working_dict: dict, mul=' ', div='/
         result = [result[0], result[2]]
     else:
         result = list(dict.fromkeys(result))
-    syntax = select_syntax(typ)
     # detect if the user is trying to give a different unit and give warning
     if type(expr) == str:
         if options['unit']:
@@ -74,7 +73,7 @@ def _calculate(expr: ast.AST, options: dict, working_dict: dict, mul=' ', div='/
         unit_lx = syntax.txt.format(syntax.halfsp) + to_math(options['unit'],
                                                              div='/',
                                                              working_dict=working_dict,
-                                                             typ=typ,
+                                                             syntax=syntax,
                                                              ital=False)
     else:
         unit_lx = ''
@@ -85,38 +84,12 @@ def _calculate(expr: ast.AST, options: dict, working_dict: dict, mul=' ', div='/
 
     return result
 
-def _parens_balanced(expr: str) -> bool:
-    '''
-    check if the pairs that must be balanced are actually balanced
-    '''
-    # those that must be matched in equations
-    parens = ['()', '[]', '{}']
-
-    return all([expr.count(p[0]) == expr.count(p[1]) for p in parens])
-
-def _split_opts(what: str) -> list:
-    '''split a given string at the main equal signs and not at the ones
-    used for other purposes like giving a kwarg'''
-
-    char = ','
-    balanced = []
-    incomplete = ''
-    for e in what.split(char):
-        if incomplete or not _parens_balanced(e):
-            incomplete += (char if incomplete else '') + e
-            if incomplete and _parens_balanced(incomplete):
-                balanced.append(incomplete.strip())
-                incomplete = ''
-        else:
-            balanced.append(e.strip())
-    return balanced
-
 def _process_options(additionals, defaults: dict):
 
     options = {}
 
     if additionals:
-        for a in _split_opts(additionals):
+        for a in _split(additionals):
             if a.isdigit():
                 options['steps'] = [int(num) - 1 for num in a]
             # only the first # is used to split the line (see above) so others
@@ -155,14 +128,14 @@ def _process_options(additionals, defaults: dict):
     return {**defaults, **options}
 
 
-def cal(input_str: ast.AST, working_dict={}, mul=' ', div='frac', typ='latex') -> str:
+def cal(input_str: ast.AST, working_dict={}, mul=' ', div='frac', syntax=None) -> str:
     '''
     evaluate all the calculations, carry out the appropriate assignments,
     and return all the procedures
 
     '''
     options = _process_options(input_str.options, working_dict['__DOCAL_OPTIONS__'])
-    result = _calculate(input_str.value, options, working_dict, mul, div, typ=typ)
+    result = _calculate(input_str.value, options, working_dict, mul, div, syntax=syntax)
     if options['mode'] == 'inline':
         displ = False
     elif options['mode'] == 'display':
@@ -177,7 +150,7 @@ def cal(input_str: ast.AST, working_dict={}, mul=' ', div='frac', typ='latex') -
 
     if isinstance(input_str, ast.Assign):
         var_names = [v.id for v in input_str.targets]
-        var_lx = ' = '.join([to_math(var_name, typ=typ) for var_name in input_str.targets])
+        var_lx = ' = '.join([to_math(var_name, syntax=syntax) for var_name in input_str.targets])
 
         procedure = [[var_lx, result[0]]]
         for step in result[1:]:
@@ -203,7 +176,7 @@ def cal(input_str: ast.AST, working_dict={}, mul=' ', div='frac', typ='latex') -
     if options['hidden']:
         return ('', 'text')
 
-    output = build_eqn(procedure, displ, options['vert'], typ) + '\n' * options['newlines']
+    output = build_eqn(procedure, displ, options['vert'], syntax) + '\n' * options['newlines']
 
     return (output, disp)
 

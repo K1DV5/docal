@@ -1,6 +1,73 @@
+from os import path
+import re
+
+DEFAULT_FILE = 'Untitled.tex'
+
+# the tag pattern
+PATTERN = re.compile(r'(?s)([^\w\\]|^)#(\w+?)(\W|$)')
+
+# surrounding of the content sent for reversing (something that doesn't
+# change the actual content of the document, and works inside lines)
+SURROUNDING = ['{} {{ {}', '{} }} {}']
+
+GREEK_LETTERS = {
+    'alpha':      'α',
+    'nu':         'ν',
+    'beta':       'β',
+    'xi':         'ξ',
+    'Xi':         'Ξ',
+    'gamma':      'γ',
+    'Gamma':      'Γ',
+    'delta':      'δ',
+    'Delta':      '∆',
+    'pi':         'π',
+    'Pi':         'Π',
+    'epsilon':    'ϵ',
+    'varepsilon': 'ε',
+    'rho':        'ρ',
+    'varrho':     'ϱ',
+    'zeta':       'ζ',
+    'sigma':      'σ',
+    'Sigma':      'Σ',
+    'eta':        'η',
+    'tau':        'τ',
+    'theta':      'θ',
+    'vartheta':   'ϑ',
+    'Theta':      'Θ',
+    'upsilon':    'υ',
+    'Upsilon':    'Υ',
+    'iota':       'ι',
+    'phi':        'φ',
+    'varphi':     'ϕ',
+    'Phi':        'Φ',
+    'kappa':      'κ',
+    'chi':        'χ',
+    'lambda':     'λ',
+    'Lambda':     'Λ',
+    'psi':        'ψ',
+    'Psi':        'Ψ',
+    'mu':         'µ',
+    'omega':      'ω',
+    'Omega':      'Ω',
+    }
+
+MATH_ACCENTS = {
+    'hat': '&#x0302;',
+    'check': '&#x030C;',
+    'breve': '&#x02D8;',
+    'acute': '&#x0301;',
+    'grave': '&#x0300;',
+    'tilde': '&#x0303;',
+    'bar': '&#x0304;',
+    'vec': '&#x20D7;',
+    'dot': '&#x0307;',
+    'ddot': '&#x0308;',
+    'dddot': '&#x20DB;',
+    }
+
 PRIMES = {'prime': "'", '2prime': "''", '3prime': "'''"}
 
-class SyntaxLatex:
+class syntax:
     txt = '{}'
     txt_rom = r'\mathrm{{{}}}'
     txt_math = '\\text{{{}}}'
@@ -34,6 +101,10 @@ class SyntaxLatex:
     vdots = '\\vdots'
     ddots = '\\ddots'
 
+    greek_letters = GREEK_LETTERS
+    math_accents = MATH_ACCENTS
+    primes = PRIMES
+
     def greek(self, name):
         return '\\' + name
 
@@ -60,7 +131,7 @@ class SyntaxLatex:
         return srnds[0] + inner + srnds[1]
 
 
-class latexFile:
+class handler:
     '''handles the latex files'''
 
     # name for this type (for to_math)
@@ -70,9 +141,12 @@ class latexFile:
     warning = ('BELOW IS AN AUTO GENERATED LIST OF TAGS. '
                'DO NOT DELETE IT IF REVERSING IS DESIRED!!!\n%')
 
-    def __init__(self, infile, to_clear):
+    syntax = syntax()
+
+    def __init__(self, infile, to_clear, logger):
 
         self.to_clear = to_clear
+        self.logger = logger
         if infile:
             self.infile = self.outfile = infile
             with open(self.infile, encoding='utf-8') as file:
@@ -136,7 +210,7 @@ class latexFile:
                         + end)
 
             return start + result + end
-        logger.error(f"There is nothing to send to #{tag}.")
+        self.logger.error(f"There is nothing to send to #{tag}.")
         return start + '#' + tag + end
 
     def write(self, outfile=None, values={}):
@@ -149,7 +223,7 @@ class latexFile:
                     if tag in self.tags:
                         self.calc_tags.append(tag)
                     else:
-                        logger.error(f'#{tag} not found in the document.')
+                        self.logger.error(f'#{tag} not found in the document.')
                 if path.abspath(self.outfile) == path.abspath(self.infile):
                     self.file_contents = self._subs_in_place(values)
                 else:
@@ -159,8 +233,7 @@ class latexFile:
                     '\n'.join([v[1] for v in val]) for val in values.values()
                 ])
 
-        logger.info('[writing file] %s', self.outfile)
+        self.logger.info('[writing file] %s', self.outfile)
         with open(self.outfile, 'w', encoding='utf-8') as file:
             file.write(self.file_contents)
-
 
