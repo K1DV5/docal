@@ -1,0 +1,417 @@
+GREEK_LETTERS = {
+    'alpha':      'α',
+    'nu':         'ν',
+    'beta':       'β',
+    'xi':         'ξ',
+    'Xi':         'Ξ',
+    'gamma':      'γ',
+    'Gamma':      'Γ',
+    'delta':      'δ',
+    'Delta':      '∆',
+    'pi':         'π',
+    'Pi':         'Π',
+    'epsilon':    'ϵ',
+    'varepsilon': 'ε',
+    'rho':        'ρ',
+    'varrho':     'ϱ',
+    'zeta':       'ζ',
+    'sigma':      'σ',
+    'Sigma':      'Σ',
+    'eta':        'η',
+    'tau':        'τ',
+    'theta':      'θ',
+    'vartheta':   'ϑ',
+    'Theta':      'Θ',
+    'upsilon':    'υ',
+    'Upsilon':    'Υ',
+    'iota':       'ι',
+    'phi':        'φ',
+    'varphi':     'ϕ',
+    'Phi':        'Φ',
+    'kappa':      'κ',
+    'chi':        'χ',
+    'lambda':     'λ',
+    'Lambda':     'Λ',
+    'psi':        'ψ',
+    'Psi':        'Ψ',
+    'mu':         'µ',
+    'omega':      'ω',
+    'Omega':      'Ω',
+    }
+
+MATH_ACCENTS = {
+    'hat': '&#x0302;',
+    'check': '&#x030C;',
+    'breve': '&#x02D8;',
+    'acute': '&#x0301;',
+    'grave': '&#x0300;',
+    'tilde': '&#x0303;',
+    'bar': '&#x0304;',
+    'vec': '&#x20D7;',
+    'dot': '&#x0307;',
+    'ddot': '&#x0308;',
+    'dddot': '&#x20DB;',
+    }
+
+PRIMES = {'prime': "'", '2prime': "''", '3prime': "'''"}
+
+
+class SyntaxWord:
+
+    # common string blocks (can be formatted)
+    txt = '<m:r><m:t xml:space="preserve">{}</m:t></m:r>'
+    txt_rom = '<m:r><m:rPr><m:nor/></m:rPr><w:rPr><w:rFonts w:ascii="Cambria Math" w:eastAsiaTheme="minorEastAsia" w:hAnsi="Cambria Math"/></w:rPr><m:t xml:space="preserve">{}</m:t></m:r>'
+    txt_math = txt_rom
+    sub = '<m:sSub><m:e>{}</m:e><m:sub>{}</m:sub></m:sSub>'
+    sup = '<m:sSup><m:e>{}</m:e><m:sup>{}</m:sup></m:sSup>'
+    acc = '<m:acc><m:accPr><m:chr m:val="{}"/></m:accPr><m:e>{}</m:e></m:acc>'
+    rad = '<m:rad><m:radPr><m:degHide m:val="1"/></m:radPr><m:deg/><m:e>{}</m:e></m:rad>'
+    summation = '<m:nary><m:naryPr><m:chr m:val="∑"/></m:naryPr><m:sub><m:r><w:rPr><w:rFonts w:ascii="Cambria Math" w:hAnsi="Cambria Math"/></w:rPr><m:t>i=1</m:t></m:r></m:sub><m:sup><m:r><m:t>{}</m:t></m:r></m:sup><m:e>{}</m:e></m:nary>'
+    func_name = '<m:r><m:rPr><m:sty m:val="p"/></m:rPr><m:t>{}</m:t></m:r>'
+    func = '<m:func><m:fName>{}</m:fName><m:e>{}</m:e></m:func>'
+    frac = '<m:f><m:num>{}</m:num><m:den>{}</m:den></m:f>'
+    math_disp = '<m:oMathPara><m:oMath>{}</m:oMath></m:oMathPara>'
+    math_inln = '<m:oMath>{}</m:oMath>'
+
+    # things that are transformed, used for units and such
+    transformed = {
+        'degC': '<m:sSup><m:e><m:r><m:t> </m:t></m:r></m:e><m:sup><m:r><m:t>∘</m:t></m:r></m:sup></m:sSup><m:r><m:rPr><m:nor/></m:rPr><m:t>C</m:t></m:r>',
+        'degF': '<m:sSup><m:e><m:r><m:t> </m:t></m:r></m:e><m:sup><m:r><m:t>∘</m:t></m:r></m:sup></m:sSup><m:r><m:rPr><m:nor/></m:rPr><m:t>F</m:t></m:r>',
+        'deg': '<m:sSup><m:e><m:r><m:t> </m:t></m:r></m:e><m:sup><m:r><m:t>∘</m:t></m:r></m:sup></m:sSup>'
+    }
+
+    # some symbols
+    times = '×'
+    div = '÷'
+    cdot = '⋅'
+    halfsp = '&#8239;'
+    neg = '¬'
+    gt = '&gt;'
+    lt = '&lt;'
+    gte = '&ge;'
+    lte = '&le;'
+    cdots = '⋯'
+    vdots = '⋮'
+    ddots = '⋱'
+
+    # things that can't be accomplished with formatting strings
+    def greek(self, name):
+        return self.txt.format(GREEK_LETTERS[name])
+
+    def accent(self, acc, base):
+        return self.acc.format(MATH_ACCENTS[acc], base)
+
+    def prime(self, base, prime):
+        return self.sup.format(base, self.txt.format(PRIMES[prime]))
+
+    def delmtd(self, contained, kind=0):
+        surround = '<m:dPr><m:begChr m:val="{}"/><m:endChr m:val="{}"/></m:dPr>'
+        kinds = ['[]', '{}', '⌊⌋']
+        form = '<m:d>{}<m:e>{}</m:e></m:d>'
+        if kind == 0:
+            return form.format('', contained)
+        return form.format(surround.format(kinds[kind-1][0], kinds[kind-1][1]), contained)
+
+    def matrix(self, elmts, full=False):
+        if full:  # top level, full matrix
+            m_form = '<m:m>{}</m:m>'
+            rows = ''.join([f'<m:mr><m:e>{e}</m:e></m:mr>' for e in elmts])
+            return self.delmtd(m_form.format(rows), 1)
+        return '</m:e><m:e>'.join(elmts)
+
+    def eqarray(self, eqns: list):
+        form = '<m:eqArr>{}</m:eqArr>'
+        line_form = '<m:e>{}</m:e>'
+        align_chr = self.txt.format('&amp;=')
+        return form.format(''.join([line_form.format(align_chr.join(eq)) for eq in eqns]))
+
+class wordFile:
+
+    # name for this type (for to_math)
+    name = 'word'
+    # the xml declaration
+    declaration = '<?xml version="1.0" encoding="utf-8" standalone="yes"?>\n'
+    # always required namespaces
+    namespaces = {
+        "wpc": "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas",
+        "cx": "http://schemas.microsoft.com/office/drawing/2014/chartex",
+        "cx1": "http://schemas.microsoft.com/office/drawing/2015/9/8/chartex",
+        "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",
+        "o": "urn:schemas-microsoft-com:office:office",
+        "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+        "m": "http://schemas.openxmlformats.org/officeDocument/2006/math",
+        "v": "urn:schemas-microsoft-com:vml",
+        "wp14": "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing",
+        "wp": "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
+        "w10": "urn:schemas-microsoft-com:office:word",
+        "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+        "w14": "http://schemas.microsoft.com/office/word/2010/wordml",
+        "w15": "http://schemas.microsoft.com/office/word/2012/wordml",
+        "w16se": "http://schemas.microsoft.com/office/word/2015/wordml/symex",
+        "wpg": "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup",
+        "wpi": "http://schemas.microsoft.com/office/word/2010/wordprocessingInk",
+        "wne": "http://schemas.microsoft.com/office/word/2006/wordml",
+        "wps": "http://schemas.microsoft.com/office/word/2010/wordprocessingShape",
+    }
+
+    # the internal form of the parsed tags for internal use to avoid normal # usage
+    tag_alt_form = '#{%s}'
+
+    def __init__(self, infile, to_clear=False):
+        # temp folder for converted files
+        # self.temp_dir = path.join(environ['TMP'], '.docalTemp')
+        self.temp_dir = tempfile.mkdtemp()
+        # file taken as input file when not explicitly set:
+        if infile:
+            self.infile = infile
+            base, ext = path.splitext(self.infile)
+            self.outfile = base + '-out' + ext
+            with ZipFile(infile, 'r') as zin:
+                file_contents = zin.read('word/document.xml')
+                self.tmp_file = ZipFile(path.join(
+                    self.temp_dir, path.splitext(path.basename(self.infile))[0]),
+                    'w', compression=ZIP_DEFLATED)
+                self.tmp_file.comment = zin.comment
+                for file in zin.namelist():
+                    if file != 'word/document.xml':
+                        self.tmp_file.writestr(file, zin.read(file))
+
+            # the xml tree representation of the document contents
+            self.doc_tree = ET.fromstring(file_contents)
+            for prefix, uri in self.namespaces.items():
+                ET.register_namespace(prefix, uri)
+
+            # the tags in the document (stores tags, their addresses, and whether inline)
+            self.tags_info = self.extract_tags_info(self.doc_tree)
+            self.tags = [info['tag'] for info in self.tags_info]
+        else:
+            self.tmp_file = path.join(
+                self.temp_dir, path.splitext(
+                    path.basename(DEFAULT_FILE))[0])
+            self.infile = self.doc_tree = self.tags_info = self.tags = None
+            self.outfile = DEFAULT_FILE.replace('.tex', '.docx')
+
+    def normalized_contents(self, paragraph):
+        pref_w = f'{{{self.namespaces["w"]}}}'
+        ignored = [pref_w + tag for tag in ['bookmarkStart', 'bookmarkEnd', 'proofErr']]
+        conts = []
+        for child in paragraph:
+            if child.tag == pref_w + 'r':
+                if conts:
+                    if type(conts[-1]) == list:
+                        conts[-1].append(child)
+                    else:
+                        conts.append(['', child])
+                else:
+                    conts.append(['', child])
+                for t in child:
+                    if t.tag == pref_w + 't':
+                        conts[-1][0] += t.text
+            elif conts and type(conts[-1]) != list or child.tag not in ignored:
+                conts.append(child)
+        return conts
+
+    def extract_tags_info(self, tree):
+
+        pref_w = f'{{{self.namespaces["w"]}}}'
+        tags_info = []
+        for index, child in enumerate(tree[0]):
+            if child.tag == pref_w + 'p':
+                # get its contents and clear it
+                conts = self.normalized_contents(child)
+                child.clear()
+                for cont in conts:
+                    if type(cont) == list:
+                        if '#' in cont[0]:
+                            # replace with a new element
+                            w_r = ET.SubElement(child, pref_w + 'r')
+                            w_t = ET.SubElement(w_r, pref_w + 't',
+                                                {'xml:space': 'preserve'})
+                            # store full info about the tags inside
+                            for tag in PATTERN.finditer(cont[0]):
+                                if cont[0].strip() == '#' + tag.group(2):
+                                    position = 'para'
+                                else:
+                                    position = 'inline'
+                                tags_info.append({
+                                    'tag': tag.group(2),
+                                    'tag-alt': self.tag_alt_form % tag.group(2),
+                                    'address': [child, w_r, w_t],
+                                    'position': position,
+                                    'index': index})
+                            # remove \'s from the escaped #'s and change the tags form
+                            w_t.text = (re.sub(r'\\#', '#', PATTERN.sub(
+                                lambda tag:
+                                    tag.group(1) +
+                                    self.tag_alt_form % tag.group(2) +
+                                    tag.group(3),
+                                cont[0])))
+                        else:  # preserve properties
+                            for r in cont[1:]:
+                                child.append(r)
+                    else:
+                        child.append(cont)
+
+        return tags_info
+
+    def _subs_tags(self, values={}):
+        ans_info = {tag: self.para_elts(val) for tag, val in values.items()}
+
+        added = 0  # the added index to make up for the added elements
+        for tag, ans_parts in ans_info.items():
+            matching_infos = [
+                info for info in self.tags_info if info['tag'] == tag]
+            if matching_infos:
+                info = matching_infos[0]
+                # remove this entry to revert the left ones from their alt form
+                self.tags_info.remove(info)
+                if info['position'] == 'para':
+                    ans_parts.reverse()  # because they are inserted at the same index
+                    for ans in ans_parts:
+                        self.doc_tree[0].insert(info['index'] + added, ans)
+                    self.doc_tree[0].remove(info['address'][0])
+                    added += len(ans_parts) - 1  # minus the tag para (removed)
+                else:
+                    loc_para, loc_run, loc_text = info['address']
+                    split_text = loc_text.text.split(info['tag-alt'], 1)
+                    loc_text.text = split_text[1]
+                    index_run = list(loc_para).index(loc_run)
+                    pref_w = f'{{{self.namespaces["w"]}}}'
+                    # if there is only one para, insert its contents into the para
+                    if len(ans_parts) == 1:
+                        ans_runs = list(ans_parts[0])
+                        ans_runs.reverse()  # same reason as above
+                        for run in ans_runs:
+                            loc_para.insert(index_run, run)
+                        beg_run = ET.Element(pref_w + 'r')
+                        beg_text = ET.SubElement(beg_run, pref_w + 't',
+                                                 {'xml:space': 'preserve'})
+                        beg_text.text = split_text[0]
+                        loc_para.insert(index_run, beg_run)
+                    else:  # split the para and make new paras between the splits
+                        beg_para = ET.Element(pref_w + 'p')
+                        beg_run = ET.SubElement(beg_para, pref_w + 'r')
+                        beg_text = ET.SubElement(beg_run, pref_w + 't',
+                                                 {'xml:space': 'preserve'})
+                        beg_text.text = split_text[0]
+                        ans_parts.reverse()  # same reason as above
+                        for ans in ans_parts:
+                            self.doc_tree[0].insert(info['index'] + added, ans)
+                        beg_index = info['index'] + added
+                        self.doc_tree[0].insert(beg_index, beg_para)
+                        added += len(ans_parts) + 1
+            else:
+                logger.warning(f'#{tag} not found in the document.')
+        # revert the rest of the tags from their alt form
+        for info in self.tags_info:
+            logger.warning(f'There is nothing to send to #{info["tag"]}.')
+            loc_text = info['address'][2]
+            loc_text.text = loc_text.text.replace(
+                info['tag-alt'], '#' + info['tag'])
+
+    def collect_txt(self, content):
+        paras = []
+        para = [['text', '']]
+        for cont in content:
+            # so that it has a space before the inline eqn
+            space = '' if para[-1][1].endswith(' ') or not para[-1][1] else ' '
+            if para[-1][0] == 'text':
+                if cont[0] == 'text':
+                    if cont[1].strip():
+                        para[-1][1] += space + escape(cont[1])
+                    elif para[-1][1].strip():
+                        paras.append(para)
+                        para = [['text', '']]
+                else:
+                    if cont[0] == 'inline':
+                        if para[-1][1].strip():
+                            para[-1][1] += space
+                        para.append(cont)
+                    else:
+                        if para[0][1].strip() or len(para) > 1:
+                            paras.append(para)
+                            para = [['text', '']]
+                        paras.append([cont])
+            else:
+                if cont[0] == 'inline':
+                    para.append(['text', space])
+                    para.append(cont)
+                elif cont[0] == 'text':
+                    if cont[1].strip():
+                        para.append(['text', space + escape(cont[1])])
+                    elif len(para) > 1 or para[0][1].strip():
+                        paras.append(para)
+                        para = [['text', '']]
+                else:
+                    if para[0][1].strip() or len(para) > 1:
+                        paras.append(para)
+                        para = [['text', '']]
+                    paras.append([cont])
+        if para[0][1].strip() or len(para) > 1:
+            paras.append(para)
+        return paras
+
+    def para_elts(self, content: list):
+        w = self.namespaces['w']
+        m = self.namespaces['m']
+        para_start = f'<w:p xmlns:w="{w}" xmlns:m="{m}">'
+        para_form = para_start + '{}</w:p>'
+        run_form = '<w:r><w:t xml:space="preserve">{}</w:t></w:r>'
+        paras = []
+        for para in self.collect_txt(content):
+            para_xml_ls = []
+            for part in para:
+                if part[0] == 'text':
+                    if part[1].strip():
+                        para_xml_ls.append(run_form.format(part[1]))
+                else:
+                    para_xml_ls.append(part[1])
+            para_xml = para_form.format(''.join(para_xml_ls))
+            paras.append(ET.fromstring(para_xml))
+
+        return paras
+
+    def write(self, outfile=None, values={}):
+
+        if outfile:
+            self.outfile = outfile
+
+        if self.infile:
+            self._subs_tags(values)
+        else:
+            tmp_fname = path.splitext(self.tmp_file)[0] + '.docx'
+            with ZipFile(resource_filename(__name__, 'template.docx'), 'r') as zin:
+                file_contents = zin.read('word/document.xml')
+                self.tmp_file = ZipFile(tmp_fname, 'w', compression=ZIP_DEFLATED)
+                for file in zin.namelist():
+                    if file != 'word/document.xml':
+                        self.tmp_file.writestr(file, zin.read(file))
+
+            self.doc_tree = ET.fromstring(file_contents)
+            for child in self.doc_tree[0]:
+                self.doc_tree[0].remove(child)
+            for val in values.values():
+                for para in self.para_elts(val):
+                    self.doc_tree[0].append(para)
+            for prefix, uri in self.namespaces.items():
+                ET.register_namespace(prefix, uri)
+        # take care of namespaces and declaration
+        doc_xml = ET.tostring(self.doc_tree, encoding='unicode')
+        searched = re.match(r'\<w:document.*?\>', doc_xml).group(0)
+        used_nses = re.findall(r'(?<=xmlns\:)\w+', searched)
+        for prefix, uri in self.namespaces.items():
+            if prefix not in used_nses:
+                self.doc_tree.set('xmlns:' + prefix, uri)
+
+        doc_xml = self.declaration + \
+            ET.tostring(self.doc_tree, encoding='unicode')
+        self.tmp_file.writestr('word/document.xml', doc_xml)
+        tmp_fname = self.tmp_file.filename
+        self.tmp_file.close()
+
+        logger.info('[writing file] %s', self.outfile)
+        move(tmp_fname, self.outfile)
+
+        rmtree(self.temp_dir)
+
+
