@@ -610,7 +610,7 @@ def eqn(*equation_list, norm=True, disp=True, srnd=True, vert=True, div='frac', 
     equals = syntax.txt.format('=')
 
     # split and flatten in case there are any |, and split by =
-    equation_list = [_split(eq, last=None) for sub_eq in equation_list for eq in sub_eq.split('|')]
+    equation_list = [_split(eq) for sub_eq in equation_list for eq in sub_eq.split('|')]
 
     # prepare the segments of each equation for the syntax object in the form
     # [['x', '5*d'], ['', '5*5'], ['', '25']] (list of lists)

@@ -146,20 +146,19 @@ class document:
         return processed
 
     def _format_value(self, var, srnd=True):
-        syntax = select_syntax(self.doc_type)
         if var in self.working_dict:
             unit_name = var + UNIT_PF
             unit = to_math(self.working_dict[unit_name],
                            div="/",
                            working_dict=self.working_dict,
-                           typ=self.doc_type,
+                           syntax=self.syntax,
                            ital=False) \
                 if unit_name in self.working_dict.keys() and self.working_dict[unit_name] \
                 and self.working_dict[unit_name] != '_' else ''
-            result = to_math(self.working_dict[var], typ=self.doc_type)
-            return build_eqn([[result + syntax.txt.format(syntax.halfsp) + unit]],
+            result = to_math(self.working_dict[var], syntax=self.syntax)
+            return build_eqn([[result + self.syntax.txt.format(self.syntax.halfsp) + unit]],
                              disp=False, vert=False, srnd=srnd,
-                             typ=self.doc_type)
+                             syntax=self.syntax)
         else:
             raise KeyError(f"'{var}' is an undefined variable.")
 
@@ -171,21 +170,26 @@ class document:
         logger.info('[Processing] %s', line)
         if line.startswith('$'):
             patt = r'(?a)#(\w+)'
-            # term beginning with a number unlikely to be used
+            # term beginning with a number unlikely to be used, so that the \times
+            # operators are not omitted like if it was a variable name
             pholder = '111.111**PLACEHOLDER00'
-            vals = []
-            for v in re.finditer(patt, line):
-                vals.append(self._format_value(v.group(1), False))
+            # store the values in order
+            vals = [self._format_value(v.group(1), False)
+                    for v in re.finditer(patt, line)]
+            # replace all references by placeholder
             line = re.sub(patt, pholder, line)
+            # process it
             if line.startswith('$$'):
-                line = ('disp', eqn(line[2:], typ=self.doc_type))
+                line = ('disp', eqn(line[2:], syntax=self.syntax))
             else:
-                line = ('inline', eqn(line[1:], disp=False, typ=self.doc_type))
+                line = ('inline', eqn(line[1:], disp=False, syntax=self.syntax))
+            # put back the values in their order
             for v in vals:
-                line[1] = line[1].replace(to_math(pholder, typ=self.doc_type), v, 1)
+                line = (line[0], line[1].replace(to_math(pholder, syntax=self.syntax), v, 1))
             parts = [line]
         else:
             parts = []
+            # switcher between inline equation and text part in the line
             ref = False
             for part in re.split(r'(?a)(#\w+)', line.strip()):
                 if ref:
