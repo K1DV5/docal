@@ -1,22 +1,40 @@
+# -{pytest %f}
 import sys
+from subprocess import run
 
 # the local will take precedence
 sys.path.insert(1, '..')
-
-from subprocess import run
-import docal
 from docal import document
+from docal.handlers.latex import handler as handler_t
+from docal.handlers.word import handler as handler_w
 
-tex = 'test/t.tex'
-d = document(tex, tex)
-
-d.send(r'''
+calculation = r'''
+# Normal assignment
 x = 5 #kg
-y= 34*\
-x
-# then
-''')
 
-d.write()
+# Value reference
+# then x is #x and 
+#$$ v*x + 34 = d/#x
 
-run(['do.bat', tex])
+# Function creation
+d = lambda x: 8*x
+
+# Calculation refering anything
+y= 34*x + d(x)
+
+# after text
+'''
+
+def test_latex():
+    tex = 'test/t.tex'
+    d = document(tex, tex, handler_t)
+    d.send(calculation)
+    assert d.write() == True
+    # run(['do.bat', tex])
+
+def test_word():
+    word = 'test/w.docx'
+    d = document(word, None, handler_w)
+    d.send(calculation)
+    assert d.write() == True
+    # run(['start', 'test/w-out.docx'])

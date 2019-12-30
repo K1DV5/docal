@@ -217,3 +217,4 @@ class document:
         self.document_file.write(self.outfile, self.contents)
         logger.info('SUCCESS!!!')
         self.log = self.log_recorder.log
+        return True
