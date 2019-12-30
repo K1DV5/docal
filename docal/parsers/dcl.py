@@ -2,6 +2,8 @@ import xml.etree.ElementTree as ET
 import re
 from .excel import parse as parse_xl
 
+EXCEL_SEP = '|'
+
 dcl_pre_code = ['from math import *']
 
 def parse(what):
@@ -13,7 +15,7 @@ def parse(what):
                 child.text = repl_asc(child.text)
             converted.append(child.text)
         elif child.tag == 'excel':
-            converted.append(parse_xl(child.text))
+            converted.append(repl_xl(child.text))
     return '\n\n'.join(converted)
 
 def repl_asc(lines: str):
@@ -34,4 +36,19 @@ def repl_asc(lines: str):
 
     return py_legal
 
+def repl_xl(lines: str):
+    '''get parameters from string and call excel parser'''
+    lines = lines.strip().split('\n')
+    params = { 'file': '', 'sheet': 1, 'range': None, }
+    for param in [line.split(EXCEL_SEP)[:2] for line in lines]:
+        try:
+            key, val = param
+        except ValueError:
+            raise SyntaxError(
+                'Invalid syntax, must be in the form [parameter]'
+                 + EXCEL_SEP + ' [value]')
+        else:
+            if key.strip() in params:
+                params[key.strip()] = val.strip()
+    return parse_xl(params['file'], params['sheet'], params['range'])
 
