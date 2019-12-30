@@ -25,16 +25,14 @@ DERIVED = {u: ast.parse(DERIVED[u]).body[0].value for u in DERIVED}
 def _calculate(expr: ast.AST, options: dict, working_dict: dict, mul=' ', div='/', syntax=None):
     '''carryout the necesary calculations and assignments'''
 
-    def lx_args(ex, subs=None):
-
-        return MathVisitor(
-                       mul=mul,
-                       div=div,
-                       subs=subs,
-                       mat_size=options['mat_size'],
-                       decimal=options['decimal'],
-                       working_dict=working_dict,
-                       syntax=syntax).visit(ex)
+    lx_args = lambda ex, subs=None: MathVisitor(mul=mul,
+                                                div=div,
+                                                subs=subs,
+                                                mat_size=options['mat_size'],
+                                                decimal=options['decimal'],
+                                                working_dict=working_dict,
+                                                syntax=syntax
+                                                ).visit(ex)
 
     value_ast = expr if options['result'] is None else options['result']
     value = eval(compile(ast.Expression(value_ast), '<calculation>', 'eval'),
@@ -42,13 +40,13 @@ def _calculate(expr: ast.AST, options: dict, working_dict: dict, mul=' ', div='/
     result = [
         lx_args(expr),
         lx_args(expr, subs=True),
-        lx_args(value if not callable(value) else value_ast)
+        lx_args(value if not isinstance(value_ast, ast.Lambda) else value_ast)
     ]
 
     if options['steps']:
         result = [result[s] for s in options['steps'] if 0 <= s <= 2]
     # remove repeated steps (retaining order)
-    elif isinstance(expr, ast.Constant) or callable(value):
+    elif isinstance(expr, ast.Constant) or isinstance(value_ast, ast.Lambda):
         result = [result[2]]
     elif isinstance(expr, ast.Name) or (not isinstance(expr, ast.BinOp)
                                         and not isinstance(expr, ast.UnaryOp)):

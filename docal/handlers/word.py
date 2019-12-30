@@ -2,6 +2,22 @@
 import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape
 from zipfile import ZipFile, ZIP_DEFLATED
+# for file operations
+from shutil import move, rmtree
+# for access to resource template
+from pkg_resources import resource_filename
+# for temp directory
+import tempfile
+# for path manips
+from os import path
+# for regex
+import re
+# log info
+import logging
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_FILE = 'Untitled.docx'
 
 GREEK_LETTERS = {
     'alpha':      'α',
@@ -61,7 +77,11 @@ MATH_ACCENTS = {
 PRIMES = {'prime': "'", '2prime': "''", '3prime': "'''"}
 
 
-class SyntaxWord:
+class syntax:
+
+    greek_letters = GREEK_LETTERS
+    math_accents = MATH_ACCENTS
+    primes = PRIMES
 
     # common string blocks (can be formatted)
     txt = '<m:r><m:t xml:space="preserve">{}</m:t></m:r>'
@@ -130,10 +150,9 @@ class SyntaxWord:
         align_chr = self.txt.format('&amp;=')
         return form.format(''.join([line_form.format(align_chr.join(eq)) for eq in eqns]))
 
-class wordFile:
+class handler:
 
-    # name for this type (for to_math)
-    name = 'word'
+    syntax = syntax()
     # the xml declaration
     declaration = '<?xml version="1.0" encoding="utf-8" standalone="yes"?>\n'
     # always required namespaces
@@ -162,7 +181,9 @@ class wordFile:
     # the internal form of the parsed tags for internal use to avoid normal # usage
     tag_alt_form = '#{%s}'
 
-    def __init__(self, infile, to_clear=False):
+    def __init__(self, infile, pattern, to_clear=False):
+        # the tag pattern
+        self.pattern = pattern
         # temp folder for converted files
         # self.temp_dir = path.join(environ['TMP'], '.docalTemp')
         self.temp_dir = tempfile.mkdtemp()
@@ -194,7 +215,7 @@ class wordFile:
                 self.temp_dir, path.splitext(
                     path.basename(DEFAULT_FILE))[0])
             self.infile = self.doc_tree = self.tags_info = self.tags = None
-            self.outfile = DEFAULT_FILE.replace('.tex', '.docx')
+            self.outfile = DEFAULT_FILE
 
     def normalized_contents(self, paragraph):
         pref_w = f'{{{self.namespaces["w"]}}}'
@@ -233,7 +254,7 @@ class wordFile:
                             w_t = ET.SubElement(w_r, pref_w + 't',
                                                 {'xml:space': 'preserve'})
                             # store full info about the tags inside
-                            for tag in PATTERN.finditer(cont[0]):
+                            for tag in self.pattern.finditer(cont[0]):
                                 if cont[0].strip() == '#' + tag.group(2):
                                     position = 'para'
                                 else:
@@ -245,7 +266,7 @@ class wordFile:
                                     'position': position,
                                     'index': index})
                             # remove \'s from the escaped #'s and change the tags form
-                            w_t.text = (re.sub(r'\\#', '#', PATTERN.sub(
+                            w_t.text = (re.sub(r'\\#', '#', self.pattern.sub(
                                 lambda tag:
                                     tag.group(1) +
                                     self.tag_alt_form % tag.group(2) +

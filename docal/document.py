@@ -11,8 +11,6 @@ import ast
 import re
 # for path manips
 from os import path
-# for temp directory
-import tempfile
 # for status tracking
 import logging
 from .calculation import cal, _process_options
@@ -20,6 +18,9 @@ from .parsing import UNIT_PF, eqn, to_math, build_eqn, DEFAULT_MAT_SIZE, _get_pa
 
 # default working area
 DICT = {}
+
+# the tag pattern
+PATTERN = re.compile(r'(?s)([^\w\\]|^)#(\w+?)(\W|$)')
 
 LOG_FORMAT = '%(levelname)s: %(message)s'
 logging.basicConfig(format=LOG_FORMAT)
@@ -68,12 +69,12 @@ class document:
         if infile:
             infile = path.abspath(infile)
             basename, ext = path.splitext(infile)
-            self.document_file = handler(infile, to_clear)
+            self.document_file = handler(infile, PATTERN, to_clear)
             # the calculations object that will convert given things to a list and store
             self.tags = self.document_file.tags
         elif outfile:
             ext = path.splitext(outfile)[1]
-            self.document_file = handler(None, self.to_clear)
+            self.document_file = handler(None, PATTERN, self.to_clear)
             self.tags = []
         else:
             raise ValueError('Need to specify at least one document')

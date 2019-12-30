@@ -6,9 +6,6 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_FILE = 'Untitled.tex'
 
-# the tag pattern
-PATTERN = re.compile(r'(?s)([^\w\\]|^)#(\w+?)(\W|$)')
-
 # surrounding of the content sent for reversing (something that doesn't
 # change the actual content of the document, and works inside lines)
 SURROUNDING = ['{} {{ {}', '{} }} {}']
@@ -135,17 +132,16 @@ class syntax:
 class handler:
     '''handles the latex files'''
 
-    # name for this type (for to_math)
-    name = 'latex'
+    syntax = syntax()
 
     # warning for tag place protection in document:
     warning = ('BELOW IS AN AUTO GENERATED LIST OF TAGS. '
                'DO NOT DELETE IT IF REVERSING IS DESIRED!!!\n%')
 
-    syntax = syntax()
+    def __init__(self, infile, pattern, to_clear):
 
-    def __init__(self, infile, to_clear):
-
+        # the tag pattern
+        self.pattern = pattern
         self.to_clear = to_clear
         if infile:
             self.infile = self.outfile = infile
@@ -162,7 +158,7 @@ class handler:
                 self.tags = self.tagline.group(0)[start:end].split()
                 self._revert_tags()
             self.tags = [tag.group(2)
-                         for tag in PATTERN.finditer(self.file_contents)]
+                         for tag in self.pattern.finditer(self.file_contents)]
         else:
             self.file_contents = self.infile = self.tagline = self.tags = None
             self.outfile = DEFAULT_FILE
@@ -185,7 +181,7 @@ class handler:
 
     def _subs_in_place(self, values: dict):
         file_str = self.file_contents + f'\n\n% {self.warning} [['
-        file_str = PATTERN.sub(lambda x: self._repl(x, True, values),
+        file_str = self.pattern.sub(lambda x: self._repl(x, True, values),
                                file_str)
         for tag in self.calc_tags:
             file_str += tag + ' '
@@ -193,7 +189,7 @@ class handler:
         return file_str
 
     def _subs_separate(self, values: dict):
-        return PATTERN.sub(lambda x: self._repl(x, False, values),
+        return self.pattern.sub(lambda x: self._repl(x, False, values),
                            self.file_contents)
 
     def _repl(self, match_object, surround: bool, values: dict):

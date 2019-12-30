@@ -536,7 +536,9 @@ class MathVisitor(ast.NodeVisitor):
         return 800
 
     def generic_visit(self, n):
-        return str(n)
+        if isinstance(n, ast.AST):
+            return self.visit(ast.Constant(str(n)))
+        return self.visit(_prep4lx(n, self.s, self.mat_size))
 
     def generic_prec(self, n):
         return 1000
