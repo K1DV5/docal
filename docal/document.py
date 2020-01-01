@@ -118,7 +118,7 @@ class document:
         for part in _get_parts(parts):
             if isinstance(part, Comment):
                 if part.kind == 'tag':
-                    tag = self.current_tag = part[0]
+                    tag = self.current_tag = part.content
                     logger.info('[Change tag] #%s', tag)
                 elif part.kind == 'text':
                     for line in self._process_text(part.content):

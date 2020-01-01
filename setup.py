@@ -38,7 +38,7 @@ setup(
     include_package_data=True,
     keywords='docal',
     name='docal',
-    packages=['docal'],
+    packages=['docal', 'docal.parsers', 'docal.handlers'],
     url='https://github.com/K1DV5/docal',
     version=VERSION,
     zip_safe=False,
