@@ -401,9 +401,6 @@ class MathVisitor(ast.NodeVisitor):
         elements = [self.visit(element) for element in n.elts]
         return self.s.matrix(elements, True)
 
-    def prec_List(self, n):
-        return 1000
-
     def visit_Tuple(self, n):
         # if it is used as an index for an iterable, add 1 to the elements if
         # they are numbers
@@ -415,12 +412,19 @@ class MathVisitor(ast.NodeVisitor):
         return self.s.delmtd(self.s.txt.format(', ')
                              .join([self.visit(element) for element in n.elts]))
 
-    def prec_Tuple(self, n):
-        return 1000
+    def visit_Dict(self, n):  # dict
+        row = lambda k, v: self.s.matrix([self.visit(k),
+                                          self.s.txt.format(': '),
+                                          self.visit(v)
+                                          ], False)
+        elements = [row(k, v) for k, v in zip(n.keys, n.values)]
+        return self.s.matrix(elements, True)
 
     # indexed items (item[4:])
     def visit_Subscript(self, n):
         sliced = self.visit(n.value)
+        if isinstance(n.value, ast.Dict):
+            n.slice.is_for_dict = True
         slicer = self.s.delmtd(self.visit(n.slice), 1)
         # if the iterable is kinda not simple, surround it with PARENS
         if isinstance(n.value, ast.BinOp) or isinstance(n.value, ast.UnaryOp):
@@ -432,8 +436,9 @@ class MathVisitor(ast.NodeVisitor):
         # this will be used by the tuple visitor
         n.value.is_in_index = True
         # if it is a number, add 1 to it
-        if isinstance(n.value, ast.Constant):
-            return self.s.txt.format(int(n.value.n) + 1)
+        if isinstance(n.value, ast.Constant) and type(n.value.value) == int:
+            add = 1 if not hasattr(n, 'is_for_dict') else 0
+            return self.s.txt.format(int(n.value.n) + add)
         return self.visit(n.value)
 
     def visit_Slice(self, n):
