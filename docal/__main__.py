@@ -5,6 +5,8 @@ from argparse import ArgumentParser
 from os import path
 from glob import glob
 from docal import document
+from docal.parsers import excel, dcl
+from docal.handlers import word, latex
 # for included word template access
 from pkg_resources import resource_filename
 
@@ -42,24 +44,36 @@ parser.add_argument('-l', '--log-level', choices=['INFO', 'WARNING', 'ERROR', 'D
 
 args = parser.parse_args()
 
+handlers = {
+    '.tex': latex.handler,
+    '.word': word.handler
+}
 
 def main():
     '''
     main function in this script
     '''
+    infile = path.abspath(args.input) if args.input else None
+    outfile = path.abspath(args.input) if args.input else None
+    extension_i = path.splitext(infile)[1] if infile else None
+    extension_o = path.splitext(outfile)[1] if outfile else None
+    extension = extension_i if extension_i else extension_o
     try:
-        d = document(args.input, args.output, to_clear=args.clear, log_level=args.log_level)
+        d = document(infile, outfile, handlers[extension], args.clear, args.log_level)
         if args.script:
-            if args.script.endswith('.py'):
+            calculation = path.abspath(args.script)
+            kind = path.splitext(calculation)[1]
+            if kind == '.py':
                 with open(args.script, encoding='utf-8') as file:
                     instructions = file.read()
-                d.send(instructions)
-            elif args.script.endswith('.xlsx'):
-                d.send({'file': args.script}, 'excel')
-            elif args.script.endswith('.dcl'):
+            elif kind == '.xlsx':
+                instructions = excel.parse(calculation)
+            elif kind == '.dcl':
                 with open(args.script, encoding='utf-8') as file:
-                    instructions = file.read()
-                d.send(instructions, typ='dcl')
+                    instructions = dcl.parse(file.read())
+            else:
+                instructions = ''
+            d.send(instructions)
         d.write()
     except Exception as exc:
         if args.log_level == 'DEBUG':
