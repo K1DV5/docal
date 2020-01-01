@@ -264,7 +264,7 @@ class MathVisitor(ast.NodeVisitor):
 
     def visit_Lambda(self, n):
         args = self.s.txt.format(', ').join([self.format_name(a.arg) for a in n.args.args])
-        return self.s.delmtd(args) + self.s.txt.format('=') + self.visit(n.body)
+        return self.s.txt.format('f') + self.s.delmtd(args) + self.s.txt.format('=') + self.visit(n.body)
 
     def visit_arg(self, n):
         return self.format_name(n.arg)
