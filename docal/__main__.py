@@ -46,7 +46,7 @@ args = parser.parse_args()
 
 handlers = {
     '.tex': latex.handler,
-    '.word': word.handler
+    '.docx': word.handler
 }
 
 def main():
