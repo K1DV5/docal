@@ -78,10 +78,10 @@ class document:
             self.tags = []
         else:
             raise ValueError('Need to specify at least one document')
+        self.outfile = path.abspath(outfile) if outfile else None
         self.current_tag = self.tags[0] if self.tags else None
         if self.current_tag is None:
             logger.warning('There are no tags in the document')
-        self.outfile = outfile
         # =========CALCULATION================
         # the calculations corresponding to the tags
         self.contents = {}

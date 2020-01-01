@@ -53,13 +53,11 @@ def main():
     '''
     main function in this script
     '''
-    infile = path.abspath(args.input) if args.input else None
-    outfile = path.abspath(args.input) if args.input else None
-    extension_i = path.splitext(infile)[1] if infile else None
-    extension_o = path.splitext(outfile)[1] if outfile else None
+    extension_i = path.splitext(args.input)[1] if args.input else None
+    extension_o = path.splitext(args.output)[1] if args.output else None
     extension = extension_i if extension_i else extension_o
     try:
-        d = document(infile, outfile, handlers[extension], args.clear, args.log_level)
+        d = document(args.input, args.output, handlers[extension], args.clear, args.log_level)
         if args.script:
             calculation = path.abspath(args.script)
             kind = path.splitext(calculation)[1]
