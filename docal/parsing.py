@@ -643,14 +643,21 @@ class Comment():
 
     def get_props(self, line):
         tag_match = PATTERN.match(line.strip())
-        if tag_match and tag_match.group(0) == line.strip():
+        line = line.strip()
+        if tag_match and tag_match.group(0) == line:
             self.kind = 'tag'
             self.content = line[1:].strip()
-        elif line.lstrip().startswith('##'):
+        elif line.startswith('##'):
             self.kind = 'comment'
-            self.content = line.lstrip()[2:]
-        elif line.lstrip().startswith('#@'):
+            self.content = line[2:].strip()
+        elif line.startswith('#@'):
             self.kind = 'options'
+            self.content = line[2:].strip()
+        elif line.startswith('#$$'):
+            self.kind = 'eqn-disp'
+            self.content = line[3:].strip()
+        elif line.startswith('#$'):
+            self.kind = 'eqn-inline'
             self.content = line[2:].strip()
         elif line:
             self.kind = 'text'

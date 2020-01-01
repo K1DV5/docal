@@ -121,8 +121,11 @@ class document:
                     tag = self.current_tag = part[0]
                     logger.info('[Change tag] #%s', tag)
                 elif part.kind == 'text':
-                    for line in self._process_comment(part.content):
+                    for line in self._process_text(part.content):
                         processed.append((tag, line))
+                elif part.kind in ['eqn-inline', 'eqn-disp']:
+                    disp = part.kind == 'eqn-disp'
+                    processed.append((tag, self._process_equation(part.content, disp)))
                 elif part.kind == 'options':
                     # set options for calculations that follow
                     self.working_dict['__DOCAL_OPTIONS__'] = \
@@ -163,43 +166,44 @@ class document:
         else:
             raise KeyError(f"'{var}' is an undefined variable.")
 
-    def _process_comment(self, line):
+    def _process_text(self, line):
         '''
         convert comments to latex paragraphs
         '''
-
-        logger.info('[Processing] %s', line)
-        if line.startswith('$'):
-            patt = r'(?a)#(\w+)'
-            # term beginning with a number unlikely to be used, so that the \times
-            # operators are not omitted like if it was a variable name
-            pholder = '111.111**PLACEHOLDER00'
-            # store the values in order
-            vals = [self._format_value(v.group(1), False)
-                    for v in re.finditer(patt, line)]
-            # replace all references by placeholder
-            line = re.sub(patt, pholder, line)
-            # process it
-            if line.startswith('$$'):
-                line = ('disp', eqn(line[2:], syntax=self.syntax))
+        # there may be more than one kind of part (inline equation, text)
+        parts = []
+        # switcher between inline equation and text part in the line
+        ref = False
+        for part in re.split(r'(?a)(#\w+)', line.strip()):
+            if ref:
+                parts.append(('inline', self._format_value(part[1:])))
+                ref = False
             else:
-                line = ('inline', eqn(line[1:], disp=False, syntax=self.syntax))
-            # put back the values in their order
-            for v in vals:
-                line = (line[0], line[1].replace(to_math(pholder, syntax=self.syntax), v, 1))
-            parts = [line]
-        else:
-            parts = []
-            # switcher between inline equation and text part in the line
-            ref = False
-            for part in re.split(r'(?a)(#\w+)', line.strip()):
-                if ref:
-                    parts.append(('inline', self._format_value(part[1:])))
-                    ref = False
-                else:
-                    parts.append(('text', part))
-                    ref = True
+                parts.append(('text', part))
+                ref = True
         return parts
+
+    def _process_equation(self, line, disp):
+
+        # value reference pattern
+        patt = r'(?a)#(\w+)'
+        # term beginning with a number unlikely to be used, so that the \times
+        # operators are not omitted like if it was a variable name
+        pholder = '111.111**PLACEHOLDER00'
+        # store the values in order
+        vals = [self._format_value(v.group(1), False)
+                for v in re.finditer(patt, line)]
+        # replace all references by placeholder
+        line = re.sub(patt, pholder, line)
+        # process it
+        if disp:
+            equation = ('disp', eqn(line[2:], syntax=self.syntax))
+        else:
+            equation = ('inline', eqn(line[1:], disp=False, syntax=self.syntax))
+        # put back the values in their order
+        for v in vals:
+            equation = (equation[0], equation[1].replace(to_math(pholder, syntax=self.syntax), v, 1))
+        return equation
 
     def _process_assignment(self, line):
         '''
