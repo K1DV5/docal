@@ -68,7 +68,7 @@ def _calculate(expr: ast.AST, options: dict, working_dict: dict, mul=' ', div='/
         else:
             options['unit'] = unitize(expr)
     if options['unit'] and options['unit'] != '_':
-        unit_lx = syntax.txt.format(syntax.halfsp) + to_math(options['unit'],
+        unit_lx = syntax.txt(syntax.halfsp) + to_math(options['unit'],
                                                              div='/',
                                                              working_dict=working_dict,
                                                              syntax=syntax,
@@ -78,7 +78,7 @@ def _calculate(expr: ast.AST, options: dict, working_dict: dict, mul=' ', div='/
     
     result[-1] += unit_lx
     if options['note'] is not None:
-        result[-1] += syntax.txt.format(syntax.halfsp) + syntax.txt_math.format(options['note'])
+        result[-1] += syntax.txt(syntax.halfsp) + syntax.txt_math(options['note'])
 
     return result
 

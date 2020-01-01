@@ -41,10 +41,10 @@ def test_word():
     assert d.write() == True
     # run(['start', 'test/w-out.docx'])
 
-# def test_excel():
-#     tex = 'test/t.tex'
-#     d = document(tex, tex, handler_t)
-#     calculation = parse_xl('test/e.xlsx')
-#     d.send(calculation)
-#     assert d.write() == True
+def test_excel():
+    tex = 'test/t.tex'
+    d = document(tex, tex, handler_t)
+    calculation = parse_xl('test/e.xlsx')
+    d.send(calculation)
+    assert d.write() == True
 

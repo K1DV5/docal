@@ -66,19 +66,6 @@ MATH_ACCENTS = ['hat',
 PRIMES = {'prime': "'", '2prime': "''", '3prime': "'''"}
 
 class syntax:
-    txt = '{}'
-    txt_rom = r'\mathrm{{{}}}'
-    txt_math = '\\text{{{}}}'
-    sub = r'{{{}}}_{{{}}}'
-    sup = '{{{}}}^{{{}}}'
-    acc = '{{{}}}{}'
-    rad = r'\sqrt{{{}}}'
-    summation = r'\sum_{{i=1}}^{{{}}} {{{}}}'
-    func_name = r'\operatorname{{{}}}'
-    func = '{{{}}} {{{}}}'
-    frac = r'\frac{{{}}}{{{}}}'
-    math_disp = '\\[\n{}\n\\]'
-    math_inln = '\\(\\displaystyle {}\\)'
 
     transformed = {
     'degC': '\\,^\\circ \\mathrm{C}',
@@ -102,6 +89,42 @@ class syntax:
     greek_letters = GREEK_LETTERS
     math_accents = MATH_ACCENTS
     primes = PRIMES
+
+    def txt(self, text):
+        return str(text)
+
+    def txt_rom(self, text):
+        return fr'\mathrm{{{text}}}'
+
+    def txt_math(self, text):
+        return f'\\text{{{text}}}'
+
+    def sub(self, base, s): 
+        return fr'{{{base}}}_{{{s}}}'
+
+    def sup(self, base, s):
+        return f'{{{base}}}^{{{s}}}'
+
+    def acc(self, base, accent):
+        return f'{{{base}}}{accent}'
+
+    def rad(self, base):
+        return fr'\sqrt{{{base}}}'
+
+    def summation(self, base, end):
+        return fr'\sum_{{i=1}}^{{{end}}} {{{base}}}'
+
+    def func_name(self, name):
+        return fr'\operatorname{{{name}}}'
+
+    def frac(self, num, den):
+        return fr'\frac{{{num}}}{{{den}}}'
+
+    def math_disp(self, math):
+        return f'\\[\n{math}\n\\]'
+
+    def math_inln(self, math):
+        return f'\\(\\displaystyle {math}\\)'
 
     def greek(self, name):
         return '\\' + name

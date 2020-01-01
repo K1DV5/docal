@@ -160,7 +160,7 @@ class document:
                 if unit_name in self.working_dict.keys() and self.working_dict[unit_name] \
                 and self.working_dict[unit_name] != '_' else ''
             result = to_math(self.working_dict[var], syntax=self.syntax)
-            return build_eqn([[result + self.syntax.txt.format(self.syntax.halfsp) + unit]],
+            return build_eqn([[result + self.syntax.txt(self.syntax.halfsp) + unit]],
                              disp=False, vert=False, srnd=srnd,
                              syntax=self.syntax)
         else:

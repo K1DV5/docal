@@ -142,7 +142,7 @@ class MathVisitor(ast.NodeVisitor):
         for index, part in enumerate(parts):
             # no modification is wanted if the first character is 0
             if part.startswith('0') and len(part) > 1:
-                parts_final[index] = self.s.txt_rom.format(part[1:])
+                parts_final[index] = self.s.txt_rom(part[1:])
             # convert to greek letters
             elif part in self.s.greek_letters:
                 parts_final[index] = self.s.greek(part)
@@ -162,17 +162,17 @@ class MathVisitor(ast.NodeVisitor):
             # change in ... as [Dd]elta...
             elif part.startswith('Delta') or part.startswith('delta'):
                 delta, var = part[:len('delta')], part[len('delta'):]
-                parts_final[index] = self.s.greek(delta) + self.s.txt.format(' ') + self.format_name(var)
+                parts_final[index] = self.s.greek(delta) + self.s.txt(' ') + self.format_name(var)
             elif len(part) > 1 or not self.ital:
-                parts_final[index] = self.s.txt_rom.format(part)
+                parts_final[index] = self.s.txt_rom(part)
             elif part:
-                parts_final[index] = self.s.txt.format(part)
+                parts_final[index] = self.s.txt(part)
         # remove the accents
         parts_final = [part for index, part in enumerate(parts_final)
                        if index not in accent_locations]
         parts_final = [part.split('_') for part in '_'.join(parts_final).split('__')]
-        parts_final = [self.s.sub.format(p[0], p[1]) if len(p) > 1 else p[0] for p in parts_final]
-        name = self.s.sup.format(parts_final[0], parts_final[1]) if len(parts_final) > 1 else parts_final[0]
+        parts_final = [self.s.sub(p[0], p[1]) if len(p) > 1 else p[0] for p in parts_final]
+        name = self.s.sup(parts_final[0], parts_final[1]) if len(parts_final) > 1 else parts_final[0]
 
         return name
 
@@ -183,17 +183,17 @@ class MathVisitor(ast.NodeVisitor):
         return self.visit(n.value)
 
     def visit_Assign(self, n):
-        return self.s.txt.format('=').join([self.visit(t) for t in n.targets + [n.value]])
+        return self.s.txt('=').join([self.visit(t) for t in n.targets + [n.value]])
 
     def visit_Compare(self, n):
         collect = [self.visit(n.left)]
         for i, op in enumerate(n.ops):
-            collect.append(self.s.txt.format(self.visit(op)))
+            collect.append(self.s.txt(self.visit(op)))
             collect.append(self.visit(n.comparators[i]))
         return ''.join(collect)
 
     def visit_Eq(self, n):
-        return self.s.txt.format('=')
+        return self.s.txt('=')
 
     def visit_Gt(self, n):
         return self.s.gt
@@ -241,30 +241,30 @@ class MathVisitor(ast.NodeVisitor):
             func = n.func.id
         else:
             func = self.visit(n.func)
-        args = self.s.txt.format(', ').join([self.visit(arg) for arg in n.args])
+        args = self.s.txt(', ').join([self.visit(arg) for arg in n.args])
         ignored = ['round', 'matrix', 'Matrix', 'array', 'ndarray']
         if func == 'sqrt':
-            return self.s.rad.format(args)
+            return self.s.rad(args)
         elif func == 'inv':
-            return self.s.sup.format(args, -1)
+            return self.s.sup(args, -1)
         elif func == 'transpose':
-            return self.s.sup.format(args, 'T')
+            return self.s.sup(args, 'T')
         elif func == 'sum':
             if isinstance(n.args[0], ast.Name):
                 n.args[0] = self.visit_Name(n.args[0], True)
             if isinstance(n.args[0], ast.List) or isinstance(n.args[0], ast.Tuple):
-                return self.s.summation.format(len(n.args[0].elts), args)
-            return self.s.txt.format(self.s.greek('Sigma')) + self.s.delmtd(args)
+                return self.s.summation(args, len(n.args[0].elts))
+            return self.s.txt(self.s.greek('Sigma')) + self.s.delmtd(args)
         elif func in ignored:
             return self.visit(n.args[0])
-        return self.s.txt_rom.format(func) + self.s.delmtd(args)
+        return self.s.txt_rom(func) + self.s.delmtd(args)
 
     def prec_Call(self, n):
         return 1000
 
     def visit_Lambda(self, n):
-        args = self.s.txt.format(', ').join([self.format_name(a.arg) for a in n.args.args])
-        return self.s.txt.format('f') + self.s.delmtd(args) + self.s.txt.format('=') + self.visit(n.body)
+        args = self.s.txt(', ').join([self.format_name(a.arg) for a in n.args.args])
+        return self.s.txt('f') + self.s.delmtd(args) + self.s.txt('=') + self.visit(n.body)
 
     def visit_arg(self, n):
         return self.format_name(n.arg)
@@ -284,7 +284,7 @@ class MathVisitor(ast.NodeVisitor):
                 if str(self.dict[n.id]) == n.id:
                     return self.format_name(str(self.dict[n.id]))
                 qty = self.visit(_prep4lx(self.dict[n.id], self.s, self.mat_size))
-                unit = self.s.txt.format(self.s.halfsp) + \
+                unit = self.s.txt(self.s.halfsp) + \
                     to_math(self.dict[n.id + UNIT_PF], div="/", ital=False, decimal=self.decimal, syntax=self.s) \
                     if n.id + UNIT_PF in self.dict.keys() and self.dict[n.id + UNIT_PF] \
                     and self.dict[n.id + UNIT_PF] != '_' else ''
@@ -303,7 +303,6 @@ class MathVisitor(ast.NodeVisitor):
     def visit_Constant(self, n):
         kind = type(n.value)
         if kind in [int, float]:
-            n.value = n.value
             if n.value != 0 and (abs(n.value) > 1000 or abs(n.value) < 0.1):
                 # in scientific notation
                 num_ls = (f'%.{self.decimal}E' % n.value).split('E')
@@ -311,10 +310,10 @@ class MathVisitor(ast.NodeVisitor):
                 # remove the preceding zeros and + in the powers like +07 to just 7
                 num_ls[1] = num_ls[1][0].lstrip('+') + num_ls[1][1:].lstrip('0')
                 # make them appear as powers of 10
-                return self.s.txt.format(num_ls[0]) + self.s.delmtd(self.s.sup.format(self.s.txt.format(10), self.s.txt.format(num_ls[1])))
+                return self.s.txt(num_ls[0]) + self.s.delmtd(self.s.sup(self.s.txt(10), self.s.txt(num_ls[1])))
             if n.value == int(n.value):
-                return self.s.txt.format(int(n.value))
-            return self.s.txt.format(round(n.value, self.decimal))
+                return self.s.txt(int(n.value))
+            return self.s.txt(round(n.value, self.decimal))
         elif kind == str:
             # if whole string contains only word characters
             if re.match(r'\w*', n.value).span()[1] == len(n.value):
@@ -327,7 +326,7 @@ class MathVisitor(ast.NodeVisitor):
                     return eqn(n.value, srnd=False, vert=False, decimal=self.decimal)
                 except SyntaxError:  # if the equation is just beyond understanding
                     pass
-            return self.s.txt_math.format(n.value)
+            return self.s.txt_math(n.value)
         return str(n.value)
 
     def prec_Constant(self, n):
@@ -341,8 +340,8 @@ class MathVisitor(ast.NodeVisitor):
             n.operand.is_in_unaryop = True
         if self.prec(n.op) >= self.prec(n.operand) \
                 or (hasattr(n, 'is_in_unaryop') and n.is_in_unaryop):
-            return self.s.txt.format(self.visit(n.op)) + self.s.delmtd(self.visit(n.operand))
-        return self.s.txt.format(self.visit(n.op)) + ' ' + self.visit(n.operand)
+            return self.s.txt(self.visit(n.op)) + self.s.delmtd(self.visit(n.operand))
+        return self.s.txt(self.visit(n.op)) + ' ' + self.visit(n.operand)
 
     def prec_UnaryOp(self, n):
         return self.prec(n.op)
@@ -378,15 +377,15 @@ class MathVisitor(ast.NodeVisitor):
                              and isinstance(tmp_right.left, ast.Constant),
                              isinstance(tmp_right, ast.Constant)])
             if no_need:
-                return left + self.s.txt.format(self.s.halfsp) + right
+                return left + self.s.txt(self.s.halfsp) + right
         elif isinstance(n.op, ast.Pow):
-            return self.s.sup.format(left, right)
+            return self.s.sup(left, right)
         elif self.div == 'frac':
             if isinstance(n.op, ast.Div):
-                return self.s.frac.format(left, right)
+                return self.s.frac(left, right)
             elif isinstance(n.op, ast.FloorDiv):
-                return self.s.delmtd(self.s.frac.format(left, right), 3)
-        return left + self.s.txt.format(self.visit(n.op)) + right
+                return self.s.delmtd(self.s.frac(left, right), 3)
+        return left + self.s.txt(self.visit(n.op)) + right
 
     def prec_BinOp(self, n):
         return self.prec(n.op)
@@ -405,16 +404,16 @@ class MathVisitor(ast.NodeVisitor):
         # if it is used as an index for an iterable, add 1 to the elements if
         # they are numbers
         if hasattr(n, 'is_in_index') and n.is_in_index:
-            return self.s.txt.format(', ').join([self.s.txt.format(int(i.n) + 1)
+            return self.s.txt(', ').join([self.s.txt(int(i.n) + 1)
                                                  if isinstance(i, ast.Constant)
                                                  else self.visit(i)
                                                  for i in n.elts])
-        return self.s.delmtd(self.s.txt.format(', ')
+        return self.s.delmtd(self.s.txt(', ')
                              .join([self.visit(element) for element in n.elts]))
 
     def visit_Dict(self, n):  # dict
         row = lambda k, v: self.s.matrix([self.visit(k),
-                                          self.s.txt.format(': '),
+                                          self.s.txt(': '),
                                           self.visit(v)
                                           ], False)
         elements = [row(k, v) for k, v in zip(n.keys, n.values)]
@@ -428,9 +427,9 @@ class MathVisitor(ast.NodeVisitor):
         slicer = self.s.delmtd(self.visit(n.slice), 1)
         # if the iterable is kinda not simple, surround it with PARENS
         if isinstance(n.value, ast.BinOp) or isinstance(n.value, ast.UnaryOp):
-            return self.s.sub.format(self.s.delmtd(sliced), slicer)
+            return self.s.sub(self.s.delmtd(sliced), slicer)
         # write the indices as subscripts
-        return self.s.sub.format(sliced, slicer)
+        return self.s.sub(sliced, slicer)
 
     def visit_Index(self, n):
         # this will be used by the tuple visitor
@@ -438,20 +437,20 @@ class MathVisitor(ast.NodeVisitor):
         # if it is a number, add 1 to it
         if isinstance(n.value, ast.Constant) and type(n.value.value) == int:
             add = 1 if not hasattr(n, 'is_for_dict') else 0
-            return self.s.txt.format(int(n.value.n) + add)
+            return self.s.txt(int(n.value.n) + add)
         return self.visit(n.value)
 
     def visit_Slice(self, n):
         # same thing with adding one
-        lower, upper = [self.s.txt.format(int(i.n) + 1)
+        lower, upper = [self.s.txt(int(i.n) + 1)
                         if isinstance(i, ast.Constant)
                         else self.visit(i)
                         for i in [n.lower, n.upper]]
         # join the upper and lower limits with -
-        return self.visit(lower) + self.s.txt.format('-') + self.visit(upper)
+        return self.visit(lower) + self.s.txt('-') + self.visit(upper)
 
     def visit_ExtSlice(self, n):
-        return self.s.txt.format(', ').join([self.visit(s) for s in n.dims])
+        return self.s.txt(', ').join([self.visit(s) for s in n.dims])
 
     def visit_Sub(self, n):
         return '-'
@@ -491,7 +490,7 @@ class MathVisitor(ast.NodeVisitor):
         return 700
 
     def visit_Mod(self, n):
-        return self.s.txt_math.format(' mod ')
+        return self.s.txt_math(' mod ')
 
     def prec_Mod(self, n):
         return 500
@@ -566,18 +565,18 @@ def build_eqn(eq_list, disp=True, vert=True, syntax=None, srnd=True, joint='='):
         if len(eq_list[0]) == 1:
             inner = eq_list[0][0]
         else:
-            inner = syntax.txt.format(joint).join(eq_list[0])
+            inner = syntax.txt(joint).join(eq_list[0])
     else:
         if vert and disp:
-            inner = syntax.eqarray([[syntax.txt.format(joint).join(eq[:-1]),
+            inner = syntax.eqarray([[syntax.txt(joint).join(eq[:-1]),
                                      eq[-1]] for eq in eq_list])
         else:
-            inner = ''.join([syntax.txt.format(joint).join(eq) for eq in eq_list])
+            inner = ''.join([syntax.txt(joint).join(eq) for eq in eq_list])
     if srnd:
         if disp:
-            return syntax.math_disp.format(inner)
+            return syntax.math_disp(inner)
         else:
-            return syntax.math_inln.format(inner)
+            return syntax.math_inln(inner)
     return inner
 
 def _parens_balanced(expr: str) -> bool:
@@ -609,7 +608,7 @@ def _split(what: str, char='=') -> list:
 def eqn(*equation_list, norm=True, disp=True, srnd=True, vert=True, div='frac', mul=' ', decimal=3, syntax=None) -> str:
     '''main api for equations'''
 
-    equals = syntax.txt.format('=')
+    equals = syntax.txt('=')
 
     # split and flatten in case there are any |, and split by =
     equation_list = [_split(eq) for sub_eq in equation_list for eq in sub_eq.split('|')]

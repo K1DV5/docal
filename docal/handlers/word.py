@@ -79,25 +79,6 @@ PRIMES = {'prime': "'", '2prime': "''", '3prime': "'''"}
 
 class syntax:
 
-    greek_letters = GREEK_LETTERS
-    math_accents = MATH_ACCENTS
-    primes = PRIMES
-
-    # common string blocks (can be formatted)
-    txt = '<m:r><m:t xml:space="preserve">{}</m:t></m:r>'
-    txt_rom = '<m:r><m:rPr><m:nor/></m:rPr><w:rPr><w:rFonts w:ascii="Cambria Math" w:eastAsiaTheme="minorEastAsia" w:hAnsi="Cambria Math"/></w:rPr><m:t xml:space="preserve">{}</m:t></m:r>'
-    txt_math = txt_rom
-    sub = '<m:sSub><m:e>{}</m:e><m:sub>{}</m:sub></m:sSub>'
-    sup = '<m:sSup><m:e>{}</m:e><m:sup>{}</m:sup></m:sSup>'
-    acc = '<m:acc><m:accPr><m:chr m:val="{}"/></m:accPr><m:e>{}</m:e></m:acc>'
-    rad = '<m:rad><m:radPr><m:degHide m:val="1"/></m:radPr><m:deg/><m:e>{}</m:e></m:rad>'
-    summation = '<m:nary><m:naryPr><m:chr m:val="∑"/></m:naryPr><m:sub><m:r><w:rPr><w:rFonts w:ascii="Cambria Math" w:hAnsi="Cambria Math"/></w:rPr><m:t>i=1</m:t></m:r></m:sub><m:sup><m:r><m:t>{}</m:t></m:r></m:sup><m:e>{}</m:e></m:nary>'
-    func_name = '<m:r><m:rPr><m:sty m:val="p"/></m:rPr><m:t>{}</m:t></m:r>'
-    func = '<m:func><m:fName>{}</m:fName><m:e>{}</m:e></m:func>'
-    frac = '<m:f><m:num>{}</m:num><m:den>{}</m:den></m:f>'
-    math_disp = '<m:oMathPara><m:oMath>{}</m:oMath></m:oMathPara>'
-    math_inln = '<m:oMath>{}</m:oMath>'
-
     # things that are transformed, used for units and such
     transformed = {
         'degC': '<m:sSup><m:e><m:r><m:t> </m:t></m:r></m:e><m:sup><m:r><m:t>∘</m:t></m:r></m:sup></m:sSup><m:r><m:rPr><m:nor/></m:rPr><m:t>C</m:t></m:r>',
@@ -119,15 +100,54 @@ class syntax:
     vdots = '⋮'
     ddots = '⋱'
 
-    # things that can't be accomplished with formatting strings
+    greek_letters = GREEK_LETTERS
+    math_accents = MATH_ACCENTS
+    primes = PRIMES
+
+    def txt(self, text):
+        return f'<m:r><m:t xml:space="preserve">{text}</m:t></m:r>'
+
+    def txt_rom(self, text):
+        return f'<m:r><m:rPr><m:nor/></m:rPr><m:t xml:space="preserve">{text}</m:t></m:r>'
+
+    def txt_math(self, text):
+        return self.txt_rom(text)
+
+    def sub(self, base, s):
+        return f'<m:sSub><m:e>{base}</m:e><m:sub>{s}</m:sub></m:sSub>'
+
+    def sup(self, base, s):
+        return f'<m:sSup><m:e>{base}</m:e><m:sup>{s}</m:sup></m:sSup>'
+
+    def acc(self, base, accent):
+        return f'<m:acc><m:accPr><m:chr m:val="{accent}"/></m:accPr><m:e>{base}</m:e></m:acc>'
+
+    def rad(self, base):
+        return f'<m:rad><m:radPr><m:degHide m:val="1"/></m:radPr><m:deg/><m:e>{base}</m:e></m:rad>'
+
+    def summation(self, base, end):
+        return f'<m:nary><m:naryPr><m:chr m:val="∑"/></m:naryPr><m:sub><m:r><w:rPr><w:rFonts w:ascii="Cambria Math" w:hAnsi="Cambria Math"/></w:rPr><m:t>i=1</m:t></m:r></m:sub><m:sup><m:r><m:t>{end}</m:t></m:r></m:sup><m:e>{base}</m:e></m:nary>'
+
+    def func_name(self, name):
+        return f'<m:r><m:rPr><m:sty m:val="p"/></m:rPr><m:t>{name}</m:t></m:r>'
+
+    def frac(self, num, den):
+        return f'<m:f><m:num>{num}</m:num><m:den>{den}</m:den></m:f>'
+
+    def math_disp(self, math):
+        return f'<m:oMathPara><m:oMath>{math}</m:oMath></m:oMathPara>'
+
+    def math_inln(self, math):
+        return '<m:oMath>{}</m:oMath>'
+
     def greek(self, name):
-        return self.txt.format(GREEK_LETTERS[name])
+        return self.txt(GREEK_LETTERS[name])
 
     def accent(self, acc, base):
-        return self.acc.format(MATH_ACCENTS[acc], base)
+        return self.acc(MATH_ACCENTS[acc], base)
 
     def prime(self, base, prime):
-        return self.sup.format(base, self.txt.format(PRIMES[prime]))
+        return self.sup(base, self.txt(PRIMES[prime]))
 
     def delmtd(self, contained, kind=0):
         surround = '<m:dPr><m:begChr m:val="{}"/><m:endChr m:val="{}"/></m:dPr>'
@@ -147,7 +167,7 @@ class syntax:
     def eqarray(self, eqns: list):
         form = '<m:eqArr>{}</m:eqArr>'
         line_form = '<m:e>{}</m:e>'
-        align_chr = self.txt.format('&amp;=')
+        align_chr = self.txt('&amp;=')
         return form.format(''.join([line_form.format(align_chr.join(eq)) for eq in eqns]))
 
 class handler:
