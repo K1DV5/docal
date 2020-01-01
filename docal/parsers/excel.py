@@ -60,9 +60,14 @@ def info_2_script(info):
     script = []
     for key, content in info.items():
         if content[0][0] == 'txt':
-            para = content[0][1]
             # text or para
-            script.append(content[0][1])
+            para = content[0][1]
+            if para.startswith('#'):  #tag
+                script.append(para)
+            elif para.strip():  #text
+                script.append('# ' + para)
+            else:  #empty line
+                script.append('')
         elif content[0][0] == 'var':
             options = content[-1][-1].replace('^', '**') if content[-1][0] == 'opt' else ''
             assignment = content[0][1] + '='
@@ -70,8 +75,8 @@ def info_2_script(info):
                 assignment += content[1][1]
             else:
                 assignment += form2expr(0, 1, content, info)
-                options += ',=' + form2expr(1, -1, content, info)
-            script.append(assignment + '#' + options.strip(','))
+                options = '=' + form2expr(1, -1, content, info) + ',' + options
+            script.append(assignment + ' #' + options.strip(','))
 
     return '\n'.join(script)
 
@@ -101,7 +106,7 @@ def process_cell(cell, line, strings, current_col, current_key):
             if cont[0] == 'txt':
                 line.append(['opt', cont[1]])
                 current_col += 1
-    
+
     return line, current_col, current_key
 
 def extract_info(rows, strings, range_xl):
@@ -141,3 +146,5 @@ def form2expr(ins1, ins2, content, info):
         raise ReferenceError(f'Cell reference \'{err.args[0]}\' outside of scanned range')
     correct = xl_func_pat.sub(lambda x: x.group(0).lower(), correct)
     return correct.replace('^', '**')
+
+# print(parse('../../tests/test/e.xlsx'))

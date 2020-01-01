@@ -87,7 +87,7 @@ def _process_options(additionals, defaults: dict):
     options = {}
 
     if additionals:
-        for a in _split(additionals):
+        for a in _split(additionals, ','):
             if a.isdigit():
                 options['steps'] = [int(num) - 1 for num in a]
             # only the first # is used to split the line (see above) so others
@@ -110,7 +110,10 @@ def _process_options(additionals, defaults: dict):
             elif a == ';':
                 options['hidden'] = True
             elif a.startswith('='):
-                options['result'] = ast.parse(a[1:]).body[0].value
+                try:
+                    options['result'] = ast.parse(a[1:]).body[0].value
+                except SyntaxError:
+                    log.warning('Could not evaluate answer, using default')
             elif set(a) == {'\\'}:
                 options['newlines'] = len(a)
             else:
@@ -118,7 +121,7 @@ def _process_options(additionals, defaults: dict):
                 try:
                     compile(a, '', 'eval')
                 except SyntaxError:
-                    log.warning('Unknown option %s found, ignoring...', a)
+                    log.warning('Unknown option %s found, ignoring...', repr(a))
                 else:
                     options['unit'] = a
 

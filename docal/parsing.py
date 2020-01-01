@@ -254,12 +254,7 @@ class MathVisitor(ast.NodeVisitor):
                 n.args[0] = self.visit_Name(n.args[0], True)
             if isinstance(n.args[0], ast.List) or isinstance(n.args[0], ast.Tuple):
                 return self.s.summation.format(len(n.args[0].elts), args)
-            else:
-                return self.s.txt.format(self.s.greek('Sigma')) + self.s.delmtd(args)
-        elif func == 'log10':
-            return self.s.func.format(self.s.func_name.format('log'), args)
-        elif func == 'log2':
-            return self.s.func.format(self.s.sub.format(self.s.func_name.format('log'), self.s.txt.format(2)), args)
+            return self.s.txt.format(self.s.greek('Sigma')) + self.s.delmtd(args)
         elif func in ignored:
             return self.visit(n.args[0])
         return self.s.txt_rom.format(func) + self.s.delmtd(args)

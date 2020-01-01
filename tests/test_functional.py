@@ -1,4 +1,4 @@
-# -{pytest %f}
+# -{pytest %f --capture=no}
 import sys
 from subprocess import run
 
@@ -7,6 +7,7 @@ sys.path.insert(1, '..')
 from docal import document
 from docal.handlers.latex import handler as handler_t
 from docal.handlers.word import handler as handler_w
+from docal.parsers.excel import parse as parse_xl
 
 calculation = r'''
 # Normal assignment
@@ -38,3 +39,11 @@ def test_word():
     d.send(calculation)
     assert d.write() == True
     # run(['start', 'test/w-out.docx'])
+
+def test_excel():
+    tex = 'test/t.tex'
+    d = document(tex, tex, handler_t)
+    calculation = parse_xl('test/e.xlsx')
+    d.send(calculation)
+    assert d.write() == True
+
