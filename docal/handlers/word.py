@@ -126,7 +126,7 @@ class syntax:
         return f'<m:rad><m:radPr><m:degHide m:val="1"/></m:radPr><m:deg/><m:e>{base}</m:e></m:rad>'
 
     def summation(self, base, end):
-        return f'<m:nary><m:naryPr><m:chr m:val="∑"/></m:naryPr><m:sub><m:r><w:rPr><w:rFonts w:ascii="Cambria Math" w:hAnsi="Cambria Math"/></w:rPr><m:t>i=1</m:t></m:r></m:sub><m:sup><m:r><m:t>{end}</m:t></m:r></m:sup><m:e>{base}</m:e></m:nary>'
+        return f'<m:nary><m:naryPr><m:chr m:val="∑"/></m:naryPr><m:sub><m:r><m:t>i=1</m:t></m:r></m:sub><m:sup><m:r><m:t>{end}</m:t></m:r></m:sup><m:e>{base}</m:e></m:nary>'
 
     def func_name(self, name):
         return f'<m:r><m:rPr><m:sty m:val="p"/></m:rPr><m:t>{name}</m:t></m:r>'

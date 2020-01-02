@@ -91,7 +91,7 @@ class syntax:
     primes = PRIMES
 
     def txt(self, text):
-        return str(text)
+        return text
 
     def txt_rom(self, text):
         return fr'\mathrm{{{text}}}'

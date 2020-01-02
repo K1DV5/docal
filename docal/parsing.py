@@ -306,14 +306,13 @@ class MathVisitor(ast.NodeVisitor):
             if n.value != 0 and (abs(n.value) > 1000 or abs(n.value) < 0.1):
                 # in scientific notation
                 num_ls = (f'%.{self.decimal}E' % n.value).split('E')
-                # num_ls = f'{n.value:.3E}'.split('E')
                 # remove the preceding zeros and + in the powers like +07 to just 7
                 num_ls[1] = num_ls[1][0].lstrip('+') + num_ls[1][1:].lstrip('0')
                 # make them appear as powers of 10
                 return self.s.txt(num_ls[0]) + self.s.delmtd(self.s.sup(self.s.txt(10), self.s.txt(num_ls[1])))
             if n.value == int(n.value):
-                return self.s.txt(int(n.value))
-            return self.s.txt(round(n.value, self.decimal))
+                return self.s.txt(str(int(n.value)))
+            return self.s.txt(str(round(n.value, self.decimal)))
         elif kind == str:
             # if whole string contains only word characters
             if re.match(r'\w*', n.value).span()[1] == len(n.value):
@@ -327,7 +326,7 @@ class MathVisitor(ast.NodeVisitor):
                 except SyntaxError:  # if the equation is just beyond understanding
                     pass
             return self.s.txt_math(n.value)
-        return str(n.value)
+        return self.s.txt(str(n.value))
 
     def prec_Constant(self, n):
         if hasattr(n, 'is_in_power') and n.is_in_power \
