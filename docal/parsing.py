@@ -167,13 +167,18 @@ class MathVisitor(ast.NodeVisitor):
                 parts_final[index] = self.s.txt_rom(part)
             elif part:
                 parts_final[index] = self.s.txt(part)
-        # remove the accents
-        parts_final = [part for index, part in enumerate(parts_final)
-                       if index not in accent_locations]
-        parts_final = [part.split('_') for part in '_'.join(parts_final).split('__')]
-        parts_final = [self.s.sub(p[0], p[1]) if len(p) > 1 else p[0] for p in parts_final]
-        name = self.s.sup(parts_final[0], parts_final[1]) if len(parts_final) > 1 else parts_final[0]
-
+        # remove the accents and make sub/superscripts
+        final, sub_final = [], []
+        for index, part in enumerate(parts_final + ['']):
+            if part == '':  # terminate a section for superscript
+                if len(sub_final) > 1:  # base, subscript
+                    final.append(self.s.sub(sub_final[0], sub_final[1]))
+                elif len(sub_final) == 1:  # just a normal term
+                    final.append(sub_final[0])
+                sub_final = []
+            elif index not in accent_locations:
+                sub_final.append(part)
+        name = self.s.sup(final[0], final[1]) if len(final) > 1 else final[0]
         return name
 
     def prec(self, n):
