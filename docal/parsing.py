@@ -259,10 +259,10 @@ class MathVisitor(ast.NodeVisitor):
                 n.args[0] = self.visit_Name(n.args[0], True)
             if isinstance(n.args[0], ast.List) or isinstance(n.args[0], ast.Tuple):
                 return self.s.summation(args, len(n.args[0].elts))
-            return self.s.txt(self.s.greek('Sigma')) + self.s.delmtd(args)
+            return self.s.greek('Sigma') + self.s.delmtd(args)
         elif func in ignored:
             return self.visit(n.args[0])
-        return self.s.txt_rom(func) + self.s.delmtd(args)
+        return self.s.func_name(func) + self.s.delmtd(args)
 
     def prec_Call(self, n):
         return 1000
@@ -345,7 +345,7 @@ class MathVisitor(ast.NodeVisitor):
         if self.prec(n.op) >= self.prec(n.operand) \
                 or (hasattr(n, 'is_in_unaryop') and n.is_in_unaryop):
             return self.s.txt(self.visit(n.op)) + self.s.delmtd(self.visit(n.operand))
-        return self.s.txt(self.visit(n.op)) + ' ' + self.visit(n.operand)
+        return self.s.txt(self.visit(n.op)) + self.s.txt(' ') + self.visit(n.operand)
 
     def prec_UnaryOp(self, n):
         return self.prec(n.op)
@@ -379,7 +379,9 @@ class MathVisitor(ast.NodeVisitor):
                     not any([isinstance(tmp_right, ast.BinOp)
                              and isinstance(tmp_right.op, ast.Pow)
                              and isinstance(tmp_right.left, ast.Constant),
-                             isinstance(tmp_right, ast.Constant)])
+                             isinstance(tmp_right, ast.Constant),
+                             isinstance(tmp_right, ast.UnaryOp),
+                             ])
             if no_need:
                 return left + self.s.txt(self.s.halfsp) + right
         elif isinstance(n.op, ast.Pow):
@@ -556,7 +558,7 @@ def to_math(expr, mul=' ', div='frac', subs=False, mat_size=DEFAULT_MAT_SIZE, de
         pt = expr
     elif isinstance(expr, str):
         if not expr.strip():
-            return ''
+            return syntax.txt('')
         pt = ast.parse(expr.strip()).body[0]
     else:
         pt = _prep4lx(expr, syntax, mat_size)
@@ -575,7 +577,7 @@ def build_eqn(eq_list, disp=True, vert=True, syntax=None, srnd=True, joint='='):
             inner = syntax.eqarray([[syntax.txt(joint).join(eq[:-1]),
                                      eq[-1]] for eq in eq_list])
         else:
-            inner = ''.join([syntax.txt(joint).join(eq) for eq in eq_list])
+            inner = syntax.txt('').join([syntax.txt(joint).join(eq) for eq in eq_list])
     if srnd:
         if disp:
             return syntax.math_disp(inner)

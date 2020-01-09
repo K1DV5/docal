@@ -119,9 +119,6 @@ class syntax:
     def sup(self, base, s):
         return f'<m:sSup><m:e>{base}</m:e><m:sup>{s}</m:sup></m:sSup>'
 
-    def acc(self, base, accent):
-        return f'<m:acc><m:accPr><m:chr m:val="{accent}"/></m:accPr><m:e>{base}</m:e></m:acc>'
-
     def rad(self, base):
         return f'<m:rad><m:radPr><m:degHide m:val="1"/></m:radPr><m:deg/><m:e>{base}</m:e></m:rad>'
 
@@ -144,7 +141,7 @@ class syntax:
         return self.txt(GREEK_LETTERS[name])
 
     def accent(self, acc, base):
-        return self.acc(MATH_ACCENTS[acc], base)
+        return f'<m:acc><m:accPr><m:chr m:val="{MATH_ACCENTS[acc]}"/></m:accPr><m:e>{base}</m:e></m:acc>'
 
     def prime(self, base, prime):
         return self.sup(base, self.txt(PRIMES[prime]))
