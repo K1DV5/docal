@@ -38,7 +38,14 @@ class LogRecorder(logging.Handler):
 class document:
     '''organize the process by taking tags from the filetype-specific classes,
     making a dictionary for them, and calling the write method of those classes
-    giving them the dictionary'''
+    giving them the dictionary
+
+    things required from handler class;
+    * .__init__(self, infile: str, PATTERN: re.compiled?, to_clear: bool)
+    * .syntax provider object property
+    * list of .tags property already in the document
+    * .write(self, outfile: str, values: dict) method (if writing)
+    '''
 
     def __init__(self, infile=None, outfile=None, handler=None, to_clear=False, log_level=None, log_file=None, working_dict=DICT):
         '''initialize'''
@@ -91,14 +98,14 @@ class document:
         self.default_options = {
                     'steps': [],
                     'mat_size': DEFAULT_MAT_SIZE,
-                    'unit': '',
+                    'unit': None,
                     'mode': 'default',
                     'vert': True,
                     'note': None,
                     'hidden': False,
                     'decimal': 3,
                     'result' : None,
-                    'newlines': 0
+                    'newlines': 0,
                 }
         self.working_dict['__DOCAL_OPTIONS__'] = self.default_options
 

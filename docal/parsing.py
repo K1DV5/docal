@@ -289,10 +289,8 @@ class MathVisitor(ast.NodeVisitor):
                 if str(self.dict[n.id]) == n.id:
                     return self.format_name(str(self.dict[n.id]))
                 qty = self.visit(_prep4lx(self.dict[n.id], self.s, self.mat_size))
-                unit = self.s.txt(self.s.halfsp) + \
-                    to_math(self.dict[n.id + UNIT_PF], div="/", ital=False, decimal=self.decimal, syntax=self.s) \
-                    if n.id + UNIT_PF in self.dict.keys() and self.dict[n.id + UNIT_PF] \
-                    and self.dict[n.id + UNIT_PF] != '_' else ''
+                unit = to_math(self.dict[n.id + UNIT_PF], div='/', syntax=self.s, ital=False) \
+                    if n.id + UNIT_PF in self.dict.keys() else self.s.txt('')
                 # if the quantity is raised to some power and has a unit,
                 # surround it with PARENS
                 if hasattr(n, 'is_in_power') and n.is_in_power and unit and unit != '_':
@@ -314,7 +312,7 @@ class MathVisitor(ast.NodeVisitor):
                 # remove the preceding zeros and + in the powers like +07 to just 7
                 num_ls[1] = num_ls[1][0].lstrip('+') + num_ls[1][1:].lstrip('0')
                 # make them appear as powers of 10
-                return self.s.txt(num_ls[0]) + self.s.delmtd(self.s.sup(self.s.txt(10), self.s.txt(num_ls[1])))
+                return self.s.txt(num_ls[0]) + self.s.delmtd(self.s.sup(self.s.txt('10'), self.s.txt(num_ls[1])))
             if n.value == int(n.value):
                 return self.s.txt(str(int(n.value)))
             return self.s.txt(str(round(n.value, self.decimal)))
@@ -697,7 +695,7 @@ def _get_parts(code):
     for p in parts:
         collect += _get_comments(lines[line: p.lineno], line)
         line = p.end_lineno + 1
-        if isinstance(p, ast.Assign):
+        if isinstance(p, ast.Assign) or isinstance(p, ast.Expr):
             p.options = lines[p.end_lineno][p.end_col_offset:].strip()[1:]
         collect.append(p)
     collect += _get_comments(lines[line:], line)

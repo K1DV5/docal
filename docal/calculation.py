@@ -54,35 +54,26 @@ def _calculate(expr: ast.AST, options: dict, working_dict: dict, mul=' ', div='/
     else:
         result = list(dict.fromkeys(result))
     # detect if the user is trying to give a different unit and give warning
-    if type(expr) == str:
-        if options['unit']:
-            # in their dict forms
-            compared = [UnitHandler(True, working_dict).visit(ast.parse(options['unit']).body[0].value),
-                        UnitHandler(False, working_dict).visit(ast.parse(expr).body[0].value)]
-            # when the calculated already has a unit
-            compared = [compared, [compared[1], [{}, {}]]]
-            # if it is detected, warn the user but accept it anyway
-            if not are_equivalent(*compared[1]) and not are_equivalent(*compared[0]):
-                log.warning(
-                    'The input unit is not equivalent to the calculated one.')
-        else:
-            options['unit'] = unitize(expr)
-    if options['unit'] and options['unit'] != '_':
-        unit_lx = syntax.txt(syntax.halfsp) + to_math(options['unit'],
-                                                             div='/',
-                                                             working_dict=working_dict,
-                                                             syntax=syntax,
-                                                             ital=False)
+    if options['unit']:
+        # in their dict forms
+        compared = [UnitHandler(True, working_dict).visit(options['unit']),
+                    UnitHandler(False, working_dict).visit(expr)]
+        # when the calculated already has a unit
+        compared = [compared, [compared[1], [{}, {}]]]
+        # if it is detected, warn the user but accept it anyway
+        if not are_equivalent(*compared[1]) and not are_equivalent(*compared[0]):
+            log.warning(
+                'The input unit is not equivalent to the calculated one.')
     else:
-        unit_lx = ''
+        options['unit'] = unitize(expr, working_dict)
     
-    result[-1] += unit_lx
+    result[-1] += to_math(options['unit'], div='/', syntax=syntax, ital=False)
     if options['note'] is not None:
         result[-1] += syntax.txt(syntax.halfsp) + syntax.txt_math(options['note'])
 
     return result
 
-def _process_options(additionals, defaults: dict):
+def _process_options(additionals, defaults: dict, syntax):
 
     options = {}
 
@@ -116,14 +107,14 @@ def _process_options(additionals, defaults: dict):
                     log.warning('Could not evaluate answer, using default')
             elif set(a) == {'\\'}:
                 options['newlines'] = len(a)
-            else:
+            elif a and a != '_':
                 # if it is a valid python expression, take it as a unit
                 try:
                     compile(a, '', 'eval')
                 except SyntaxError:
                     log.warning('Unknown option %s found, ignoring...', repr(a))
                 else:
-                    options['unit'] = a
+                    options['unit'] = ast.parse(a).body[0].value
 
     # merge the options, with the specific one taking precedence
     return {**defaults, **options}
@@ -135,7 +126,7 @@ def cal(input_str: ast.AST, working_dict={}, mul=' ', div='frac', syntax=None) -
     and return all the procedures
 
     '''
-    options = _process_options(input_str.options, working_dict['__DOCAL_OPTIONS__'])
+    options = _process_options(input_str.options, working_dict['__DOCAL_OPTIONS__'], syntax)
     result = _calculate(input_str.value, options, working_dict, mul, div, syntax=syntax)
     if options['mode'] == 'inline':
         displ = False
@@ -151,11 +142,11 @@ def cal(input_str: ast.AST, working_dict={}, mul=' ', div='frac', syntax=None) -
 
     if isinstance(input_str, ast.Assign):
         var_names = [v.id for v in input_str.targets]
-        var_lx = ' = '.join([to_math(var_name, syntax=syntax) for var_name in input_str.targets])
+        var_lx = syntax.txt('=').join([to_math(var_name, syntax=syntax) for var_name in input_str.targets])
 
         procedure = [[var_lx, result[0]]]
         for step in result[1:]:
-            procedure.append(['', step])
+            procedure.append([syntax.txt(''), step])
 
         if options['result'] is not None:
             input_str.value = options['result'] # override the value stored
@@ -164,7 +155,7 @@ def cal(input_str: ast.AST, working_dict={}, mul=' ', div='frac', syntax=None) -
         exec(co, working_dict)
         # for later unit retrieval
         for var in var_names:
-            exec(f'{var}{UNIT_PF} = "{options["unit"]}"', working_dict)
+            working_dict[var + UNIT_PF] = options['unit']
 
     else:
         if len(result) > 1:
@@ -177,7 +168,7 @@ def cal(input_str: ast.AST, working_dict={}, mul=' ', div='frac', syntax=None) -
     if options['hidden']:
         return ('', 'text')
 
-    output = build_eqn(procedure, displ, options['vert'], syntax) + '\n' * options['newlines']
+    output = build_eqn(procedure, displ, options['vert'], syntax)# + '\n' * options['newlines']
 
     return (output, disp)
 
@@ -196,10 +187,9 @@ class UnitHandler(ast.NodeVisitor):
             unit = n
         else:
             if n.id + UNIT_PF in self.dict:
-                un = self.dict[n.id + UNIT_PF]
+                unit = self.dict[n.id + UNIT_PF]
             else:
-                un = '_'
-            unit = ast.parse(un).body[0].value
+                unit = ast.parse('_').body[0].value
         if isinstance(unit, ast.Name):
             if unit.id in DERIVED:
                 unit = DERIVED[unit.id]
@@ -306,34 +296,34 @@ class UnitHandler(ast.NodeVisitor):
     def visit_UnaryOp(self, n):
         return self.visit(n.operand)
 
+    def visit_Expr(self, n):
+        return self.visit(n.value)
+
     def generic_visit(self, n):
         return [{}, {}]
 
 
-def unitize(s: str, working_dict={}) -> str:
+def unitize(s: ast.AST, working_dict={}) -> str:
     '''
     look for units of the variable names in the expression, cancel-out units
     that can be canceled out and return an expression of units that can be
     converted into latex using to_math
     '''
 
-    def unit_handler(pu, norm):
-        return UnitHandler(norm, working_dict).visit(pu)
-    ls = reduce(unit_handler(ast.parse(s).body[0].value, False))
+    ls = reduce(UnitHandler(False, working_dict).visit(s))
 
     # the var names that are of units in the main dict that are not _
     in_use = {working_dict[u] for u in working_dict
-              if u.endswith(UNIT_PF) and working_dict[u] != '_'}
+              if u.endswith(UNIT_PF) and working_dict[u] != ast.Name(id='_')}
     # var names in in_use whose values contain one of the DERIVED units
     in_use = [u for u in in_use
               if any([n.id in DERIVED
-                      for n in [n for n in ast.walk(ast.parse(u).body[0].value)
-                                if isinstance(n, ast.Name)]])]
+                      for n in [n for n in ast.walk(u) if isinstance(n, ast.Name)]])]
     # search in reverse order to choose the most recently used unit
     in_use.reverse()
     # if this unit is equivalent to one of them, return that
     for unit in in_use:
-        if are_equivalent(unit_handler(ast.parse(unit).body[0].value, True), ls):
+        if are_equivalent(UnitHandler(True, working_dict).visit(unit), ls):
             return unit
 
     upper = "*".join([u if ls[0][u] == 1 else f'{u}**{ls[0][u]}'
@@ -343,7 +333,7 @@ def unitize(s: str, working_dict={}) -> str:
 
     s_upper = f'({upper})' if ls[0] else "_"
     s_lower = f'/({lower})' if ls[1] else ""
-    return s_upper + s_lower
+    return ast.parse(s_upper + s_lower).body[0].value
 
 
 def are_equivalent(unit1: dict, unit2: dict) -> bool:
