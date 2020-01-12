@@ -146,7 +146,7 @@ class document:
                 # just execute it
                 logger.info('[Executing] line %s', part.lineno)
                 co = compile(ast.Module([part], []), '<calculation>', 'exec')
-                exec(co, globals())
+                exec(co, self.working_dict)
                 if isinstance(part, ast.Delete):
                     # also delete associated unit strings
                     for t in part.targets:
