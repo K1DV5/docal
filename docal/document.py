@@ -192,9 +192,9 @@ class document:
         line = re.sub(patt, pholder, line)
         # process it
         if disp:
-            equation = ('disp', eqn(line[2:], syntax=self.syntax))
+            equation = ('disp', eqn(line, syntax=self.syntax))
         else:
-            equation = ('inline', eqn(line[1:], disp=False, syntax=self.syntax))
+            equation = ('inline', eqn(line, disp=False, syntax=self.syntax))
         # put back the values in their order
         for v in vals:
             equation = (equation[0], equation[1].replace(to_math(pholder, syntax=self.syntax), v, 1))
