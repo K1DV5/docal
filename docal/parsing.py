@@ -670,6 +670,9 @@ class Comment():
         elif line:
             self.kind = 'text'
             self.content = line[1:].strip()
+        else:
+            self.kind = 'text'
+            self.content = ''
 
     def __repr__(self):
         return f'Comment({self.kind}, {self.content})'
