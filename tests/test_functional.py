@@ -8,6 +8,7 @@ from docal import document
 from docal.handlers.latex import handler as handler_t
 from docal.handlers.word import handler as handler_w
 from docal.parsers.excel import parse as parse_xl
+from docal.parsers.dcl import parse as parse_dcl
 
 calculation = r'''
 # some other code
@@ -58,6 +59,12 @@ def test_excel():
     d = document(tex, tex, handler_t)
     calculation = parse_xl('test/e.xlsx')
     d.send(calculation)
+    assert d.write() == True
+
+def test_dcl():
+    tex = 'test/t.tex'
+    d = document(tex, tex, handler_t)
+    d.send(parse_dcl('./dcl-example.json'))
     assert d.write() == True
 
 def test_latex():

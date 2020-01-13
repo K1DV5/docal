@@ -42,8 +42,14 @@ def find_range(rows, strs, given_range):
         if type(given_range) == str:
             # must be in the form "A, 1-10"
             col_let, n_range = [r.strip() for r in given_range.split(',')]
-            r_start, r_end = [int(r) for r in n_range.split('-')]
+            r_start, r_end = [r for r in n_range.split('-')]
             given_range = (col_let, r_start, r_end)
+            if not col_let or not r_start:
+                raise ValueError('Range needs to be in the form eg: A,10-23')
+            r_start = int(r_start)
+            if not r_end:
+                raise NotImplementedError('Incomplete range not implemented yet')
+            r_end = int(r_end)
         for i_row, row in enumerate(rows):
             if int(row.attrib['r']) == given_range[1]:
                 return (given_range[0], i_row, given_range[2])

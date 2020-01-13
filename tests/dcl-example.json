@@ -1,0 +1,20 @@
+{
+    "infile": "test/w.docx",
+    "outfile": "test/w-out.docx",
+    "content": [
+        {
+            "type": "python",
+            "content": "from math import *\nx = sin(23)"
+        },
+        {
+            "type": "ascii",
+            "content": ":from math import *\nx = sin(23)\nsome text\n$$ x/2 = y/2"
+        },
+        {
+            "type": "excel",
+            "file": "test/e.xlsx",
+            "sheet": 1,
+            "range": "A, 1-10"
+        }
+    ]
+}
