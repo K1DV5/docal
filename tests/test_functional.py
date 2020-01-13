@@ -15,7 +15,7 @@ from math import *
 
 # Normal assignment
 l = sqrt(3**2 + 5**2)
-x = 5 #kg
+x = 5 #kg,\\\
 
 # refer the value
 x + 23 #3,$
@@ -35,7 +35,8 @@ y= 34*x + d(x)
 z = {'x_foo': 4, 5: 'foo'}[5]
 
 # default options
-#@ $,-
+
+#@ $,\
 w = x-log(y)
 c = w/4+d(4)
 #@

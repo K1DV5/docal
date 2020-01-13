@@ -125,10 +125,9 @@ class document:
                 elif part.kind == 'options':
                     # set options for calculations that follow
                     self.default_options = _process_options(part.content, syntax=self.syntax)
-            elif isinstance(part, ast.Assign):
-                processed.append((tag, self._process_assignment(part)))
-            elif isinstance(part, ast.Expr):
-                processed.append((tag, self._process_assignment(part)))
+            elif isinstance(part, ast.Assign) or isinstance(part, ast.Expr):
+                for part in self._process_assignment(part):
+                    processed.append((tag, part))
             else:
                 # if it does not appear like an equation or a comment,
                 # just execute it
@@ -206,11 +205,12 @@ class document:
         '''
         logger.info('[Processing] line %s', line.lineno)
         # the cal function will execute it so no need for exec
+        options = _process_options(line.options, self.default_options, self.syntax)
         result = cal(line,
                      self.working_dict,
                      syntax=self.syntax,
-                     default_options=self.default_options)
-        return (result[1], result[0])
+                     options=options)
+        return [result] + [('text', '')] * options['newlines']
 
     def write(self):
         '''

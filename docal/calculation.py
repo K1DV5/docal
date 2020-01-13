@@ -133,13 +133,12 @@ def _process_options(additionals, defaults=FALLBACK_OPTIONS, syntax=None):
     return {**defaults, **options}
 
 
-def cal(input_str: ast.AST, working_dict={}, mul=' ', div='frac', syntax=None, default_options={}) -> str:
+def cal(input_str: ast.AST, working_dict={}, mul=' ', div='frac', syntax=None, options={}) -> str:
     '''
     evaluate all the calculations, carry out the appropriate assignments,
     and return all the procedures
 
     '''
-    options = _process_options(input_str.options, default_options, syntax)
     result = _calculate(input_str.value, options, working_dict, mul, div, syntax=syntax)
     if options['mode'] == 'inline':
         displ = False
@@ -181,9 +180,9 @@ def cal(input_str: ast.AST, working_dict={}, mul=' ', div='frac', syntax=None, d
     if options['hidden']:
         return ('', 'text')
 
-    output = build_eqn(procedure, displ, options['vert'], syntax)# + '\n' * options['newlines']
+    output = build_eqn(procedure, displ, options['vert'], syntax)
 
-    return (output, disp)
+    return (disp, output)
 
 
 class UnitHandler(ast.NodeVisitor):
