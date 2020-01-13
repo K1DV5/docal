@@ -7,7 +7,7 @@ module and returns the procedure of the calculations
 
 import ast
 import logging
-from .parsing import to_math, MathVisitor, eqn, UNIT_PF, build_eqn, _split
+from .parsing import to_math, MathVisitor, eqn, UNIT_PF, build_eqn, _split, DEFAULT_MAT_SIZE
 
 log = logging.getLogger(__name__)
 
@@ -20,6 +20,19 @@ DERIVED = {
     'Hz': '_/s',
 }
 DERIVED = {u: ast.parse(DERIVED[u]).body[0].value for u in DERIVED}
+
+FALLBACK_OPTIONS = {
+    'steps': [],
+    'mat_size': DEFAULT_MAT_SIZE,
+    'unit': None,
+    'mode': 'default',
+    'vert': True,
+    'note': None,
+    'hidden': False,
+    'decimal': 3,
+    'result' : None,
+    'newlines': 0,
+}
 
 
 def _calculate(expr: ast.AST, options: dict, working_dict: dict, mul=' ', div='/', syntax=None):
@@ -73,7 +86,7 @@ def _calculate(expr: ast.AST, options: dict, working_dict: dict, mul=' ', div='/
 
     return result
 
-def _process_options(additionals, defaults: dict, syntax):
+def _process_options(additionals, defaults=FALLBACK_OPTIONS, syntax=None):
 
     options = {}
 
@@ -120,13 +133,13 @@ def _process_options(additionals, defaults: dict, syntax):
     return {**defaults, **options}
 
 
-def cal(input_str: ast.AST, working_dict={}, mul=' ', div='frac', syntax=None) -> str:
+def cal(input_str: ast.AST, working_dict={}, mul=' ', div='frac', syntax=None, default_options={}) -> str:
     '''
     evaluate all the calculations, carry out the appropriate assignments,
     and return all the procedures
 
     '''
-    options = _process_options(input_str.options, working_dict['__DOCAL_OPTIONS__'], syntax)
+    options = _process_options(input_str.options, default_options, syntax)
     result = _calculate(input_str.value, options, working_dict, mul, div, syntax=syntax)
     if options['mode'] == 'inline':
         displ = False
@@ -161,7 +174,7 @@ def cal(input_str: ast.AST, working_dict={}, mul=' ', div='frac', syntax=None) -
         if len(result) > 1:
             procedure = [[result[0], result[1]]]
             if result[2:]:
-                procedure.append(['', result[2]])
+                procedure.append([syntax.txt(''), result[2]])
         else:
             procedure = [result]
 

@@ -14,7 +14,7 @@ from os import path
 # for status tracking
 import logging
 from .calculation import cal, _process_options
-from .parsing import UNIT_PF, eqn, to_math, build_eqn, DEFAULT_MAT_SIZE, _get_parts, Comment
+from .parsing import UNIT_PF, eqn, to_math, build_eqn, _get_parts, Comment
 
 # default working area
 DICT = {}
@@ -95,18 +95,7 @@ class document:
         # working area
         self.working_dict = working_dict
         # default calculation options
-        self.default_options = {
-                    'steps': [],
-                    'mat_size': DEFAULT_MAT_SIZE,
-                    'unit': None,
-                    'mode': 'default',
-                    'vert': True,
-                    'note': None,
-                    'hidden': False,
-                    'decimal': 3,
-                    'result' : None,
-                    'newlines': 0,
-                }
+        self.default_options = _process_options('', syntax=self.syntax)
         self.working_dict['__DOCAL_OPTIONS__'] = self.default_options
 
     def send(self, content):
@@ -135,8 +124,7 @@ class document:
                     processed.append((tag, self._process_equation(part.content, disp)))
                 elif part.kind == 'options':
                     # set options for calculations that follow
-                    self.working_dict['__DOCAL_OPTIONS__'] = \
-                            _process_options(part.content, self.default_options)
+                    self.default_options = _process_options(part.content, syntax=self.syntax)
             elif isinstance(part, ast.Assign):
                 processed.append((tag, self._process_assignment(part)))
             elif isinstance(part, ast.Expr):
@@ -218,7 +206,10 @@ class document:
         '''
         logger.info('[Processing] line %s', line.lineno)
         # the cal function will execute it so no need for exec
-        result = cal(line, self.working_dict, syntax=self.syntax)
+        result = cal(line,
+                     self.working_dict,
+                     syntax=self.syntax,
+                     default_options=self.default_options)
         return (result[1], result[0])
 
     def write(self):
