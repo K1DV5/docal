@@ -6,7 +6,6 @@ docal
 Inject Python calculations into Word and LaTeX documents with ease!
 
 - Free software: MIT license
-- Documentation: <https://docal.readthedocs.io>.
 
 doCal is a tool that can be used to send calculations that are written
 in python to Word or LaTeX documents. It evaluates equations in a
@@ -202,9 +201,11 @@ this.
 Known Issues
 ------------
 
-- You cannot use python statements that need indenting. This is
-  because docal reads the script line by line and uses exec to make
-  the necessary assignments, and since you can\'t continue an already
-  indented code with exec, that will result in an error. If you have
-  an idea to overcome this problem, feel free to contact me.
-- TODO: A nice GUI
+- ~~You cannot use python statements that need indenting. This is
+  ~~because docal reads the script line by line and uses exec to make
+  ~~the necessary assignments, and since you can\'t continue an already
+  ~~indented code with exec, that will result in an error. If you have
+  ~~an idea to overcome this problem, feel free to contact me.
+  The whole script is parsed with Python's AST so you can whatever you like
+  as long as it is a valid python.
+- TODO: ~~A nice GUI~~ Project started. See https://github.com/K1DV5/docal-tkinter.
