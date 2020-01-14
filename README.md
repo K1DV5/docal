@@ -7,7 +7,7 @@ Inject Python calculations into Word and LaTeX documents with ease!
 
 - Free software: MIT license
 
-doCal is a tool that can be used to send calculations that are written
+docal is a tool that can be used to send calculations that are written
 in python to Word or LaTeX documents. It evaluates equations in a
 separate python script from the document and replaces hashtags in the
 document that indicate where the calculations should be with the results
