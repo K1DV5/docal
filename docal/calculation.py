@@ -178,7 +178,7 @@ def cal(input_str: ast.AST, working_dict={}, mul=' ', div='frac', syntax=None, o
             procedure = [result]
 
     if options['hidden']:
-        return ('', 'text')
+        return ('text', '')
 
     output = build_eqn(procedure, displ, options['vert'], syntax)
 
