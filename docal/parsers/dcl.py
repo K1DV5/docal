@@ -37,5 +37,5 @@ def to_py(line):
     # change power symbol, not in comments
     line = line.replace('^', '**')
     # number coefficients like 2x
-    line = re.sub(r'(?<=[0-9])( ?[a-df-zA-Z_]|\()', '*\\1', line)
+    line = re.sub(r'(?<=(?<!\w)[0-9])( ?[a-df-zA-Z_]|\()', '*\\1', line)
     return line
