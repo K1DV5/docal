@@ -136,7 +136,10 @@ class MathVisitor(ast.NodeVisitor):
         Turn a variable name into a supported syntax term that has
         sub/superscripts, accents, upright if needed, and prime signs
         '''
-        parts = name_str.strip(' _').split('_')
+        name_str = name_str.strip('_ ')
+        if not name_str:
+            return self.s.txt('')
+        parts = name_str.split('_')
         parts_final = parts[:]
         accent_locations = []
         for index, part in enumerate(parts):
@@ -155,7 +158,7 @@ class MathVisitor(ast.NodeVisitor):
                 which = index - 2 if not parts[index - 1] else index - 1
                 parts_final[which] = self.s.accent(part, parts_final[which])
                 accent_locations.append(index)
-            elif part in self.s.primes.keys():
+            elif part in self.s.primes:
                 which = index - 2 if not parts[index - 1] else index - 1
                 parts_final[which] =  self.s.prime(parts_final[which], part)
                 accent_locations.append(index)
