@@ -2,8 +2,6 @@
 import sys
 from subprocess import run
 
-# the local will take precedence
-sys.path.insert(1, '..')
 from docal import document
 from docal.handlers.latex import handler as handler_t
 from docal.handlers.word import handler as handler_w
@@ -51,7 +49,7 @@ def test_word():
     word = 'test/w.docx'
     d = document(word, None, handler_w)
     d.send(calculation)
-    assert d.write() == True
+    assert d.write()
     # run(['start', 'test/w-out.docx'])
 
 def test_excel():
@@ -59,18 +57,18 @@ def test_excel():
     d = document(tex, tex, handler_t)
     calculation = parse_xl('test/e.xlsx')
     d.send(calculation)
-    assert d.write() == True
+    assert d.write()
 
 def test_dcl():
     tex = 'test/t.tex'
     d = document(tex, tex, handler_t)
     d.send(parse_dcl('./dcl-example.json'))
-    assert d.write() == True
+    assert d.write()
 
 def test_latex():
     tex = 'test/t.tex'
     d = document(tex, tex, handler_t)
     d.send(calculation)
-    assert d.write() == True
-    run(['do.bat', tex])
+    assert d.write()
+    # run(['do.bat', tex])
 

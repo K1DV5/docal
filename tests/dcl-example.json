@@ -4,11 +4,19 @@
     "data": [
         {
             "type": "python",
-            "data": "from math import *\nx = sin(23)"
+            "data": [
+                "from math import *",
+                "x = sin(x)"
+            ]
         },
         {
             "type": "ascii",
-            "data": ":from math import *\nx = sin(23)\nsome text\n$$ x/2 = y/2"
+            "data": [
+                ":from math import *",
+                "x = sin(23)",
+                "some text",
+                "$$ x/2 = y/2"
+            ]
         },
         {
             "type": "excel",

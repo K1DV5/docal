@@ -14,8 +14,8 @@ def parse(filename):
                 # copy by value! not to repeat the last ones
                 py_lines = dcl_pre_code[:] + \
                     [to_py(line) for line in child['data']]
-                child['data'] = '\n'.join(py_lines)
-            converted.append(child['data'])
+                child['data'] = py_lines
+            converted.append('\n'.join(child['data']))
         elif child['type'] == 'excel':
             converted.append(parse_xl(child['file'], child['sheet'], child['range']))
         else:
