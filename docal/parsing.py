@@ -260,7 +260,7 @@ class MathVisitor(ast.NodeVisitor):
         elif func == 'sum':
             if isinstance(n.args[0], ast.Name):
                 n.args[0] = self.visit_Name(n.args[0], True)
-            if isinstance(n.args[0], ast.List) or isinstance(n.args[0], ast.Tuple):
+            if isinstance(n.args[0], (ast.List, ast.Tuple)):
                 return self.s.summation(args, len(n.args[0].elts))
             return self.s.greek('Sigma') + self.s.delmtd(args)
         elif func in ignored:
@@ -433,7 +433,7 @@ class MathVisitor(ast.NodeVisitor):
             n.slice.is_for_dict = True
         slicer = self.s.delmtd(self.visit(n.slice), 1)
         # if the iterable is kinda not simple, surround it with PARENS
-        if isinstance(n.value, ast.BinOp) or isinstance(n.value, ast.UnaryOp):
+        if isinstance(n.value, (ast.BinOp, ast.UnaryOp)):
             return self.s.sub(self.s.delmtd(sliced), slicer)
         # write the indices as subscripts
         return self.s.sub(sliced, slicer)
@@ -442,7 +442,7 @@ class MathVisitor(ast.NodeVisitor):
         # this will be used by the tuple visitor
         n.value.is_in_index = True
         # if it is a number, add 1 to it
-        if isinstance(n.value, ast.Constant) and type(n.value.value) == int:
+        if isinstance(n.value, ast.Constant) and isinstance(n.value.value, int):
             add = 1 if not hasattr(n, 'is_for_dict') else 0
             return self.s.txt(int(n.value.n) + add)
         return self.visit(n.value)
@@ -701,7 +701,7 @@ def _get_parts(code):
     for p in parts:
         collect += _get_comments(lines[line: p.lineno], line)
         line = p.end_lineno + 1
-        if isinstance(p, ast.Assign) or isinstance(p, ast.Expr):
+        if isinstance(p, (ast.Assign, ast.Expr)):
             p.options = lines[p.end_lineno][p.end_col_offset:].strip()[1:]
         collect.append(p)
     collect += _get_comments(lines[line:], line)
