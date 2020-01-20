@@ -8,14 +8,14 @@ def parse(filename):
     with open(filename) as file:
         doc_tree = load(file)
     converted = []
-    for child in doc_tree['content']:
+    for child in doc_tree['data']:
         if child['type'] in ('ascii', 'python'):
             if child['type'] == 'ascii':
                 # copy by value! not to repeat the last ones
                 py_lines = dcl_pre_code[:] + \
-                    [to_py(line) for line in child['content'].split('\n')]
-                child['content'] = '\n\n'.join(py_lines)
-            converted.append(child['content'])
+                    [to_py(line) for line in child['data']]
+                child['data'] = '\n'.join(py_lines)
+            converted.append(child['data'])
         elif child['type'] == 'excel':
             converted.append(parse_xl(child['file'], child['sheet'], child['range']))
         else:

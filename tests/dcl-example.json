@@ -1,14 +1,14 @@
 {
     "infile": "test/w.docx",
     "outfile": "test/w-out.docx",
-    "content": [
+    "data": [
         {
             "type": "python",
-            "content": "from math import *\nx = sin(23)"
+            "data": "from math import *\nx = sin(23)"
         },
         {
             "type": "ascii",
-            "content": ":from math import *\nx = sin(23)\nsome text\n$$ x/2 = y/2"
+            "data": ":from math import *\nx = sin(23)\nsome text\n$$ x/2 = y/2"
         },
         {
             "type": "excel",
