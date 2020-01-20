@@ -161,11 +161,10 @@ class handler:
     warning = ('BELOW IS AN AUTO GENERATED LIST OF TAGS. '
                'DO NOT DELETE IT IF REVERSING IS DESIRED!!!\n%')
 
-    def __init__(self, infile, pattern, to_clear):
+    def __init__(self, infile, pattern):
 
         # the tag pattern
         self.pattern = pattern
-        self.to_clear = to_clear
         if infile:
             self.infile = self.outfile = infile
             with open(self.infile, encoding='utf-8') as file:
@@ -236,7 +235,7 @@ class handler:
         if outfile:
             self.outfile = outfile
 
-        if not self.to_clear:
+        if len(values):
             if self.infile:
                 for tag in values:
                     if tag in self.tags:

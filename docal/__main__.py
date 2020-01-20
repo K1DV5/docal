@@ -57,8 +57,8 @@ def main():
     extension_o = path.splitext(args.output)[1] if args.output else None
     extension = extension_i if extension_i else extension_o
     try:
-        d = document(args.input, args.output, handlers[extension], args.clear, args.log_level)
-        if args.script:
+        d = document(args.input, args.output, handlers[extension], args.log_level)
+        if not args.clear:
             calculation = path.abspath(args.script)
             kind = path.splitext(calculation)[1]
             if kind == '.py':

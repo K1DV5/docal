@@ -198,7 +198,7 @@ class handler:
     # the internal form of the parsed tags for internal use to avoid normal # usage
     tag_alt_form = '#{%s}'
 
-    def __init__(self, infile, pattern, to_clear=False):
+    def __init__(self, infile, pattern):
         # the tag pattern
         self.pattern = pattern
         # temp folder for converted files

@@ -41,19 +41,18 @@ class document:
     giving them the dictionary
 
     things required from handler class;
-    * .__init__(self, infile: str, PATTERN: re.compiled?, to_clear: bool)
+    * .__init__(self, infile: str, PATTERN: re.compiled?)
     * .syntax provider object property
     * list of .tags property already in the document
     * .write(self, outfile: str, values: dict) method (if writing)
     '''
 
-    def __init__(self, infile=None, outfile=None, handler=None, to_clear=False, log_level=None, log_file=None, working_dict=DICT):
+    def __init__(self, infile=None, outfile=None, handler=None, log_level=None, log_file=None, working_dict=DICT):
         '''initialize'''
 
         if handler is None:
             raise ValueError('File handler required.')
         self.syntax = handler.syntax
-        self.to_clear = to_clear
         # ===========LOGGING==================
         # clear previous handlers so the logs are only for the current run
         log_formatter = logging.Formatter(LOG_FORMAT)
@@ -76,12 +75,12 @@ class document:
         if infile:
             infile = path.abspath(infile)
             basename, ext = path.splitext(infile)
-            self.document_file = handler(infile, PATTERN, to_clear)
+            self.document_file = handler(infile, PATTERN)
             # the calculations object that will convert given things to a list and store
             self.tags = self.document_file.tags
         elif outfile:
             ext = path.splitext(outfile)[1]
-            self.document_file = handler(None, PATTERN, self.to_clear)
+            self.document_file = handler(None, PATTERN)
             self.tags = []
         else:
             raise ValueError('Need to specify at least one document')
@@ -102,11 +101,10 @@ class document:
         '''add the content to the tag, which will be sent to the document.
         Where it will be inserted is decided by the most recent tag.'''
 
-        if not self.to_clear:
-            for tag, part in self.process(content):
-                if tag not in self.contents.keys():
-                    self.contents[tag] = []
-                self.contents[tag].append(part)
+        for tag, part in self.process(content):
+            if tag not in self.contents.keys():
+                self.contents[tag] = []
+            self.contents[tag].append(part)
 
     def process(self, parts): # exported
         tag = self.current_tag
