@@ -259,9 +259,11 @@ class MathVisitor(ast.NodeVisitor):
             return self.s.sup(args, 'T')
         elif func == 'sum':
             if isinstance(n.args[0], ast.Name):
-                n.args[0] = self.visit_Name(n.args[0], True)
-            if isinstance(n.args[0], (ast.List, ast.Tuple)):
-                return self.s.summation(args, len(n.args[0].elts))
+                s_arg = self.visit_Name(n.args[0], True)
+            else:
+                s_arg = n.args[0]
+            if isinstance(s_arg, (ast.List, ast.Tuple)):
+                return self.s.summation(args, len(s_arg.elts))
             return self.s.greek('Sigma') + self.s.delmtd(args)
         elif func in ignored:
             return self.visit(n.args[0])
