@@ -198,7 +198,7 @@ class MathVisitor(ast.NodeVisitor):
         for i, op in enumerate(n.ops):
             collect.append(self.s.txt(self.visit(op)))
             collect.append(self.visit(n.comparators[i]))
-        return ''.join(collect)
+        return self.s.txt('').join(collect)
 
     def visit_Eq(self, n):
         return self.s.txt('=')
