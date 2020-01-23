@@ -123,7 +123,7 @@ class document:
                 elif part.kind == 'options':
                     # set options for calculations that follow
                     self.default_options = _process_options(part.content, syntax=self.syntax)
-            elif isinstance(part, ast.Assign) or isinstance(part, ast.Expr):
+            elif isinstance(part, (ast.Assign, ast.Expr)):
                 for part in self._process_assignment(part):
                     processed.append((tag, part))
             else:

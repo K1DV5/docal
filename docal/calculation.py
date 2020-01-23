@@ -52,7 +52,7 @@ def _calculate(expr: ast.AST, options: dict, working_dict: dict, mul=' ', div='/
                  working_dict)
     result = [
         lx_args(expr),
-        lx_args(expr, subs=True),
+        lx_args(expr, True),
         lx_args(value if not isinstance(value_ast, ast.Lambda) else value_ast)
     ]
 

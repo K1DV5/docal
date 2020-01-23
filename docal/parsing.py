@@ -282,26 +282,27 @@ class MathVisitor(ast.NodeVisitor):
 
     # variables
     def visit_Name(self, n, shallow=False):
-        if self.subs:
-            # substitute the value of the variable by formatted value
-            try:
-                # if the raw ast object is needed (for BinOp)
-                if shallow:
-                    return _prep4lx(self.dict[n.id], self.s, self.mat_size).value
-                # to prevent infinite recursion:
-                if str(self.dict[n.id]) == n.id:
-                    return self.format_name(str(self.dict[n.id]))
-                qty = self.visit(_prep4lx(self.dict[n.id], self.s, self.mat_size))
-                unit = to_math(self.dict[n.id + UNIT_PF], div='/', syntax=self.s, ital=False) \
-                    if n.id + UNIT_PF in self.dict.keys() else self.s.txt('')
-                # if the quantity is raised to some power and has a unit,
-                # surround it with PARENS
-                if hasattr(n, 'is_in_power') and n.is_in_power and unit and unit != '_':
-                    return self.s.delmtd(qty + unit)
-                return qty + unit
-            except KeyError:
-                log.warning('The variable %s has not been defined.', n.id)
-        return self.format_name(n.id)
+        if not self.subs and not shallow:
+            return self.format_name(n.id)
+        # substitute the value of the variable by formatted value
+        try:
+            # if the raw ast object is needed (for BinOp)
+            if shallow:
+                return _prep4lx(self.dict[n.id], self.s, self.mat_size).value
+            # to prevent infinite recursion:
+            if str(self.dict[n.id]) == n.id:
+                return self.format_name(str(self.dict[n.id]))
+        except KeyError:
+            log.warning('The variable %s has not been defined.', n.id)
+            return
+        qty = self.visit(_prep4lx(self.dict[n.id], self.s, self.mat_size))
+        unit = to_math(self.dict[n.id + UNIT_PF], div='/', syntax=self.s, ital=False) \
+            if n.id + UNIT_PF in self.dict.keys() else self.s.txt('')
+        # if the quantity is raised to some power and has a unit,
+        # surround it with PARENS
+        if hasattr(n, 'is_in_power') and n.is_in_power and unit and unit != '_':
+            return self.s.delmtd(qty + unit)
+        return qty + unit
 
     def prec_Name(self, n):
         return 1000
