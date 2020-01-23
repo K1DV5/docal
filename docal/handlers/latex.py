@@ -73,6 +73,7 @@ class syntax:
     'deg': '\\,^\\circ'
     }
 
+    minus = '-'
     times = r'\times '
     div = r'\div '
     cdot = r'\cdot '

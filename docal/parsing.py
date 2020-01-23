@@ -460,7 +460,7 @@ class MathVisitor(ast.NodeVisitor):
         return self.s.txt(', ').join([self.visit(s) for s in n.dims])
 
     def visit_Sub(self, n):
-        return '-'
+        return self.s.minus
 
     def prec_Sub(self, n):
         return 300
@@ -536,7 +536,7 @@ class MathVisitor(ast.NodeVisitor):
         return 800
 
     def visit_USub(self, n):
-        return '-'
+        return self.s.minus
 
     def prec_USub(self, n):
         return 800

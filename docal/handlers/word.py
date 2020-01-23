@@ -87,6 +87,7 @@ class syntax:
     }
 
     # some symbols
+    minus = '-'
     times = '×'
     div = '÷'
     cdot = '⋅'
