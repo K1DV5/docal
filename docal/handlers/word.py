@@ -136,7 +136,7 @@ class syntax:
         return f'<m:oMathPara><m:oMath>{math}</m:oMath></m:oMathPara>'
 
     def math_inln(self, math):
-        return '<m:oMath>{}</m:oMath>'
+        return f'<m:oMath>{math}</m:oMath>'
 
     def greek(self, name):
         return self.txt(GREEK_LETTERS[name])
