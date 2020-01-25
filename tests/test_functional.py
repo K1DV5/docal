@@ -27,17 +27,17 @@ x + 23 #3,$
 #$ f+x/2=log(sqrt(f/w))
 
 # Function creation
-d = lambda x: 8*x
+d_foo = lambda x: 8*x
 
 # Calculation refering anything
-y= 34*x + d(x)
+y= 34*x + d_foo(x)
 z = {'x_foo': 4, 5: 'foo'}[5]
 
 # default options
 
 #@ $,\
 w = x-log(y)
-c = w/4+d(4)
+c = w/4+d_foo(4)
 #@
 
 e = exp(log(4))
