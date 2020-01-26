@@ -201,7 +201,7 @@ class MathVisitor(ast.NodeVisitor):
         return self.s.txt('').join(collect)
 
     def visit_Eq(self, n):
-        return self.s.txt('=')
+        return '='
 
     def visit_Gt(self, n):
         return self.s.gt
@@ -500,28 +500,28 @@ class MathVisitor(ast.NodeVisitor):
         return 700
 
     def visit_Mod(self, n):
-        return self.s.txt_math(' mod ')
+        return ' mod '
 
     def prec_Mod(self, n):
         return 500
 
     def visit_LShift(self, n):
-        return self.s.func_name('shiftLeft')
+        return ' shiftLeft '
 
     def visit_RShift(self, n):
-        return self.s.func_name('shiftRight')
+        return ' shiftRight '
 
     def visit_BitOr(self, n):
-        return self.s.func_name('or')
+        return ' or '
 
     def visit_BitXor(self, n):
-        return self.s.func_name('xor')
+        return ' xor '
 
     def visit_BitAnd(self, n):
-        return self.s.func_name('and')
+        return ' and '
 
     def visit_Invert(self, n):
-        return self.s.func_name('invert')
+        return ' invert '
 
     def prec_Invert(self, n):
         return 800
