@@ -29,7 +29,7 @@ def to_py(line):
     if line.startswith(' ') or line.endswith(' '):  # text
         return '# ' + line.lstrip()
     elif line.startswith('$'):
-        return '#' + line
+        line = '#' + line
     # change power symbol, not in comments
     line = line.replace('^', '**')
     # number coefficients like 2x
