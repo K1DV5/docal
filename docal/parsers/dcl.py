@@ -26,11 +26,7 @@ def to_py(line):
     '''convert a single line to a form acceptable in python'''
     if not line.strip():
         return line
-    # import statements and the like preceded with :
-    if line.startswith(':'):
-        return line[1:]
-    is_text = re.search(r'(\w+ +\w+)|(\\\w+)', line) or line.startswith(' ') or line.endswith(' ')
-    if is_text and not line.startswith('#'):
+    if line.startswith(' ') or line.endswith(' '):  # text
         return '# ' + line.lstrip()
     elif line.startswith('$'):
         return '#' + line
