@@ -47,7 +47,7 @@ class document:
     * .write(self, outfile: str, values: dict) method (if writing)
     '''
 
-    def __init__(self, infile=None, outfile=None, handler=None, log_level=None, log_file=None, working_dict=DICT):
+    def __init__(self, infile=None, outfile=None, handler=None, working_dict=DICT, log_level=None):
         '''initialize'''
 
         if handler is None:
@@ -65,12 +65,6 @@ class document:
         logger.addHandler(self.log_recorder)
         if log_level:
             logger.setLevel(getattr(logging, log_level.upper()))
-        if log_file is not None:
-            file_logger = logging.FileHandler(log_file, 'w')
-            file_logger.setFormatter(logging.Formatter(LOG_FORMAT))
-            logger.addHandler(file_logger)
-        if log_level:
-            logger.setLevel(getattr(logging, log_level.upper()))
         # =========FILE HANDLING================
         if infile:
             infile = path.abspath(infile)
@@ -86,7 +80,7 @@ class document:
             raise ValueError('Need to specify at least one document')
         self.outfile = path.abspath(outfile) if outfile else None
         self.current_tag = self.tags[0] if self.tags else None
-        if self.current_tag is None:
+        if self.current_tag is None and infile:
             logger.warning('There are no tags in the document')
         # =========CALCULATION================
         # the calculations corresponding to the tags
