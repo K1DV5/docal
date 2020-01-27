@@ -70,7 +70,8 @@ class syntax:
     transformed = {
     'degC': '\\,^\\circ \\mathrm{C}',
     'degF': '\\,^\\circ \\mathrm{F}',
-    'deg': '\\,^\\circ'
+    'deg': '\\,^\\circ',
+    'integral': '\\int '
     }
 
     minus = '-'
