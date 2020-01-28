@@ -8,7 +8,7 @@
 
 from setuptools import setup, find_packages
 
-VERSION = '2.2.1'
+VERSION = '2.2.2'
 
 with open('README.md') as readme_file:
     readme = readme_file.read()
