@@ -19,6 +19,17 @@ UNIT_PF = '___0UNIT0'
 
 DEFAULT_MAT_SIZE = 10
 
+# for embedding in variable names, for assignment
+operators = {
+    '**': '_POWER_',
+    '+': '_PLUS_',
+    '-': '_MINUS_',
+    '*': '_TIMES_',
+    '/': '_OVER_',
+    '(': '_LEFT_',
+    ')': '_RIGHT_'
+}
+
 def _prep4lx(quantity, syn_obj, mat_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
     '''
     parse the given quantity to an AST object so it can be integrated in _LatexVisitor
@@ -136,6 +147,11 @@ class MathVisitor(ast.NodeVisitor):
         Turn a variable name into a supported syntax term that has
         sub/superscripts, accents, upright if needed, and prime signs
         '''
+        # take care of embedded expressions like x_OVER_4, useful for assignment
+        if any([operators[op] in name_str for op in operators]):
+            for op in operators:
+                name_str = name_str.replace(operators[op], op)
+            return self.visit(ast.parse(name_str).body[0])
         name_str = name_str.strip('_ ')
         if not name_str:
             return self.s.txt('')

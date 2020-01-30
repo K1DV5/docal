@@ -1,6 +1,8 @@
 from json import load
 import re
 from .excel import parse as parse_xl
+from ..parsing import _split, operators
+import ast
 
 dcl_pre_code = ['from math import *']
 
@@ -34,4 +36,17 @@ def to_py(line):
     line = line.replace('^', '**')
     # number coefficients like 2x
     line = re.sub(r'(?<=(?<!\w)[0-9])( ?[a-df-zA-Z_]|\()', '*\\1', line)
+    # mangle expressions when they are assignment targets
+    try:
+        ast.parse(line)
+    except SyntaxError:
+        parts = _split(line)
+        if len(line) > 1:  # maybe an import statement or whatever
+            names = []
+            for name in parts[:-1]:  # last is value
+                mangled = name.replace(' ', '')
+                for op in operators:
+                    mangled = mangled.replace(op, operators[op])
+                names.append(mangled)
+            line = '='.join(names) + '=' + parts[-1]
     return line
