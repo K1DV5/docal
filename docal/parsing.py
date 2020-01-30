@@ -147,11 +147,6 @@ class MathVisitor(ast.NodeVisitor):
         Turn a variable name into a supported syntax term that has
         sub/superscripts, accents, upright if needed, and prime signs
         '''
-        # take care of embedded expressions like x_OVER_4, useful for assignment
-        if any([operators[op] in name_str for op in operators]):
-            for op in operators:
-                name_str = name_str.replace(operators[op], op)
-            return self.visit(ast.parse(name_str).body[0])
         name_str = name_str.strip('_ ')
         if not name_str:
             return self.s.txt('')
@@ -300,6 +295,17 @@ class MathVisitor(ast.NodeVisitor):
 
     # variables
     def visit_Name(self, n, shallow=False):
+        # take care of embedded expressions like x_OVER_4, useful for assignment
+        if any([operators[op] in n.id for op in operators]):
+            name = n.id
+            for op in operators:
+                name = name.replace(operators[op], op)
+            tree = ast.parse(name).body[0].value
+            if shallow:
+                return tree
+            return to_math(tree, mul=self.mul, div=self.div,
+                           mat_size=self.mat_size, decimal=self.decimal,
+                           syntax=self.s, ital=self.ital)
         if not self.subs and not shallow:
             return self.format_name(n.id)
         # substitute the value of the variable by formatted value
@@ -382,8 +388,10 @@ class MathVisitor(ast.NodeVisitor):
         # to surround with parens if it has units
         if isinstance(n.op, ast.Pow):
             n.left.is_in_power = True
+        # these do not need to be surrounded with parens
         div_and_frac = self.div == 'frac' and isinstance(n.op, ast.Div)
-        if self.prec(n.op) > self.prec(n.left) and not div_and_frac:
+        tmp_left = self.visit_Name(n.left, True) if isinstance(n.left, ast.Name) else n.left
+        if self.prec(n.op) > self.prec(tmp_left) and not div_and_frac:
             left = self.s.delmtd(self.visit(n.left))
         else:
             left = self.visit(n.left)
