@@ -35,24 +35,19 @@ class LogRecorder(logging.Handler):
         self.log.append(self.format(record))
 
 
-class document:
-    '''organize the process by taking tags from the filetype-specific classes,
-    making a dictionary for them, and calling the write method of those classes
+class processor:
+    '''organize the process by taking tags from the filetype-specific handler objects,
+    making a dictionary for them, and calling the write method of those objects
     giving them the dictionary
 
-    things required from handler class;
-    * .__init__(self, infile: str, PATTERN: re.compiled?)
-    * .syntax provider object property
-    * list of .tags property already in the document
-    * .write(self, outfile: str, values: dict) method (if writing)
+    syntax: an object with methods for math rendering like frac, rad...
+    tags: str[]
     '''
 
-    def __init__(self, infile=None, outfile=None, handler=None, working_dict=DICT, log_level=None):
+    def __init__(self, syntax=None, tags=None, log_level=None):
         '''initialize'''
 
-        if handler is None:
-            raise ValueError('File handler required.')
-        self.syntax = handler.syntax
+        self.syntax = syntax
         # ===========LOGGING==================
         # clear previous handlers so the logs are only for the current run
         log_formatter = logging.Formatter(LOG_FORMAT)
@@ -65,28 +60,19 @@ class document:
         logger.addHandler(self.log_recorder)
         if log_level:
             logger.setLevel(getattr(logging, log_level.upper()))
-        # =========FILE HANDLING================
-        if infile:
-            infile = path.abspath(infile)
-            basename, ext = path.splitext(infile)
-            self.document_file = handler(infile, PATTERN)
-            # the calculations object that will convert given things to a list and store
-            self.tags = self.document_file.tags
-        elif outfile:
-            ext = path.splitext(outfile)[1]
-            self.document_file = handler(None, PATTERN)
-            self.tags = []
+        # =========TAG HANDLING================
+        self.tags = tags
+        if self.tags:
+            self.current_tag = self.tags[0]
         else:
-            raise ValueError('Need to specify at least one document')
-        self.outfile = path.abspath(outfile) if outfile else None
-        self.current_tag = self.tags[0] if self.tags else None
-        if self.current_tag is None and infile:
-            logger.warning('There are no tags in the document')
+            self.current_tag = None
+            if self.tags is not None:
+                logger.warning('There are no tags in the document')
         # =========CALCULATION================
         # the calculations corresponding to the tags
         self.contents = {}
         # working area
-        self.working_dict = working_dict
+        self.working_dict = DICT
         # default calculation options
         self.default_options = _process_options('', syntax=self.syntax)
         self.working_dict['__DOCAL_OPTIONS__'] = self.default_options
@@ -108,6 +94,8 @@ class document:
                 if part.kind == 'tag':
                     tag = self.current_tag = part.content
                     logger.info('[Change tag] #%s', tag)
+                    if not tag in self.tags and self.tags:
+                        logger.warning('#' + tag + ' is not in the tags')
                 elif part.kind == 'text':
                     for line in self._process_text(part.content):
                         processed.append((tag, line))
@@ -204,12 +192,3 @@ class document:
                      options=options)
         return [result] + [('text', '')] * options['newlines']
 
-    def write(self):
-        '''
-        tell the respective handler to write the file
-        '''
-
-        self.document_file.write(self.outfile, self.contents)
-        logger.info('SUCCESS!!!')
-        self.log = self.log_recorder.log
-        return True

@@ -2,9 +2,9 @@
 import sys
 from subprocess import run
 
-from docal import document
-from docal.handlers.latex import handler as handler_t
-from docal.handlers.word import handler as handler_w
+from docal import processor
+from docal.document.latex import document as handler_t, syntax as syn_t
+from docal.document.word import document as handler_w, syntax as syn_w
 from docal.parsers.excel import parse as parse_xl
 from docal.parsers.dcl import parse as parse_dcl
 
@@ -46,29 +46,27 @@ e = exp(log(4))
 '''
 
 def test_word():
-    word = 'test/w.docx'
-    d = document(word, None, handler_w)
+    word = handler_w('test/w.docx')
+    d = processor(syn_w(), word.tags)
     d.send(calculation)
-    assert d.write()
-    # run(['start', 'test/w-out.docx'])
+    word.write(d.contents)
 
 def test_excel():
-    tex = 'test/t.tex'
-    d = document(tex, tex, handler_t)
+    tex = handler_t('test/t.tex')
+    d = processor(syn_t(), tex.tags)
     calculation = parse_xl('test/e.xlsx')
     d.send(calculation)
-    assert d.write()
+    tex.write(d.contents)
 
 def test_dcl():
-    tex = 'test/t.tex'
-    d = document(tex, tex, handler_t)
+    tex = handler_t('test/t.tex')
+    d = processor(syn_t(), tex.tags)
     d.send(parse_dcl('./dcl-example.json'))
-    assert d.write()
+    tex.write(d.contents)
 
 def test_latex():
-    tex = 'test/t.tex'
-    d = document(tex, tex, handler_t)
+    tex = handler_t('test/t.tex')
+    d = processor(syn_t(), tex.tags)
     d.send(calculation)
-    assert d.write()
-    # run(['do.bat', tex])
+    tex.write(d.contents)
 

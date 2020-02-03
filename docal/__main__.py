@@ -4,9 +4,9 @@ script handler
 from argparse import ArgumentParser
 from os import path
 from glob import glob
-from docal import document
+from docal import processor
 from docal.parsers import excel, dcl
-from docal.handlers import word, latex
+from docal.document import word, latex
 # for included word template access
 from pkg_resources import resource_filename
 
@@ -45,8 +45,8 @@ parser.add_argument('-l', '--log-level', choices=['INFO', 'WARNING', 'ERROR', 'D
 args = parser.parse_args()
 
 handlers = {
-    '.tex': latex.handler,
-    '.docx': word.handler
+    '.tex': latex,
+    '.docx': word
 }
 
 def main():
@@ -55,9 +55,10 @@ def main():
     '''
     extension_i = path.splitext(args.input)[1] if args.input else None
     extension_o = path.splitext(args.output)[1] if args.output else None
-    extension = extension_i if extension_i else extension_o
     try:
-        d = document(args.input, args.output, handlers[extension], args.log_level)
+        handler = handlers[extension_i if extension_i else extension_o]
+        doc = handler.document(args.input, args.output)
+        proc = processor(doc.tags, handler.syntax(), args.log_level)
         if not args.clear:
             calculation = path.abspath(args.script)
             kind = path.splitext(calculation)[1]
@@ -71,13 +72,13 @@ def main():
                     instructions = dcl.parse(file.read())
             else:
                 instructions = ''
-            d.send(instructions)
-        d.write()
+            doc.send(instructions)
+        doc.write(proc.contents)
     except Exception as exc:
         if args.log_level == 'DEBUG':
             raise
         else:
-            print('ERROR:', exc)
+            print('ERROR:', str(exc))
 
 
 if __name__ == '__main__':

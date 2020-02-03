@@ -1,6 +1,7 @@
 from os import path
 import re
 import logging
+from ..processing import PATTERN
 
 logger = logging.getLogger(__name__)
 
@@ -154,19 +155,17 @@ class syntax:
         return srnds[0] + inner + srnds[1]
 
 
-class handler:
+class document:
     '''handles the latex files'''
-
-    syntax = syntax()
 
     # warning for tag place protection in document:
     warning = ('BELOW IS AN AUTO GENERATED LIST OF TAGS. '
                'DO NOT DELETE IT IF REVERSING IS DESIRED!!!\n%')
 
-    def __init__(self, infile, pattern):
+    def __init__(self, infile=None, outfile=None):
 
         # the tag pattern
-        self.pattern = pattern
+        self.pattern = PATTERN
         if infile:
             self.infile = self.outfile = infile
             with open(self.infile, encoding='utf-8') as file:
@@ -185,7 +184,8 @@ class handler:
                          for tag in self.pattern.finditer(self.file_contents)]
         else:
             self.file_contents = self.infile = self.tagline = self.tags = None
-            self.outfile = DEFAULT_FILE
+        if self.outfile is None:
+            self.outfile = path.abspath(outfile) if outfile else DEFAULT_FILE
         self.calc_tags = []
 
     def _revert_tags(self):
@@ -233,10 +233,7 @@ class handler:
         logger.error(f"There is nothing to send to #{tag}.")
         return start + '#' + tag + end
 
-    def write(self, outfile=None, values={}):
-        if outfile:
-            self.outfile = outfile
-
+    def write(self, values={}):
         if len(values):
             if self.infile:
                 for tag in values:

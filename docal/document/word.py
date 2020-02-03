@@ -14,6 +14,8 @@ from os import path
 import re
 # log info
 import logging
+# tag pattern
+from ..processing import PATTERN
 
 logger = logging.getLogger(__name__)
 
@@ -169,9 +171,8 @@ class syntax:
         align_chr = self.txt('&amp;=')
         return form.format(''.join([line_form.format(align_chr.join(eq)) for eq in eqns]))
 
-class handler:
+class document:
 
-    syntax = syntax()
     # the xml declaration
     declaration = '<?xml version="1.0" encoding="utf-8" standalone="yes"?>\n'
     # always required namespaces
@@ -200,17 +201,14 @@ class handler:
     # the internal form of the parsed tags for internal use to avoid normal # usage
     tag_alt_form = '#{%s}'
 
-    def __init__(self, infile, pattern):
+    def __init__(self, infile=None, outfile=None):
         # the tag pattern
-        self.pattern = pattern
+        self.pattern = PATTERN
         # temp folder for converted files
-        # self.temp_dir = path.join(environ['TMP'], '.docalTemp')
         self.temp_dir = tempfile.mkdtemp()
         # file taken as input file when not explicitly set:
         if infile:
             self.infile = infile
-            base, ext = path.splitext(self.infile)
-            self.outfile = base + '-out' + ext
             with ZipFile(infile, 'r') as zin:
                 file_contents = zin.read('word/document.xml')
                 self.tmp_file = ZipFile(path.join(
@@ -234,6 +232,12 @@ class handler:
                 self.temp_dir, path.splitext(
                     path.basename(DEFAULT_FILE))[0])
             self.infile = self.doc_tree = self.tags_info = self.tags = None
+        if outfile:
+            self.outfile = path.abspath(outfile) 
+        elif infile:
+            base, ext = path.splitext(self.infile)
+            self.outfile = base + '-out' + ext
+        else:
             self.outfile = DEFAULT_FILE
 
     def normalized_contents(self, paragraph):
@@ -416,16 +420,13 @@ class handler:
 
         return paras
 
-    def write(self, outfile=None, values={}):
-
-        if outfile:
-            self.outfile = outfile
+    def write(self, values={}):
 
         if self.infile:
             self._subs_tags(values)
         else:
             tmp_fname = path.splitext(self.tmp_file)[0] + '.docx'
-            with ZipFile(resource_filename(__name__, 'template.docx'), 'r') as zin:
+            with ZipFile(resource_filename(__name__, 'word.docx'), 'r') as zin:
                 file_contents = zin.read('word/document.xml')
                 self.tmp_file = ZipFile(tmp_fname, 'w', compression=ZIP_DEFLATED)
                 for file in zin.namelist():
