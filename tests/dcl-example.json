@@ -12,9 +12,9 @@
         {
             "type": "ascii",
             "data": [
-                ":from math import *",
+                "from math import *",
                 "x = sin(23)",
-                "some text",
+                " some text",
                 "$$ x/2 = y/2"
             ]
         },
