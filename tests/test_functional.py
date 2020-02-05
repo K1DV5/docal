@@ -33,6 +33,7 @@ d_foo = lambda x: 8*x
 y= 34*x + d_foo(x)
 z = {'x_foo': 4, 5: 'foo'}[5]
 
+#some_tag
 # default options
 
 #@ $,\
