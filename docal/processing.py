@@ -94,7 +94,7 @@ class processor:
                 if part.kind == 'tag':
                     tag = self.current_tag = part.content
                     logger.info('[Change tag] #%s', tag)
-                    if not tag in self.tags and self.tags:
+                    if self.tags and not tag in self.tags:
                         logger.warning('#' + tag + ' is not in the tags')
                 elif part.kind == 'text':
                     for line in self._process_text(part.content):
