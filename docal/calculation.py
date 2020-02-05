@@ -50,22 +50,26 @@ def _calculate(expr: ast.AST, options: dict, working_dict: dict, mul=' ', div='/
     value_ast = expr if options['result'] is None else options['result']
     value = eval(compile(ast.Expression(value_ast), '<calculation>', 'eval'),
                  working_dict)
-    result = [
-        lx_args(expr),
+    result = [lx_args(expr)]
+    result_rest = [
         lx_args(expr, True),
-        lx_args(value if not isinstance(value_ast, ast.Lambda) else value_ast)
-    ]
+        lx_args(value if not isinstance(value_ast, ast.Lambda) else value_ast)]
 
     if options['steps']:
+        result += result_rest
         result = [result[s] for s in options['steps'] if 0 <= s <= 2]
     # remove repeated steps (retaining order)
     elif isinstance(expr, ast.Constant) or isinstance(value_ast, ast.Lambda):
-        result = [result[2]]
-    elif isinstance(expr, ast.Name) or (not isinstance(expr, ast.BinOp)
-                                        and not isinstance(expr, ast.UnaryOp)):
-        result = [result[0], result[2]]
+        result = [result_rest[1]]
+    elif isinstance(expr, ast.Name):
+        result = [result[0], result_rest[1]]
     else:
-        result = list(dict.fromkeys(result))
+        last_str = str(result[0])
+        for step in result_rest:
+            step_str = str(step)
+            if step_str != last_str:
+                last_str = step_str
+                result.append(step)
     # detect if the user is trying to give a different unit and give warning
     if options['unit']:
         # in their dict forms
