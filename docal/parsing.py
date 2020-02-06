@@ -629,13 +629,18 @@ def _split(what: str, char='=') -> list:
     balanced = []
     incomplete = ''
     for e in what.split(char):
+        to_add = None
         if incomplete or not _parens_balanced(e):
             incomplete += (char if incomplete else '') + e
             if incomplete and _parens_balanced(incomplete):
-                balanced.append(incomplete.strip())
-                incomplete = ''
-        else:
-            balanced.append(e.strip())
+                to_add, incomplete = incomplete.strip(), ''
+        elif e:  # leave '' between ==
+            to_add = e
+        if to_add is not None:
+            if balanced and balanced[-1][-1] in '<>':
+                balanced[-1] += char + to_add
+            else:
+                balanced.append(to_add)
     return balanced
 
 

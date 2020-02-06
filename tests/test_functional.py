@@ -22,7 +22,7 @@ x + 23 #3,$
 # Value reference inline
 # then x is #x and 
 # some display equation
-#$$ v*x + 34 = d/#x + f(x) * (-1) + c_bar
+#$$ v*x + 34 = d/#x + f(x) * (-1) + c_bar > foo >= roo
 # some inline equation
 #$ f+x/2=log(sqrt(f/w))
 
