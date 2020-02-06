@@ -8,12 +8,13 @@
 
 from setuptools import setup, find_packages
 
-VERSION = '2.2.2'
+VERSION = '3.0.0'
 
 with open('README.md') as readme_file:
     readme = readme_file.read()
 
 setup(
+    name='docal',
     author="Kidus Adugna",
     author_email='kidusadugna@gmail.com',
     classifiers=[
@@ -25,6 +26,7 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
     ],
     description="Inject calculations into Word and LaTeX documents with ease!",
     entry_points={
@@ -36,9 +38,8 @@ setup(
     long_description=readme,
     long_description_content_type='text/markdown',
     include_package_data=True,
-    keywords='docal',
-    name='docal',
-    packages=['docal', 'docal.parsers', 'docal.handlers'],
+    keywords='docal, math, latex, word',
+    packages=['docal', 'docal.parsers', 'docal.document'],
     url='https://github.com/K1DV5/docal',
     version=VERSION,
     zip_safe=False,
