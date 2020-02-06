@@ -595,17 +595,19 @@ def to_math(expr, mul=' ', div='frac', subs=False, mat_size=DEFAULT_MAT_SIZE, de
 
 
 def build_eqn(eq_list, disp=True, vert=True, syntax=None, srnd=True, joint='='):
+    joint = syntax.txt(joint)
     if len(eq_list) == 1:
         if len(eq_list[0]) == 1:
             inner = eq_list[0][0]
         else:
-            inner = syntax.txt(joint).join(eq_list[0])
+            inner = joint.join(eq_list[0])
     else:
         if vert and disp:
-            inner = syntax.eqarray([[syntax.txt(joint).join(eq[:-1]),
-                                     eq[-1]] for eq in eq_list])
+            inner = syntax.eqarray([[
+                joint.join(eq[:-1]) if len(eq) > 1 else syntax.txt(''),
+                eq[-1]] for eq in eq_list])
         else:
-            inner = syntax.txt('').join([syntax.txt(joint).join(eq) for eq in eq_list])
+            inner = syntax.txt('  ').join([joint.join(eq) for eq in eq_list])
     if srnd:
         if disp:
             return syntax.math_disp(inner)
