@@ -167,7 +167,7 @@ class document:
         # the tag pattern
         self.pattern = PATTERN
         if infile:
-            self.infile = self.outfile = infile
+            self.infile = infile
             with open(self.infile, encoding='utf-8') as file:
                 self.file_contents = file.read()
             # the collection of tags at the bottom of the file for reversing
@@ -183,9 +183,12 @@ class document:
             self.tags = [tag.group(2)
                          for tag in self.pattern.finditer(self.file_contents)]
         else:
-            self.file_contents = self.infile = self.tagline = self.tags = None
-        if self.outfile is None:
-            self.outfile = path.abspath(outfile) if outfile else DEFAULT_FILE
+            self.file_contents = '\\documentclass{article}\n\\usepackage{amsmath}\n\\begin{document}\n%s\n\\end{document}' 
+            self.infile = self.tagline = self.tags = None
+        if outfile is None:
+            self.outfile = self.infile if self.infile else DEFAULT_FILE
+        else:
+            self.outfile = path.abspath(outfile)
         self.calc_tags = []
 
     def _revert_tags(self):
@@ -246,7 +249,7 @@ class document:
                 else:
                     self.file_contents = self._subs_separate(values)
             else:
-                self.file_contents = '\n'.join([
+                self.file_contents = self.file_contents % '\n'.join([
                     '\n'.join([v[1] for v in val]) for val in values.values()
                 ])
 
