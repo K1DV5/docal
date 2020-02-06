@@ -306,7 +306,7 @@ class MathVisitor(ast.NodeVisitor):
             return to_math(tree, mul=self.mul, div=self.div,
                            mat_size=self.mat_size, decimal=self.decimal,
                            syntax=self.s, ital=self.ital)
-        if not self.subs and not shallow:
+        if not self.subs or not shallow:
             return self.format_name(n.id)
         # substitute the value of the variable by formatted value
         try:
