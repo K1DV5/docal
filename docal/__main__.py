@@ -58,7 +58,7 @@ def main():
     try:
         handler = handlers[extension_i if extension_i else extension_o]
         doc = handler.document(args.input, args.output)
-        proc = processor(doc.tags, handler.syntax(), args.log_level)
+        proc = processor(handler.syntax(), doc.tags, args.log_level)
         if not args.clear:
             calculation = path.abspath(args.script)
             kind = path.splitext(calculation)[1]
@@ -72,7 +72,7 @@ def main():
                     instructions = dcl.parse(file.read())
             else:
                 instructions = ''
-            doc.send(instructions)
+            proc.send(instructions)
         doc.write(proc.contents)
     except Exception as exc:
         if args.log_level == 'DEBUG':
