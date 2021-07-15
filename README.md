@@ -158,7 +158,7 @@ Example
 
 Let\'s say you have a word document `foo.docx` with contents like this.
 
-![Word document input](https://github.com/K1DV5/doCal/raw/dev/common/images/word-in.jpg%20%22Word%20document%20input%22)
+![Word document input](images/word-in.png)
 
 And you write the calculations in the file `foo.py` next to `foo.docx`
 ```python
@@ -196,16 +196,9 @@ docal foo.py -o foo.docx
 A third file, named `foo-out.docx` will appear. And it will look like
 this.
 
-![Word document output](https://github.com/K1DV5/doCal/raw/master/common/images/word-out.jpg%20%22Word%20document%20output%22)
+![Word document output](images/word-out.png)
 
 Known Issues
 ------------
 
-- ~~You cannot use python statements that need indenting. This is~~
-  ~~because docal reads the script line by line and uses exec to make~~
-  ~~the necessary assignments, and since you can\'t continue an already~~
-  ~~indented code with exec, that will result in an error. If you have~~
-  ~~an idea to overcome this problem, feel free to contact me.~~
-  The whole script is parsed with Python's AST so you can write whatever you like
-  as long as it is a valid python.
-- TODO: ~~A nice GUI~~ GUI project started. See https://github.com/K1DV5/docal-tkinter.
+- Python's AST changes almost every release. And since this package depends on that, supporting every new version of python will be like a moving target. I'm considering using a third party package that tries to solve this specific problem, like [ast-compat](https://pypi.org/project/ast-compat/).
