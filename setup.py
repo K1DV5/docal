@@ -1,6 +1,6 @@
 # -{twine upload dist/*}
-# -{twine upload --repository testpypi dist/*}
 # -{del dist\* | python %f sdist bdist_wheel}
+# -{twine upload --repository testpypi dist/*}
 # -{pip install -e .}
 """
 :copyright: (c) 2019 by K1DV5
@@ -9,7 +9,7 @@
 
 from setuptools import setup
 
-VERSION = '3.0.3'
+VERSION = '3.0.4'
 
 with open('README.md') as readme_file:
     readme = readme_file.read()
