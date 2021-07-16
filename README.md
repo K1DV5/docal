@@ -158,7 +158,7 @@ Example
 
 Let\'s say you have a word document `foo.docx` with contents like this.
 
-![Word document input](images/word-in.png)
+![Word document input](https://raw.githubusercontent.com/K1DV5/docal/master/images/word-in.png)
 
 And you write the calculations in the file `foo.py` next to `foo.docx`
 ```python
@@ -196,7 +196,7 @@ docal foo.py -o foo.docx
 A third file, named `foo-out.docx` will appear. And it will look like
 this.
 
-![Word document output](images/word-out.png)
+![Word document output](https://raw.githubusercontent.com/K1DV5/docal/master/images/word-out.png)
 
 Known Issues
 ------------
