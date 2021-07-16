@@ -198,7 +198,13 @@ this.
 
 ![Word document output](https://raw.githubusercontent.com/K1DV5/docal/master/images/word-out.png)
 
-Known Issues
-------------
+Note
+----
 
-- Python's AST changes almost every release. And since this package depends on that, supporting every new version of python will be like a moving target. I'm considering using a third party package that tries to solve this specific problem, like [ast-compat](https://pypi.org/project/ast-compat/).
+- Python's AST changes almost every release. And since this package depends on
+  that, supporting every new version of python will be like a moving target.
+  This project was developed against python 3.8 and since the syntax changes in
+  python 3.9 don't seem to affect this project, it should work with those
+  versions. But versions before 3.8 are not guaranteed to work for every use
+  case. I'm considering using a third party package that tries to solve this
+  specific problem, like [ast-compat](https://pypi.org/project/ast-compat/).

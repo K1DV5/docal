@@ -1,6 +1,6 @@
-# -{del dist\* | python %f sdist bdist_wheel}
-# -{twine upload --repository testpypi dist/*}
 # -{twine upload dist/*}
+# -{twine upload --repository testpypi dist/*}
+# -{del dist\* | python %f sdist bdist_wheel}
 # -{pip install -e .}
 """
 :copyright: (c) 2019 by K1DV5
@@ -24,10 +24,8 @@ setup(
         'Intended Audience :: End Users/Desktop',
         'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
     ],
     description="Inject calculations into Word and LaTeX documents with ease!",
     entry_points={
