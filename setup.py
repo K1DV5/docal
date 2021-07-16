@@ -1,5 +1,6 @@
-# -{twine upload dist/*}
 # -{del dist\* | python %f sdist bdist_wheel}
+# -{twine upload --repository testpypi dist/*}
+# -{twine upload dist/*}
 # -{pip install -e .}
 """
 :copyright: (c) 2019 by K1DV5
@@ -40,6 +41,7 @@ setup(
     include_package_data=True,
     keywords='docal, math, latex, word',
     packages=['docal', 'docal.parsers', 'docal.document'],
+    package_data={'docal.document': ['word.docx']},
     url='https://github.com/K1DV5/docal',
     version=VERSION,
     zip_safe=False,
