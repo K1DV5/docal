@@ -7,7 +7,7 @@ import ast
 dcl_pre_code = ['from math import *']
 
 def parse(filename):
-    with open(filename) as file:
+    with open(filename, encoding='utf-8') as file:
         doc_tree = load(file)
     converted = []
     for child in doc_tree['data']:

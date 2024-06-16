@@ -68,8 +68,7 @@ def main():
             elif kind == '.xlsx':
                 instructions = excel.parse(calculation)
             elif kind == '.dcl':
-                with open(args.script, encoding='utf-8') as file:
-                    instructions = dcl.parse(file.read())
+                instructions = dcl.parse(args.script)
             else:
                 instructions = ''
             proc.send(instructions)

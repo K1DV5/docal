@@ -1,8 +1,8 @@
 todo
-.RnD
-**/__pycache__
+rnd
+__pycache__
 build/
 dist/
 docal.egg-info/
 tests/test
-
+.venv

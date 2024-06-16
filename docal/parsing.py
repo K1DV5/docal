@@ -446,10 +446,8 @@ class MathVisitor(ast.NodeVisitor):
                              .join([self.visit(element) for element in n.elts]))
 
     def visit_Dict(self, n):  # dict
-        row = lambda k, v: self.s.matrix([self.visit(k),
-                                          self.s.txt(': '),
-                                          self.visit(v)
-                                          ], False)
+        def row(k, v):
+            return self.s.matrix([self.visit(k), self.s.txt(': '), self.visit(v)], False)
         elements = [row(k, v) for k, v in zip(n.keys, n.values)]
         return self.s.matrix(elements, True)
 
