@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "docal"
+version = "3.0.5"
+authors = [
+  { name="Kidus Adugna", email="kidusadugna@gmail.com" },
+]
+description = "Inject calculations into Word and LaTeX documents with ease!"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+]
+keywords=["docal", "math", "latex", "word", "mathcad"]
+
+[tool.setuptools]
+packages=["docal", "docal.parsers", "docal.document"]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+]
+
+[project.scripts]
+docal = "docal.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/K1DV5/docal"
+Issues = "https://github.com/K1DV5/docal/issues"

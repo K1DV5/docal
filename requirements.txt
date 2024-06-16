@@ -1,4 +1,0 @@
-wheel
-twine
-pytest
-nuitka
