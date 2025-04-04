@@ -1,7 +1,4 @@
-# -{pytest %f --capture=no}
-import sys
-from subprocess import run
-
+# $ pytest %f --capture=no
 from docal import processor
 from docal.document.latex import document as handler_t, syntax as syn_t
 from docal.document.word import document as handler_w, syntax as syn_w

@@ -201,7 +201,7 @@ class document:
                               + re.escape(SURROUNDING[0])
                               + '.*?'
                               + re.escape(SURROUNDING[1]),
-                              '#' + tag, file_str, 1)
+                              '#' + tag, file_str, count=1)
         # for inplace editing
         self.file_contents = file_str
         return file_str

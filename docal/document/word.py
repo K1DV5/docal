@@ -1,11 +1,12 @@
 # for word file handling
 import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape
+from xml.dom.minidom import parseString
 from zipfile import ZipFile, ZIP_DEFLATED
 # for file operations
 from shutil import move, rmtree
 # for access to resource template
-from pkg_resources import resource_filename
+from importlib.resources import files
 # for temp directory
 import tempfile
 # for path manips
@@ -175,28 +176,6 @@ class document:
 
     # the xml declaration
     declaration = '<?xml version="1.0" encoding="utf-8" standalone="yes"?>\n'
-    # always required namespaces
-    namespaces = {
-        "wpc": "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas",
-        "cx": "http://schemas.microsoft.com/office/drawing/2014/chartex",
-        "cx1": "http://schemas.microsoft.com/office/drawing/2015/9/8/chartex",
-        "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",
-        "o": "urn:schemas-microsoft-com:office:office",
-        "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
-        "m": "http://schemas.openxmlformats.org/officeDocument/2006/math",
-        "v": "urn:schemas-microsoft-com:vml",
-        "wp14": "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing",
-        "wp": "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
-        "w10": "urn:schemas-microsoft-com:office:word",
-        "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
-        "w14": "http://schemas.microsoft.com/office/word/2010/wordml",
-        "w15": "http://schemas.microsoft.com/office/word/2012/wordml",
-        "w16se": "http://schemas.microsoft.com/office/word/2015/wordml/symex",
-        "wpg": "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup",
-        "wpi": "http://schemas.microsoft.com/office/word/2010/wordprocessingInk",
-        "wne": "http://schemas.microsoft.com/office/word/2006/wordml",
-        "wps": "http://schemas.microsoft.com/office/word/2010/wordprocessingShape",
-    }
 
     # the internal form of the parsed tags for internal use to avoid normal # usage
     tag_alt_form = '#{%s}'
@@ -218,6 +197,14 @@ class document:
                 for file in zin.namelist():
                     if file != 'word/document.xml':
                         self.tmp_file.writestr(file, zin.read(file))
+
+            # extract always required namespaces
+            self.namespaces = {}
+            minidoc = parseString(file_contents)
+            for k, v in minidoc.documentElement.attributes.items():
+                if not k.startswith('xmlns:'):
+                    continue
+                self.namespaces[k.replace('xmlns:', '', count=1)] = v
 
             # the xml tree representation of the document contents
             self.doc_tree = ET.fromstring(file_contents)
@@ -426,7 +413,7 @@ class document:
             self._subs_tags(values)
         else:
             tmp_fname = path.splitext(self.tmp_file)[0] + '.docx'
-            with ZipFile(resource_filename(__name__, 'word.docx'), 'r') as zin:
+            with ZipFile(files(__name__).joinpath('word.docx'), 'r') as zin:
                 file_contents = zin.read('word/document.xml')
                 self.tmp_file = ZipFile(tmp_fname, 'w', compression=ZIP_DEFLATED)
                 for file in zin.namelist():

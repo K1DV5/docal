@@ -359,9 +359,9 @@ class MathVisitor(ast.NodeVisitor):
             return self.s.txt_math(n.value)
         return self.s.txt(str(n.value))
 
-    def prec_Constant(self, n):
+    def prec_Constant(self, n: ast.Constant):
         if hasattr(n, 'is_in_power') and n.is_in_power \
-                and n.n != 0 and (abs(n.n) > 1000 or abs(n.n) < 0.1):
+                and n.value != 0 and (abs(n.value) > 1000 or abs(n.value) < 0.1):
             return 300
         return 1000
 

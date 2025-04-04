@@ -4,13 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "docal"
-version = "3.0.5"
-authors = [
-  { name="Kidus Adugna", email="kidusadugna@gmail.com" },
-]
+version = "4.0.0"
 description = "Inject calculations into Word and LaTeX documents with ease!"
+authors = [
+    { name = "Kidus Adugna", email = "kidusadugna@gmail.com" }
+]
+license = { text = "MIT" }
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.13"
+keywords = ["docal", "math", "latex", "word", "engineering", "equation", "calculations", "mathcad", "scientific-reports"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
@@ -19,15 +21,8 @@ classifiers = [
     "Natural Language :: English",
     "Programming Language :: Python :: 3",
 ]
-keywords=["docal", "math", "latex", "word", "mathcad"]
 
-[tool.setuptools]
-packages=["docal", "docal.parsers", "docal.document"]
-
-[project.optional-dependencies]
-dev = [
-  "pytest",
-]
+dependencies = []
 
 [project.scripts]
 docal = "docal.__main__:main"
@@ -35,3 +30,13 @@ docal = "docal.__main__:main"
 [project.urls]
 Homepage = "https://github.com/K1DV5/docal"
 Issues = "https://github.com/K1DV5/docal/issues"
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools]
+packages = ["docal", "docal.parsers", "docal.document"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+"docal.document" = ["word.docx"]

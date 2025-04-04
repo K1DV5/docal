@@ -7,9 +7,6 @@ from glob import glob
 from docal import processor
 from docal.parsers import excel, dcl
 from docal.document import word, latex
-# for included word template access
-from pkg_resources import resource_filename
-
 
 def calculation_file(arg: str) -> str:
     'check if the argument is a path to a python script'

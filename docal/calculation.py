@@ -7,7 +7,7 @@ module and returns the procedure of the calculations
 
 import ast
 import logging
-from .parsing import to_math, MathVisitor, eqn, UNIT_PF, build_eqn, _split, DEFAULT_MAT_SIZE
+from .parsing import to_math, MathVisitor, UNIT_PF, build_eqn, _split, DEFAULT_MAT_SIZE
 
 log = logging.getLogger(__name__)
 
@@ -230,7 +230,7 @@ class UnitHandler(ast.NodeVisitor):
         else:
             func = self.visit(n.func)
         if func == 'sqrt':
-            return self.visit(ast.BinOp(left=n.args[0], op=ast.Pow(), right=ast.Num(n=1/2)))
+            return self.visit(ast.BinOp(left=n.args[0], op=ast.Pow(), right=ast.Constant(value=1/2)))
         return [{}, {}]
 
     def visit_BinOp(self, n):
@@ -242,28 +242,28 @@ class UnitHandler(ast.NodeVisitor):
         left = self.visit(n.left)
         if isinstance(n.op, ast.Pow):
             if isinstance(n.right, ast.BinOp):
-                if isinstance(n.right.left, ast.Num) and isinstance(n.right, ast.Num):
+                if isinstance(n.right.left, ast.Constant) and isinstance(n.right, ast.Constant):
                     if isinstance(n.right.op, ast.Add):
-                        p = n.right.left.n + n.right.n
+                        p = n.right.left.value + n.right.value
                     elif isinstance(n.right.op, ast.Sub):
-                        p = n.right.left.n - n.right.n
+                        p = n.right.left.value - n.right.value
                     elif isinstance(n.right.op, ast.Mult):
-                        p = n.right.left.n * n.right.n
+                        p = n.right.left.value * n.right.value
                     elif isinstance(n.right.op, ast.Div):
-                        p = n.right.left.n / n.right.n
+                        p = n.right.left.value / n.right.value
                     elif isinstance(n.right.op, ast.Pow):
-                        p = n.right.left.n ** n.right.n
+                        p = n.right.left.value ** n.right.value
                 else:
                     # XXX
                     p = 1
             elif isinstance(n.right, ast.UnaryOp):
-                if isinstance(n.right.operand, ast.Num):
+                if isinstance(n.right.operand, ast.Constant):
                     if isinstance(n.right.op, ast.USub):
-                        p = - n.right.operand.n
+                        p = - n.right.operand.value
                     elif isinstance(n.right.op, ast.UAdd):
-                        p = n.right.operand.n
-            elif isinstance(n.right, ast.Num):
-                p = n.right.n
+                        p = n.right.operand.value
+            elif isinstance(n.right, ast.Constant):
+                p = n.right.value
             else:
                 # XXX
                 p = 1
