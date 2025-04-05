@@ -57,7 +57,7 @@ pip install docal[lsp]
 
 ## Usage
 
-### Typical workflow
+The typical workflow is as follows:
 
 - The user writes the static parts of the document as usual (Word or
   Latex) but leaving sort of unique hashtags (\#tagname) for the
@@ -82,29 +82,13 @@ pip install docal[lsp]
 - Then voila! what is needed is done. The output file can be used
   normally.
 
-### Syntax
+## Syntax
 
 The syntax is simple. Just write the equations one line at a time. What
 you write in the syntax is a valid Python file, (it is just a script
 with a lot of assignments and comments).
 
-#### Comments that take whole lines
-
-These comments are converted to paragraphs or equations, depending on
-what comes immediately after the hash sign.
-
-- Equations:
-    - If the hash sign is followed by a single dollar sign (`$`), the rest of that line is expected to be a python equation, and will be converted to an inline LaTeX equation.
-    - If what comes after the dollar sign is two dollar signs (`$$`), the rest of that line will be converted to a displayed (block) equation in the document.
-- Running text: If the hash sign is followed by just running text, it is converted to a paragraph text.
-
-In both cases, when a hash character immediately followed by a variable name
-like `#x`, the value of that variable will be substituted at that place. When a
-hash character immediately followed by an expression surrounded by squirrely
-braces like `#{x + 2}` is encountered, what is inside the braces will be
-evaluated and substituted at that place.
-
-#### Equations (python assignments)
+### Equations (python assignments)
 
 These are the main focus points of this module. Obviously, they are
 evaluated as normal in the script so that the value of the variable can
@@ -118,7 +102,7 @@ the procedures).
 
 These equations can be customized using comments at their ends (see below).
 
-##### Comments after equations (assignments)
+### Comments after equations (options)
 
 These comments are taken to be customization options for the equations.
 Multiple options can be separated by commas.
@@ -135,10 +119,32 @@ Multiple options can be separated by commas.
 - **Decimal points**: If the option starts with the letter d like `d2` then the number will specify the maximum number of digits after the decimal point. Default: `d3`
 - **Force vertical**: You can force the steps to go vertically (as block equations) using `|` or horizontally (as inline equations) using `-`.
 
-##### Comments that begin with double hash signs
+### Comments that take whole lines
+
+These comments are converted to paragraphs or equations, depending on
+what comes immediately after the hash sign.
+
+- If the line starts with `#@` then the rest of the line is interpreted as options for subsequent assignments. See above about the options.
+- Equations:
+    - If the hash sign is followed by a single dollar sign (`$`), the rest of that line is expected to be a python equation, and will be converted to an inline LaTeX equation.
+    - If what comes after the dollar sign is two dollar signs (`$$`), the rest of that line will be converted to a displayed (block) equation in the document.
+- Running text: If the hash sign is followed by just running text, it is converted to a paragraph text.
+
+In the last two cases, when a hash character immediately followed by a variable
+name like `#x`, the value of that variable will be substituted at that place.
+When a hash character immediately followed by an expression surrounded by
+squirrely braces like `#{x + 2}` is encountered, what is inside the braces will
+be evaluated and substituted at that place.
+
+### Comments that begin with double hash signs
 
 If you begin a comment line witn double hash signs, like `## comment` it
 is taken as a real comment. It will not do anything.
+
+### Other code
+
+Other code elements like import statements, loops, function definitions, etc.
+are just executed and will not be included in the document.
 
 Example
 -------
