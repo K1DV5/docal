@@ -97,19 +97,18 @@ with a lot of assignments and comments).
 #### Comments that take whole lines
 
 These comments are converted to paragraphs or equations, depending on
-what comes immediately after the hash sign. If the hash sign is followed
-by a single dollar sign (\$), the rest of that line is expected to be a
-python equation, and will be converted to an inline LaTeX equation. If
-what comes after the dollar sign is two dollar signs, the rest of that
-line will be converted to a displayed (block) equation in the document.
-Remember, these equations are still in comments, and thus do not do
-anything except appear as equations. If the hash sign is followed by
-just running text, it is converted to a paragraph text. In all cases,
-when a hash character immediately followed by a variable name like \#x,
-the value of that variable will be substituted at that place. When a
-hash character immediately followed by an expression surrounded by
-squirrely braces like \#{x + 2} is encountered, what is inside the
-braces will be evaluated and substituted at that place.
+what comes immediately after the hash sign.
+
+- Equations:
+    - If the hash sign is followed by a single dollar sign (`$`), the rest of that line is expected to be a python equation, and will be converted to an inline LaTeX equation.
+    - If what comes after the dollar sign is two dollar signs (`$$`), the rest of that line will be converted to a displayed (block) equation in the document.
+- Running text: If the hash sign is followed by just running text, it is converted to a paragraph text.
+
+In both cases, when a hash character immediately followed by a variable name
+like `#x`, the value of that variable will be substituted at that place. When a
+hash character immediately followed by an expression surrounded by squirrely
+braces like `#{x + 2}` is encountered, what is inside the braces will be
+evaluated and substituted at that place.
 
 #### Equations (python assignments)
 
@@ -117,38 +116,30 @@ These are the main focus points of this module. Obviously, they are
 evaluated as normal in the script so that the value of the variable can
 be reused as always, but when they appear in the document, they are
 displayed as equation blocks that can have up to three steps (that show
-the procedures). If it is a simple assignment, like `x = 10`, they
-appear only having a single step, because there is no procedure to show.
-If the assignment contains something to be evaluated but no variable
-reference like `x = 10 + 5 / 2` or if it contains a single variable
-reference like `x = x_prime` then the procedure will have only two
-steps, first the equation and second the results. If the equation has
-both things to be evaluated and variable references, like
-`x = 5*x_prime + 10` then it will have three steps: the equation itself,
-the equation with variable references substituted by their values, and
-the result. These equations can be customized using comments at their
-ends (see below).
+the procedures).
+- If it is a simple assignment, like `x = 10`, they appear only having a single step, because there is no procedure to show.
+- If the assignment contains something to be evaluated but no variable reference like `x = 10 + 5 / 2` or if it contains a single variable reference like `x = x_prime` then the procedure will have only two steps, first the equation and second the results.
+- If the equation has both things to be evaluated and variable references, like
+`x = 5*x_prime + 10` then it will have three steps: the equation itself, the equation with variable references substituted by their values, and the result.
+
+These equations can be customized using comments at their ends (see below).
 
 ##### Comments after equations (assignments)
 
 These comments are taken to be customization options for the equations.
-Multiple options can be separated by commas. The first option is units.
-if you write something that looks like a unit (names or expressions of
-names) like `N/m**2` they are correctly displayed as units next to the
-result and whenever that variable is referenced, next to its value. The
-next option is the display type of the steps. If the option is a single
-dollar sign, the equation will be inline and if it has more than a
-single step, the steps appear next to each other. If it is double dollar
-signs, the equation(s) will be displayed as block (centered) equations.
-Another option is step overrides. If it is a sequence of digits like
-`12`, then only the steps corresponding to that number will be displayed
-(for this case steps 1 and 2). The last option is matrix and array
-cut-off size. Matrices are cut off and displayed with dots in them if
-their sizes are grester than 10 by 10 and arrays are cut off if they
-have more than 10 elements. To override this number, the option is the
-letter m followed by a number like `m6`. If the option starts with a
-hash sign like `#this is a note`, what follows will be a little note
-that will be displayed next to the last step.
+Multiple options can be separated by commas.
+
+- **Units**: If you write something that looks like a unit (names or expressions of names) like `N/m**2` they are correctly displayed as units next to the result and whenever that variable is referenced, next to its value. Note that this is just showing units. Otherwise, units are not involved in computations.
+- **Display type**:
+    - If the option is a single dollar sign `$`, the equation will be inline and if it has more than a single step, the steps appear next to each other.
+    - If it is double dollar signs `$$`, the equation(s) will be displayed as block (centered) equations (default).
+- **Step overrides**: If it is a sequence of digits like `12`, then only the steps corresponding to that number will be displayed (for this case steps 1 and 2).
+- **Matrix and array cut-off size**: Matrices are cut off and displayed with dots in them if their sizes are grester than this and arrays are cut off if they have more than this number. To override this number, the option is the letter m followed by a number like `m6`. Default: `m10`
+- **Note**: If the option starts with a hash sign like `#this is a note`, what follows will be a little note that will be displayed next to the last step.
+- **Omit**: If the option is `;` then it means omit this line in the document.
+- **Override result**: If the option starts with an equal sign like `=34` then the value after the equal sign will be written in the document as the final answer.
+- **Decimal points**: If the option starts with the letter d like `d2` then the number will specify the maximum number of digits after the decimal point. Default: `d3`
+- **Force vertical**: You can force the steps to go vertically (as block equations) using `|` or horizontally (as inline equations) using `-`.
 
 ##### Comments that begin with double hash signs
 
@@ -215,9 +206,9 @@ It can be started as
 docal --lsp
 ```
 
-Right now it has only been tested with the built-in config of Neovim 0.11 and
-only when the file name matches the pattern `*.docal.py`. The following is the
-Neovim config to use it:
+Right now it has only been tested with the built-in config of Neovim v0.11 and
+only when the file name matches the pattern `*.docal.py`. The following is an
+example Neovim config to use it:
 
 ```lua
 vim.lsp.config.docal = {
@@ -230,13 +221,11 @@ vim.lsp.enable({'docal'})
 
 # Notes
 
-**Security**: The LSP diagnostics is possible because `eval()` is used to
-evaluate the actual values. In most cases this should not be a problem as you
-are writing your own calculation scripts which you want to run later anyway.
-But still, I'm not an expert on the possible security implications though you
-should make sure that imported code is from a trusted source. Normal docal
-outside of LSP should be fine though as it only uses `literal_eval` from `ast`
-which is very limited in scope.
+**Security**: `eval()` is used to evaluate the actual values. In most cases
+this should not be a problem as you are writing your own calculation scripts
+which you want to run later anyway. But still, I'm not an expert on the
+possible security implications though you should make sure that imported code
+is from a trusted source.
 
 Python's AST changes almost every release. And since this package depends on
 that, supporting every new version of python will be like a moving target. This
