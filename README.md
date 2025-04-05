@@ -228,8 +228,15 @@ vim.lsp.config.docal = {
 vim.lsp.enable({'docal'})
 ```
 
-Note
-----
+# Notes
+
+**Security**: The LSP diagnostics is possible because `eval()` is used to
+evaluate the actual values. In most cases this should not be a problem as you
+are writing your own calculation scripts which you want to run later anyway.
+But still, I'm not an expert on the possible security implications though you
+should make sure that imported code is from a trusted source. Normal docal
+outside of LSP should be fine though as it only uses `literal_eval` from `ast`
+which is very limited in scope.
 
 Python's AST changes almost every release. And since this package depends on
 that, supporting every new version of python will be like a moving target. This
