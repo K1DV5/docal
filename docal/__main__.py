@@ -1,9 +1,8 @@
 '''
 script handler
 '''
-from argparse import ArgumentParser
+from argparse import ArgumentParser, BooleanOptionalAction
 from os import path
-from glob import glob
 from docal import processor
 from docal.parsers import excel, dcl
 from docal.document import word, latex
@@ -35,6 +34,7 @@ parser.add_argument('-c', '--clear', action='store_true',
                     help='Clear the calculations and try to '
                     'revert the document to the previous state. '
                     'Only for the calculation ranges in LaTeX files.')
+parser.add_argument('--lsp', help='Start as LSP server', action=BooleanOptionalAction)
 parser.add_argument('-l', '--log-level', choices=['INFO', 'WARNING', 'ERROR', 'DEBUG'],
                     help='How much info you want to see')
 
@@ -50,6 +50,10 @@ def main():
     '''
     main function in this script
     '''
+    if args.lsp:
+        from docal.lsp import server
+        server.start_io()
+        return
     extension_i = path.splitext(args.input)[1] if args.input else None
     extension_o = path.splitext(args.output)[1] if args.output else None
     try:

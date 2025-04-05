@@ -24,15 +24,16 @@ classifiers = [
 
 dependencies = []
 
+[project.optional-dependencies]
+dev = ["pytest", "twine", "build"]
+lsp = ["pygls"]
+
 [project.scripts]
 docal = "docal.__main__:main"
 
 [project.urls]
 Homepage = "https://github.com/K1DV5/docal"
 Issues = "https://github.com/K1DV5/docal/issues"
-
-[project.optional-dependencies]
-dev = ["pytest"]
 
 [tool.setuptools]
 packages = ["docal", "docal.parsers", "docal.document"]
