@@ -6,14 +6,14 @@ Inject Python calculations into Word and LaTeX documents with ease!
 
 - Free software: MIT license
 
-docal is a tool that can be used to send calculations that are written
-in python to Word or LaTeX documents. It evaluates equations in a
-separate python script from the document and replaces hashtags in the
-document that indicate where the calculations should be with the results
-of the evaluation. It comes with a powerful python expression to LaTeX
-converter built-in, so it converts the calculations and their results to
-their appropriate LaTeX forms before sending them, which makes it ideal
-to make academic and scientific reports.
+docal is a tool that can be used to send calculations that are written in
+python to Word or LaTeX documents. It evaluates equations in a separate python
+script from the document and replaces hashtags in the document that indicate
+where the calculations should be with the results of the evaluation. It comes
+with a powerful python expression to document equations converter built-in, so
+it converts the calculations and their results to their appropriate equation
+forms before sending them, which makes it ideal to make academic and scientific
+reports.
 
 ## Installation
 
@@ -34,12 +34,6 @@ good to go. If either you don\'t have Python 3 or you don\'t have Python
 at all, you should go to [Python\'s homepage](https://www.python.org)
 and install it, making sure to check the box \"add python to path\"
 during installation.
-
-If you want to work with word documents, you should have
-[Pandoc](https://pandoc.org) installed on your system (and in
-your PATH). Because docal internally only works with tex files and when
-a word file is given, it internally converts it to tex, modifies it and
-converts it back to word, using pandoc.
 
 ### Install
 
