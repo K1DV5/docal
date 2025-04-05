@@ -1,5 +1,4 @@
-docal
-=====
+# docal
 
 [![image](https://img.shields.io/pypi/v/docal.svg)](https://pypi.python.org/pypi/docal)
 
@@ -16,8 +15,7 @@ converter built-in, so it converts the calculations and their results to
 their appropriate LaTeX forms before sending them, which makes it ideal
 to make academic and scientific reports.
 
-Installation
-------------
+## Installation
 
 ### Requirements
 
@@ -58,8 +56,12 @@ Or from the source:
 pip install .
 ```
 
-Usage
------
+To install the LSP support (see below), you can add `[lsp]`:
+```shell
+pip install docal[lsp]
+```
+
+## Usage
 
 ### Typical workflow
 
@@ -198,13 +200,42 @@ this.
 
 ![Word document output](https://raw.githubusercontent.com/K1DV5/docal/master/images/word-out.png)
 
+### LSP support
+
+There is support for LSP for basic assistance which evaluates and stores
+the values of the variables as information diagnostics which can be used
+to get immediate feedback on our calculations. On Neovim, with virtual
+text, it looks like this:
+
+![LSP Info](https://raw.githubusercontent.com/K1DV5/docal/master/images/lsp.png)
+
+It can be started as
+
+```shell
+docal --lsp
+```
+
+Right now it has only been tested with the built-in config of Neovim 0.11 and
+only when the file name matches the pattern `*.docal.py`. The following is the
+Neovim config to use it:
+
+```lua
+vim.lsp.config.docal = {
+  cmd = { 'docal', '--lsp' },
+  filetypes = { 'python' },
+}
+
+vim.lsp.enable({'docal'})
+```
+
 Note
 ----
 
-- Python's AST changes almost every release. And since this package depends on
-  that, supporting every new version of python will be like a moving target.
-  This project was developed against python 3.8 and since the syntax changes in
-  python 3.9 don't seem to affect this project, it should work with those
-  versions. But versions before 3.8 are not guaranteed to work for every use
-  case. I'm considering using a third party package that tries to solve this
-  specific problem, like [ast-compat](https://pypi.org/project/ast-compat/).
+Python's AST changes almost every release. And since this package depends on
+that, supporting every new version of python will be like a moving target. This
+project has been developed against the Python versions available at the time of
+writing. There was the option of using
+[ast-compat](https://pypi.org/project/ast-compat/) to not be affected by the
+changing AST, but I'm not sure if introducing a dependency is worth the
+benefits. Therefore, my current approach is to update the code and release
+major versions.
