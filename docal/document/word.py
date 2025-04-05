@@ -185,43 +185,44 @@ class document:
         self.pattern = PATTERN
         # temp folder for converted files
         self.temp_dir = tempfile.mkdtemp()
-        # file taken as input file when not explicitly set:
+        self.infile = infile
         if infile:
-            self.infile = infile
-            with ZipFile(infile, 'r') as zin:
-                file_contents = zin.read('word/document.xml')
-                self.tmp_file = ZipFile(path.join(
-                    self.temp_dir, path.splitext(path.basename(self.infile))[0]),
-                    'w', compression=ZIP_DEFLATED)
-                self.tmp_file.comment = zin.comment
-                for file in zin.namelist():
-                    if file != 'word/document.xml':
-                        self.tmp_file.writestr(file, zin.read(file))
-
-            # extract always required namespaces
-            self.namespaces = {}
-            minidoc = parseString(file_contents)
-            for k, v in minidoc.documentElement.attributes.items():
-                if not k.startswith('xmlns:'):
-                    continue
-                self.namespaces[k.replace('xmlns:', '', count=1)] = v
-
-            # the xml tree representation of the document contents
-            self.doc_tree = ET.fromstring(file_contents)
-            for prefix, uri in self.namespaces.items():
-                ET.register_namespace(prefix, uri)
-
-            # the tags in the document (stores tags, their addresses, and whether inline)
-            self.tags_info = self.extract_tags_info(self.doc_tree)
-            self.tags = [info['tag'] for info in self.tags_info]
+            # input file specified
+            tmp_fname = infile
         else:
-            self.tmp_file = path.join(
-                self.temp_dir, path.splitext(
-                    path.basename(DEFAULT_FILE))[0])
-            self.infile = self.doc_tree = self.tags_info = self.tags = None
+            # file taken as input file when not explicitly set:
+            tmp_fname = DEFAULT_FILE
+            infile = files(__name__).joinpath('word.docx')
+
+        with ZipFile(infile, 'r') as zin:
+            file_contents = zin.read('word/document.xml')
+            tmp_filename_full = path.join(self.temp_dir, path.splitext(path.basename(tmp_fname))[0])
+            self.tmp_file = ZipFile(tmp_filename_full, 'w', compression=ZIP_DEFLATED)
+            self.tmp_file.comment = zin.comment
+            for file in zin.namelist():
+                if file != 'word/document.xml':
+                    self.tmp_file.writestr(file, zin.read(file))
+
+        # extract always required namespaces
+        self.namespaces = {}
+        minidoc = parseString(file_contents)
+        for k, v in minidoc.documentElement.attributes.items():
+            if not k.startswith('xmlns:'):
+                continue
+            self.namespaces[k.replace('xmlns:', '', count=1)] = v
+
+        # the xml tree representation of the document contents
+        self.doc_tree = ET.fromstring(file_contents)
+        for prefix, uri in self.namespaces.items():
+            ET.register_namespace(prefix, uri)
+
+        # the tags in the document (stores tags, their addresses, and whether inline)
+        self.tags_info = self.extract_tags_info(self.doc_tree)
+        self.tags = [info['tag'] for info in self.tags_info]
+
         if outfile:
             self.outfile = path.abspath(outfile) 
-        elif infile:
+        elif self.infile:
             base, ext = path.splitext(self.infile)
             self.outfile = base + '-out' + ext
         else:
@@ -408,26 +409,14 @@ class document:
         return paras
 
     def write(self, values={}):
-
         if self.infile:
             self._subs_tags(values)
         else:
-            tmp_fname = path.splitext(self.tmp_file)[0] + '.docx'
-            with ZipFile(files(__name__).joinpath('word.docx'), 'r') as zin:
-                file_contents = zin.read('word/document.xml')
-                self.tmp_file = ZipFile(tmp_fname, 'w', compression=ZIP_DEFLATED)
-                for file in zin.namelist():
-                    if file != 'word/document.xml':
-                        self.tmp_file.writestr(file, zin.read(file))
-
-            self.doc_tree = ET.fromstring(file_contents)
             for child in self.doc_tree[0]:
                 self.doc_tree[0].remove(child)
             for val in values.values():
                 for para in self.para_elts(val):
                     self.doc_tree[0].append(para)
-            for prefix, uri in self.namespaces.items():
-                ET.register_namespace(prefix, uri)
         # take care of namespaces and declaration
         doc_xml = ET.tostring(self.doc_tree, encoding='unicode')
         searched = re.match(r'\<w:document.*?\>', doc_xml).group(0)
@@ -439,11 +428,11 @@ class document:
         doc_xml = self.declaration + \
             ET.tostring(self.doc_tree, encoding='unicode')
         self.tmp_file.writestr('word/document.xml', doc_xml)
-        tmp_fname = self.tmp_file.filename
+        tmp_filename = self.tmp_file.filename
         self.tmp_file.close()
 
         logger.info('[writing file] %s', self.outfile)
-        move(tmp_fname, self.outfile)
+        move(tmp_filename, self.outfile)
 
         rmtree(self.temp_dir)
 
