@@ -1,7 +1,8 @@
-from ast import Assign, Constant, Name, Starred, Tuple, parse, unparse
-from typing import List
+from ast import Assign, Constant, Name, parse, unparse
 from lsprotocol import types
 from pygls.server import LanguageServer
+
+from docal import processing
 
 class DocalLSP(LanguageServer):
     pass
@@ -21,19 +22,6 @@ def on_initialize(ls: DocalLSP, params: types.InitializeParams):
             'textDocumentSync': types.TextDocumentSyncKind.Full,
         }
     }
-
-def find_name_targets(target) -> list[Name]:
-    targets = []
-    if type(target) is Tuple or type(target) is List:
-        for elem in target.elts:
-            targets += find_name_targets(elem)
-    elif type(target) is Name:
-        targets.append(target)
-    elif isinstance(target, Starred):
-        targets += find_name_targets(target.value)
-    else:
-        raise TypeError('Unknown target', target)
-    return targets
 
 @server.feature(types.TEXT_DOCUMENT_INLAY_HINT)
 def inlay_hints(ls: DocalLSP, params: types.InlayHintParams):
@@ -57,7 +45,7 @@ def inlay_hints(ls: DocalLSP, params: types.InlayHintParams):
             continue
         targets: list[Name] = []
         for target in part.targets:
-            targets += find_name_targets(target)
+            targets += processing.find_name_targets(target)
         len_targets = len(targets)
         if part.lineno - 1 < start_line \
             or part.end_lineno - 1 > end_line \

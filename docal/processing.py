@@ -10,7 +10,6 @@ import ast
 # for tag replacements
 import re
 # for path manips
-from os import path
 # for status tracking
 import logging
 from .calculation import cal, _process_options
@@ -25,6 +24,19 @@ PATTERN = re.compile(r'(?s)([^\w\\]|^)#(\w+?)(\W|$)')
 LOG_FORMAT = '%(levelname)s: %(message)s'
 logging.basicConfig(format=LOG_FORMAT)
 logger = logging.getLogger(__name__)
+
+def find_name_targets(target) -> list[ast.Name]:
+    targets = []
+    if type(target) is ast.Tuple or type(target) is ast.List:
+        for elem in target.elts:
+            targets += find_name_targets(elem)
+    elif type(target) is ast.Name:
+        targets.append(target)
+    elif isinstance(target, ast.Starred):
+        targets += find_name_targets(target.value)
+    else:
+        raise TypeError('Unknown target', target)
+    return targets
 
 class LogRecorder(logging.Handler):
     def __init__(self):
@@ -106,8 +118,15 @@ class processor:
                     # set options for calculations that follow
                     self.default_options = _process_options(part.content, syntax=self.syntax)
             elif isinstance(part, (ast.Assign, ast.Expr)):
-                for part in self._process_assignment(part):
-                    processed.append((tag, part))
+                for proced in self._process_assignment(part):
+                    processed.append((tag, proced))
+                if type(part) is not ast.Assign:
+                    continue
+                for target in part.targets:
+                    for name in find_name_targets(target):
+                        if name.id not in self.tags:
+                            continue
+                        processed.append((name.id, ('inline', self._format_value(name.id))))
             else:
                 # if it does not appear like an equation or a comment,
                 # just execute it
