@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "docal"
-version = "4.0.0"
+version = "4.1.0"
 description = "Inject calculations into Word and LaTeX documents with ease!"
 authors = [
     { name = "Kidus Adugna", email = "kidusadugna@gmail.com" }
@@ -25,7 +25,7 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest", "twine", "build"]
+dev = ["pytest"]
 lsp = ["pygls"]
 
 [project.scripts]
