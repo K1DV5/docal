@@ -1,29 +1,24 @@
 from ast import Assign, Constant, Name, Starred, Tuple, parse, unparse
 from typing import List
+from lsprotocol import types
 from pygls.server import LanguageServer
-from lsprotocol.types import (
-    InitializeParams,
-    TextDocumentSyncKind,
-    Diagnostic,
-    DiagnosticSeverity,
-    Position,
-    Range
-)
 
 class DocalLSP(LanguageServer):
     pass
 
 servername = 'docal'
 server = DocalLSP(servername, '4.0.0')
+max_value_len = 50
+cutoff_len = max_value_len // 2
 
 def is_docal_file(uri: str) -> bool:
     return uri.endswith(".docal.py")
 
-@server.feature('initialize')
-def on_initialize(ls: DocalLSP, params: InitializeParams):
+@server.feature(types.INITIALIZE)
+def on_initialize(ls: DocalLSP, params: types.InitializeParams):
     return {
         'capabilities': {
-            'textDocumentSync': TextDocumentSyncKind.Full,
+            'textDocumentSync': types.TextDocumentSyncKind.Full,
         }
     }
 
@@ -40,14 +35,14 @@ def find_name_targets(target) -> list[Name]:
         raise TypeError('Unknown target', target)
     return targets
 
-@server.feature('textDocument/didOpen')
-@server.feature('textDocument/didChange')
-def on_change(ls: DocalLSP, params):
+@server.feature(types.TEXT_DOCUMENT_INLAY_HINT)
+def inlay_hints(ls: DocalLSP, params: types.InlayHintParams):
     if not is_docal_file(params.text_document.uri):
         return
+    items = []
+    start_line = params.range.start.line
+    end_line = params.range.end.line
     text = ls.workspace.get_document(params.text_document.uri).source
-    diagnostics = []
-
     globals = {}
     try:
         tree = parse(text)
@@ -64,20 +59,37 @@ def on_change(ls: DocalLSP, params):
         for target in part.targets:
             targets += find_name_targets(target)
         len_targets = len(targets)
-        if len_targets == 1 and type(part.value) is Constant:
+        if part.lineno - 1 < start_line \
+            or part.end_lineno - 1 > end_line \
+            or len_targets == 1 and type(part.value) is Constant:
             continue
+        values = []
         for target in targets:
-            diagnostics.append(Diagnostic(
-                range=Range(
-                    start=Position(line=target.lineno-1, character=target.col_offset),
-                    end=Position(line=target.lineno-1, character=target.end_col_offset),
+            value = str(globals[target.id])
+            if len(value) > max_value_len:
+                value =  f'{value[:cutoff_len]}...{value[-cutoff_len:]}'
+            values.append(f'{target.id if len_targets > 1 else ""} = {value}'.strip())
+        items.append(
+            types.InlayHint(
+                label=', '.join(values),
+                kind=types.InlayHintKind.Type,
+                padding_left=True,
+                padding_right=True,
+                position=types.Position(
+                    line=part.end_lineno - 1,
+                    character=part.value.end_col_offset,
                 ),
-                message=f'{target.id if len_targets > 1 else ""} = {globals[target.id]}'.strip(),
-                severity=DiagnosticSeverity.Information,
-                source=servername,
-            ))
+            )
+        )
 
-    ls.publish_diagnostics(params.text_document.uri, diagnostics)
+    return items
+
+@server.feature(types.INLAY_HINT_RESOLVE)
+def inlay_hint_resolve(hint: types.InlayHint):
+    if type(hint.label) is str:
+        n = hint.label.lstrip('= ')
+        hint.tooltip = f"Computed value of the variable: {n}"
+    return hint
 
 if __name__ == '__main__':
     server.start_io()
