@@ -82,6 +82,49 @@ The typical workflow is as follows:
 - Then voila! what is needed is done. The output file can be used
   normally.
 
+## Example
+
+Let\'s say you have a word document `foo.docx` with contents like this.
+
+![Word document input](https://raw.githubusercontent.com/K1DV5/docal/master/images/word-in.png)
+
+And you write the calculations in the file `foo.py` next to `foo.docx`
+```python
+## foo.py
+## necessary for scientific functions:
+from math import *
+
+#foo
+
+# The first side of the first triangle is
+x_1 = 5 #m
+# and the second,
+y_1 = 6 #m
+# Therefore the length of the hypotenuse will be,
+z_1 = sqrt(x_1**2 + y_1**2) #m
+
+#bar
+
+# Now the second triangle has sides that have lengths of
+x_2 = 3
+y_2 = 4
+# and therefore has a hypotenuse of
+z_2 = sqrt(x_2**2 + y_2**2) #m,13
+
+# Then, we can say that the hypotenuse of the first triangle which is #z_1 long
+# is longer than that of the second which is #z_2 long.
+```
+
+Now, If we run the command 
+
+```shell
+docal foo.py -o foo.docx
+```
+
+A third file, named `foo-out.docx` will appear. And it will look like this:
+
+![Word document output](https://raw.githubusercontent.com/K1DV5/docal/master/images/word-out.png)
+
 ## Syntax
 
 The syntax is simple. Just write the equations one line at a time. What
@@ -146,57 +189,11 @@ is taken as a real comment. It will not do anything.
 Other code elements like import statements, loops, function definitions, etc.
 are just executed and will not be included in the document.
 
-Example
--------
+## LSP support
 
-Let\'s say you have a word document `foo.docx` with contents like this.
-
-![Word document input](https://raw.githubusercontent.com/K1DV5/docal/master/images/word-in.png)
-
-And you write the calculations in the file `foo.py` next to `foo.docx`
-```python
-## foo.py
-## necessary for scientific functions:
-from math import *
-
-#foo
-
-# The first side of the first triangle is
-x_1 = 5 #m
-# and the second,
-y_1 = 6 #m
-# Therefore the length of the hypotenuse will be,
-z_1 = sqrt(x_1**2 + y_1**2) #m
-
-#bar
-
-# Now the second triangle has sides that have lengths of
-x_2 = 3
-y_2 = 4
-# and therefore has a hypotenuse of
-z_2 = sqrt(x_2**2 + y_2**2) #m,13
-
-# Then, we can say that the hypotenuse of the first triangle which is #z_1 long
-# is longer than that of the second which is #z_2 long.
-```
-
-Now, If we run the command 
-
-```shell
-docal foo.py -o foo.docx
-```
-
-A third file, named `foo-out.docx` will appear. And it will look like
-this.
-
-![Word document output](https://raw.githubusercontent.com/K1DV5/docal/master/images/word-out.png)
-
-### LSP support
-
-There is support for LSP for basic assistance which evaluates and stores
-the values of the variables as information diagnostics which can be used
-to get immediate feedback on our calculations. On Neovim, with virtual
-text, it looks like this:
+There is support for LSP for basic assistance which evaluates and stores the
+values of the variables as inlay hints which can be used to get immediate
+feedback on our calculations. On Neovim, it looks like this:
 
 ![LSP Info](https://raw.githubusercontent.com/K1DV5/docal/master/images/lsp.png)
 
@@ -217,15 +214,17 @@ vim.lsp.config.docal = {
 }
 
 vim.lsp.enable({'docal'})
+-- inlay hints have to be enabled as well
+vim.lsp.inlay_hint.enable()
 ```
 
-# Notes
+## Notes
 
 **Security**: `eval()` is used to evaluate the actual values. In most cases
 this should not be a problem as you are writing your own calculation scripts
-which you want to run later anyway. But still, I'm not an expert on the
-possible security implications though you should make sure that imported code
-is from a trusted source.
+which you want to run anyway. But still, I'm not an expert on the possible
+security implications though you should make sure that imported code is from a
+trusted source.
 
 Python's AST changes almost every release. And since this package depends on
 that, supporting every new version of python will be like a moving target. This
