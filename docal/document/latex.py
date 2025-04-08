@@ -2,6 +2,7 @@ from os import path
 import re
 import logging
 from ..processing import PATTERN
+from . import Tag
 
 logger = logging.getLogger(__name__)
 
@@ -178,9 +179,9 @@ class document:
             if self.tagline:
                 start = self.tagline.group(0).find('[[') + 2
                 end = self.tagline.group(0).rfind(']]')
-                self.tags = self.tagline.group(0)[start:end].split()
+                self.tags = [Tag(name=tag, table=False) for tag in self.tagline.group(0)[start:end].split()]
                 self._revert_tags()
-            self.tags = [tag.group(2)
+            self.tags = [Tag(name=tag.group(2), table=False)
                          for tag in self.pattern.finditer(self.file_contents)]
         else:
             self.file_contents = '\\documentclass{article}\n\\usepackage{amsmath}\n\\begin{document}\n%s\n\\end{document}' 
@@ -201,7 +202,7 @@ class document:
                               + re.escape(SURROUNDING[0])
                               + '.*?'
                               + re.escape(SURROUNDING[1]),
-                              '#' + tag, file_str, count=1)
+                              '#' + tag.name, file_str, count=1)
         # for inplace editing
         self.file_contents = file_str
         return file_str
@@ -211,7 +212,7 @@ class document:
         file_str = self.pattern.sub(lambda x: self._repl(x, True, values),
                                file_str)
         for tag in self.calc_tags:
-            file_str += tag + ' '
+            file_str += tag.name + ' '
         file_str = file_str.rstrip('\n') + ']]'
         return file_str
 
@@ -237,10 +238,11 @@ class document:
         return start + '#' + tag + end
 
     def write(self, values={}):
+        tag_names = set(tag.name for tag in self.tags)
         if len(values):
             if self.infile:
                 for tag in values:
-                    if tag in self.tags:
+                    if tag in tag_names:
                         self.calc_tags.append(tag)
                     else:
                         logger.error(f'#{tag} not found in the document.')

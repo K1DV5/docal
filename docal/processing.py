@@ -12,8 +12,10 @@ import re
 # for path manips
 # for status tracking
 import logging
+from typing import Iterable
 from .calculation import cal, _process_options
 from .parsing import UNIT_PF, eqn, to_math, build_eqn, _get_parts, Comment
+from .document import Tag
 
 # default working area
 DICT = {}
@@ -25,17 +27,18 @@ LOG_FORMAT = '%(levelname)s: %(message)s'
 logging.basicConfig(format=LOG_FORMAT)
 logger = logging.getLogger(__name__)
 
-def find_name_targets(target) -> list[ast.Name]:
+def find_name_targets(target) -> list[str]:
     targets = []
     if type(target) is ast.Tuple or type(target) is ast.List:
         for elem in target.elts:
             targets += find_name_targets(elem)
     elif type(target) is ast.Name:
-        targets.append(target)
+        targets.append(target.id)
     elif isinstance(target, ast.Starred):
         targets += find_name_targets(target.value)
     else:
-        raise TypeError('Unknown target', target)
+        # probably not useful to put in document
+        pass
     return targets
 
 class LogRecorder(logging.Handler):
@@ -53,10 +56,9 @@ class processor:
     giving them the dictionary
 
     syntax: an object with methods for math rendering like frac, rad...
-    tags: str[]
     '''
 
-    def __init__(self, syntax=None, tags=None, log_level=None):
+    def __init__(self, syntax=None, tags: list[Tag] | None=None, log_level=None):
         '''initialize'''
 
         self.syntax = syntax
@@ -73,12 +75,16 @@ class processor:
         if log_level:
             logger.setLevel(getattr(logging, log_level.upper()))
         # =========TAG HANDLING================
-        self.tags = tags
-        if self.tags:
-            self.current_tag = self.tags[0]
-        else:
-            self.current_tag = None
-            if self.tags is not None:
+        self.current_tag = None
+        if tags:
+            self.tags = tags
+            for tag in tags:
+                if tag.block and not tag.table:
+                    self.current_tag = tag.name
+                    break
+        if self.current_tag is None:
+            self.tags = None
+            if tags is not None:
                 logger.warning('There are no tags in the document')
         # =========CALCULATION================
         # the calculations corresponding to the tags
@@ -99,34 +105,56 @@ class processor:
             self.contents[tag].append(part)
 
     def process(self, parts): # exported
-        tag = self.current_tag
         processed = []
+        tag_names_visited = {tag.name: {'inline': False, 'table': False} for tag in self.tags}
         for part in _get_parts(parts):
             if isinstance(part, Comment):
                 if part.kind == 'tag':
-                    tag = self.current_tag = part.content
+                    self.current_tag = part.content
                     logger.info('[Change tag] #%s', tag)
-                    if self.tags and not tag in self.tags:
-                        logger.warning('#' + tag + ' is not in the tags')
+                    if self.tags and self.current_tag not in tag_names_visited:
+                        logger.warning('#' + self.current_tag + ' is not in the tags')
                 elif part.kind == 'text':
                     for line in self._process_text(part.content):
-                        processed.append((tag, line))
+                        processed.append((self.current_tag, line))
                 elif part.kind in ['eqn-inline', 'eqn-disp']:
                     disp = part.kind == 'eqn-disp'
-                    processed.append((tag, self._process_equation(part.content, disp)))
+                    processed.append((self.current_tag, self._process_equation(part.content, disp)))
                 elif part.kind == 'options':
                     # set options for calculations that follow
                     self.default_options = _process_options(part.content, syntax=self.syntax)
             elif isinstance(part, (ast.Assign, ast.Expr)):
                 for proced in self._process_assignment(part):
-                    processed.append((tag, proced))
-                if type(part) is not ast.Assign:
+                    processed.append((self.current_tag, proced))
+                if not isinstance(part, ast.Assign):
                     continue
                 for target in part.targets:
                     for name in find_name_targets(target):
-                        if name.id not in self.tags:
+                        if name not in tag_names_visited:
                             continue
-                        processed.append((name.id, ('inline', self._format_value(name.id))))
+                        visited = tag_names_visited[name]
+                        for tag in self.tags:
+                            if not tag.table:
+                                if visited['inline']:
+                                    continue
+                                processed.append((name, ('inline', self._format_value(name))))
+                                visited['inline'] = True
+                                continue
+                            if visited['table']:
+                                continue
+                            visited['table'] = True
+                            value = self.working_dict[name] # sure because this is after exec
+                            if not isinstance(value, Iterable):
+                                continue
+                            tbl_value = []
+                            for row in value:
+                                if not isinstance(row, Iterable):
+                                    continue
+                                row_val = []
+                                for col in row:
+                                    row_val.append(self._format_value(name, value=col))
+                                tbl_value.append(row_val)
+                            processed.append((name, ('table', tbl_value)))
             else:
                 # if it does not appear like an equation or a comment,
                 # just execute it
@@ -142,8 +170,11 @@ class processor:
 
         return processed
 
-    def _format_value(self, var, srnd=True):
-        if var in self.working_dict:
+    def _format_value(self, var, srnd=True, value=None):
+        if var not in self.working_dict:
+            raise KeyError(f"'{var}' is an undefined variable.")
+        if value is None:
+            value = self.working_dict[var]
             unit_name = var + UNIT_PF
             unit = to_math(self.working_dict[unit_name],
                            div="/",
@@ -152,12 +183,12 @@ class processor:
                            ital=False) \
                 if unit_name in self.working_dict.keys() and self.working_dict[unit_name] \
                 and self.working_dict[unit_name] != '_' else ''
-            result = to_math(self.working_dict[var], syntax=self.syntax)
-            return build_eqn([[result + self.syntax.txt(self.syntax.halfsp) + unit]],
-                             disp=False, vert=False, srnd=srnd,
-                             syntax=self.syntax)
         else:
-            raise KeyError(f"'{var}' is an undefined variable.")
+            unit = ''
+        result = to_math(value, syntax=self.syntax)
+        return build_eqn([[result + self.syntax.txt(self.syntax.halfsp) + unit]],
+                         disp=False, vert=False, srnd=srnd,
+                         syntax=self.syntax)
 
     def _process_text(self, line):
         '''

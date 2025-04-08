@@ -53,10 +53,10 @@ def inlay_hints(ls: DocalLSP, params: types.InlayHintParams):
             continue
         values = []
         for target in targets:
-            value = str(globals[target.id])
+            value = str(globals[target])
             if len(value) > max_value_len:
                 value =  f'{value[:cutoff_len]}...{value[-cutoff_len:]}'
-            values.append(f'{target.id if len_targets > 1 else ""} = {value}'.strip())
+            values.append(f'{target if len_targets > 1 else ""} = {value}'.strip())
         items.append(
             types.InlayHint(
                 label=', '.join(values),

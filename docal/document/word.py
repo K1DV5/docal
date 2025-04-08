@@ -3,6 +3,7 @@ import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape
 from xml.dom.minidom import parseString
 from zipfile import ZipFile, ZIP_DEFLATED
+from dataclasses import dataclass
 # for file operations
 from shutil import move, rmtree
 # for access to resource template
@@ -17,10 +18,12 @@ import re
 import logging
 # tag pattern
 from ..processing import PATTERN
+from . import Tag
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_FILE = 'Untitled.docx'
+TABLE_FLAG_INDEX = -1
 
 GREEK_LETTERS = {
     'alpha':      'α',
@@ -79,6 +82,15 @@ MATH_ACCENTS = {
 
 PRIMES = {'prime': "'", '2prime': "''", '3prime': "'''"}
 
+TAG_ALT_FORM = '#{%s}'
+
+@dataclass
+class TagWord(Tag):
+    alt: str
+    address: list[ET.Element]
+    index: int
+    tbl: ET.Element | None = None
+    tbl_row: ET.Element | None = None
 
 class syntax:
 
@@ -177,9 +189,6 @@ class document:
     # the xml declaration
     declaration = '<?xml version="1.0" encoding="utf-8" standalone="yes"?>\n'
 
-    # the internal form of the parsed tags for internal use to avoid normal # usage
-    tag_alt_form = '#{%s}'
-
     def __init__(self, infile=None, outfile=None):
         # the tag pattern
         self.pattern = PATTERN
@@ -216,9 +225,8 @@ class document:
         for prefix, uri in self.namespaces.items():
             ET.register_namespace(prefix, uri)
 
-        # the tags in the document (stores tags, their addresses, and whether inline)
-        self.tags_info = self.extract_tags_info(self.doc_tree)
-        self.tags = [info['tag'] for info in self.tags_info]
+        # the tags in the document
+        self.tags = self.extract_tags(self.doc_tree)
 
         if outfile:
             self.outfile = path.abspath(outfile) 
@@ -248,103 +256,168 @@ class document:
                 conts.append(child)
         return conts
 
-    def extract_tags_info(self, tree):
-
+    def extract_paragraph_tags(self, parent: ET.Element, para: ET.Element, index: int) -> list[TagWord]:
         pref_w = f'{{{self.namespaces["w"]}}}'
-        tags_info = []
+        # get its contents and clear it
+        contents = self.normalized_contents(para)
+        para.clear()
+        tags: list[TagWord] = []
+        for cont in contents:
+            if type(cont) != list:
+                para.append(cont)
+                continue
+            if '#' not in cont[0]:
+                # preserve properties
+                for r in cont[1:]:
+                    para.append(r)
+                continue
+            # replace with a new element
+            w_r = ET.SubElement(para, pref_w + 'r')
+            w_t = ET.SubElement(w_r, pref_w + 't',
+                                {'xml:space': 'preserve'})
+            # store full info about the tags inside
+            for match in self.pattern.finditer(cont[0]):
+                tags.append(TagWord(
+                    name=match.group(2),
+                    alt=TAG_ALT_FORM % match.group(2),
+                    address=[parent, para, w_r, w_t],
+                    block=cont[0].strip() == '#' + match.group(2),
+                    table=False, # can be modified by caller
+                    index=index,
+                ))
+            # remove \'s from the escaped #'s and change the tags form
+            w_t.text = (re.sub(r'\\#', '#', self.pattern.sub(
+                lambda tag:
+                    tag.group(1) +
+                    TAG_ALT_FORM % tag.group(2) +
+                    tag.group(3),
+                cont[0])))
+        return tags
+
+    def extract_tags(self, tree) -> list[TagWord]:
+        pref_w = f'{{{self.namespaces["w"]}}}'
+        tags = []
         for index, child in enumerate(tree[0]):
             if child.tag == pref_w + 'p':
-                # get its contents and clear it
-                conts = self.normalized_contents(child)
-                child.clear()
-                for cont in conts:
-                    if type(cont) == list:
-                        if '#' in cont[0]:
-                            # replace with a new element
-                            w_r = ET.SubElement(child, pref_w + 'r')
-                            w_t = ET.SubElement(w_r, pref_w + 't',
-                                                {'xml:space': 'preserve'})
-                            # store full info about the tags inside
-                            for tag in self.pattern.finditer(cont[0]):
-                                if cont[0].strip() == '#' + tag.group(2):
-                                    position = 'para'
-                                else:
-                                    position = 'inline'
-                                tags_info.append({
-                                    'tag': tag.group(2),
-                                    'tag-alt': self.tag_alt_form % tag.group(2),
-                                    'address': [child, w_r, w_t],
-                                    'position': position,
-                                    'index': index})
-                            # remove \'s from the escaped #'s and change the tags form
-                            w_t.text = (re.sub(r'\\#', '#', self.pattern.sub(
-                                lambda tag:
-                                    tag.group(1) +
-                                    self.tag_alt_form % tag.group(2) +
-                                    tag.group(3),
-                                cont[0])))
-                        else:  # preserve properties
-                            for r in cont[1:]:
-                                child.append(r)
-                    else:
-                        child.append(cont)
-
-        return tags_info
+                tags += self.extract_paragraph_tags(tree[0], child, index)
+            elif child.tag == pref_w + 'tbl':
+                for tr in child:
+                    if tr.tag != pref_w + 'tr':
+                        continue
+                    for tc in tr:
+                        cell_tags: list[TagWord] = []
+                        for i, p in enumerate(tc):
+                            if p.tag == pref_w + 'p':
+                                cell_tags += self.extract_paragraph_tags(tc, p, i)
+                        if len(cell_tags) != 1:
+                            # no or many tags, cannot be considered for table
+                            tags += cell_tags
+                            continue
+                        tag = cell_tags[0]
+                        if not tag.block:
+                            # inline, may be with other content
+                            tags.append(tag)
+                            continue
+                        # table tag
+                        tag.table = True
+                        tag.tbl = child
+                        tag.tbl_row = tr
+                        tags.append(tag)
+        return tags
 
     def _subs_tags(self, values={}):
-        ans_info = {tag: self.para_elts(val) for tag, val in values.items()}
-
-        added = 0  # the added index to make up for the added elements
-        for tag, ans_parts in ans_info.items():
-            matching_infos = [
-                info for info in self.tags_info if info['tag'] == tag]
-            if matching_infos:
-                info = matching_infos[0]
+        matched_tags = {}
+        added: dict[str, int] = {}  # the added index to make up for the added elements
+        for tag in self.tags:
+            loc_parent, loc_para, loc_run, loc_text = tag.address
+            if tag.name not in values:
+                logger.warning(f'There is nothing to send to #{tag.name}.')
                 # remove this entry to revert the left ones from their alt form
-                self.tags_info.remove(info)
-                if info['position'] == 'para':
-                    ans_parts.reverse()  # because they are inserted at the same index
-                    for ans in ans_parts:
-                        self.doc_tree[0].insert(info['index'] + added, ans)
-                    self.doc_tree[0].remove(info['address'][0])
-                    added += len(ans_parts) - 1  # minus the tag para (removed)
-                else:
-                    loc_para, loc_run, loc_text = info['address']
-                    split_text = loc_text.text.split(info['tag-alt'], 1)
-                    loc_text.text = split_text[1]
-                    index_run = list(loc_para).index(loc_run)
+                loc_text.text = loc_text.text.replace(tag.alt, '#' + tag.name)
+                continue
+            matched_tags[tag.name] = True
+            if tag.table:
+                for position, value in values[tag.name]:
+                    if position != 'table':
+                        continue
+                    row = tag.tbl_row
+                    i_row_init = None
+                    j_col_init = None
+                    n_init_rows = len(tag.tbl)
+                    n_init_cols = 0
+                    for i, cr in enumerate(tag.tbl):
+                        if cr == row:
+                            i_row_init = i
+                            n_init_cols = len(cr)
+                            for j, cc in enumerate(cr):
+                                if cc == loc_parent:
+                                    j_col_init = j
+                                    break
+                            break
                     pref_w = f'{{{self.namespaces["w"]}}}'
-                    # if there is only one para, insert its contents into the para
-                    if len(ans_parts) == 1:
-                        ans_runs = list(ans_parts[0])
-                        ans_runs.reverse()  # same reason as above
-                        for run in ans_runs:
-                            loc_para.insert(index_run, run)
-                        beg_run = ET.Element(pref_w + 'r')
-                        beg_text = ET.SubElement(beg_run, pref_w + 't',
-                                                 {'xml:space': 'preserve'})
-                        beg_text.text = split_text[0]
-                        loc_para.insert(index_run, beg_run)
-                    else:  # split the para and make new paras between the splits
-                        beg_para = ET.Element(pref_w + 'p')
-                        beg_run = ET.SubElement(beg_para, pref_w + 'r')
-                        beg_text = ET.SubElement(beg_run, pref_w + 't',
-                                                 {'xml:space': 'preserve'})
-                        beg_text.text = split_text[0]
-                        ans_parts.reverse()  # same reason as above
-                        for ans in ans_parts:
-                            self.doc_tree[0].insert(info['index'] + added, ans)
-                        beg_index = info['index'] + added
-                        self.doc_tree[0].insert(beg_index, beg_para)
-                        added += len(ans_parts) + 1
-            else:
-                logger.warning(f'#{tag} not found in the document.')
-        # revert the rest of the tags from their alt form
-        for info in self.tags_info:
-            logger.warning(f'There is nothing to send to #{info["tag"]}.')
-            loc_text = info['address'][2]
-            loc_text.text = loc_text.text.replace(
-                info['tag-alt'], '#' + info['tag'])
+                    for i, row_val in enumerate(value, start=i_row_init):
+                        if n_init_rows < i + 1:
+                            row_val_element = ET.Element(pref_w + 'tr')
+                            for j in range(n_init_cols):
+                                row_val_element.append(ET.Element(pref_w + 'tc'))
+                            tag.tbl.append(row_val_element)
+                        else:
+                            row_val_element = tag.tbl[i]
+                        for j, val in enumerate(row_val, start=j_col_init):
+                            if n_init_cols < j + 1:
+                                col_val_element = ET.Element(pref_w + 'tc')
+                                row_val_element.append(col_val_element)
+                            else:
+                                col_val_element = row_val_element[j]
+                                for elm in col_val_element:
+                                    if elm.tag == pref_w + 'p':
+                                        col_val_element.remove(elm)
+                            value_para = self.para_elts([('inline', val)])[0]
+                            col_val_element.append(value_para)
+                else:
+                    matched_tags[tag.name] = False
+                continue
+            ans_parts = [*self.para_elts(values[tag.name])]
+            added_current = added.setdefault(loc_para, 0)
+            if tag.block:
+                ans_parts.reverse()  # because they are inserted at the same index
+                for ans in ans_parts:
+                    loc_parent.insert(tag.index + added_current, ans)
+                loc_parent.remove(loc_para)
+                added[loc_para] += len(ans_parts) - 1  # minus the tag para (removed)
+                continue
+            # inline
+            split_text = loc_text.text.split(tag.alt, 1)
+            loc_text.text = split_text[1]
+            index_run = list(loc_para).index(loc_run)
+            pref_w = f'{{{self.namespaces["w"]}}}'
+            # if there is only one para, insert its contents into the para
+            if len(ans_parts) == 1:
+                ans_runs = list(ans_parts[0])
+                ans_runs.reverse()  # same reason as above
+                for run in ans_runs:
+                    loc_para.insert(index_run, run)
+                beg_run = ET.Element(pref_w + 'r')
+                beg_text = ET.SubElement(beg_run, pref_w + 't',
+                                         {'xml:space': 'preserve'})
+                beg_text.text = split_text[0]
+                loc_para.insert(index_run, beg_run)
+                continue
+            # split the para and make new paras between the splits
+            beg_para = ET.Element(pref_w + 'p')
+            beg_run = ET.SubElement(beg_para, pref_w + 'r')
+            beg_text = ET.SubElement(beg_run, pref_w + 't',
+                                     {'xml:space': 'preserve'})
+            beg_text.text = split_text[0]
+            ans_parts.reverse()  # same reason as above
+            for ans in ans_parts:
+                loc_parent.insert(tag.index + added_current, ans)
+            beg_index = tag.index + added_current
+            loc_parent.insert(beg_index, beg_para)
+            added[loc_para] += len(ans_parts) + 1
+        for tag in values:
+            if tag not in matched_tags:
+                logger.warning(f'#{tag.name} not found in the document.')
 
     def collect_txt(self, content):
         paras = []
