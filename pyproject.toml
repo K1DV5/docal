@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "docal"
-version = "4.1.0"
+version = "4.2.0"
 description = "Inject calculations into Word and LaTeX documents with ease!"
 authors = [
     { name = "Kidus Adugna", email = "kidusadugna@gmail.com" }
