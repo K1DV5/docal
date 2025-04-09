@@ -327,7 +327,7 @@ class document:
 
     def _subs_tags(self, values={}):
         matched_tags = {}
-        added: dict[str, int] = {}  # the added index to make up for the added elements
+        added: dict[ET.Element, int] = {}  # the added index to make up for the added elements
         for tag in self.tags:
             loc_parent, loc_para, loc_run, loc_text = tag.address
             if tag.name not in values:
@@ -337,6 +337,7 @@ class document:
                 continue
             matched_tags[tag.name] = True
             if tag.table:
+                # fill table with matrix values
                 for position, value in values[tag.name]:
                     if position != 'table':
                         continue

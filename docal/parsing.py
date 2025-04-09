@@ -8,6 +8,7 @@ https://stackoverflow.com/questions/3867028/converting-a-python-numeric-expressi
 import ast
 import re
 import logging
+from typing import Iterable
 
 log = logging.getLogger(__name__)
 
@@ -30,32 +31,26 @@ operators = {
     ')': '_RIGHT_'
 }
 
+NUMPY_TYPES = ['numpy.ndarray', 'numpy.matrix']
+
+def mat_to_list(quantity):
+    quantity_type = str(type(quantity))
+    if any([typ in quantity_type for typ in NUMPY_TYPES]):
+        quantity = quantity.tolist()
+    return quantity
+
+
 def _prep4lx(quantity, syn_obj, mat_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
     '''
     parse the given quantity to an AST object so it can be integrated in _LatexVisitor
     '''
 
-    quantity_type = str(type(quantity))
-    ndquantities = ['array', 'Array', 'matrix', 'Matrix', 'list']
-
-    if any([typ in quantity_type for typ in ndquantities]):
+    if isinstance(quantity, Iterable):
         if isinstance(mat_size, int):
             mat_size = (mat_size, mat_size)
-
-        quantity = _fit_matrix(quantity, syn_obj, mat_size)
+        quantity = _fit_matrix(mat_to_list(quantity), syn_obj, mat_size)
 
     return ast.parse(str(quantity)).body[0]
-
-
-def _fit_array(array, syn_obj, mat_size=DEFAULT_MAT_SIZE):
-    '''
-    shorten the given 1 dimensional matrix/array by substituting ellipsis (...)
-    '''
-
-    if len(array) > mat_size:
-        array = [*array[:mat_size - 2], syn_obj.vdots, array[-1]]
-
-    return array
 
 
 def _fit_big_matrix(matrix, syn_obj, size):
@@ -64,20 +59,13 @@ def _fit_big_matrix(matrix, syn_obj, size):
     '''
 
     rows, cols = size
-    mat = matrix[:rows - 2, :cols - 2].tolist()
-    last_col = matrix[:rows - 2, -1].tolist()
-    if not isinstance(last_col[0], list):
-        last_col = [[e] for e in last_col]
-    last_row = matrix[-1, :cols - 2].tolist()
-    if not isinstance(last_row[0], list):
-        last_row = [[e] for e in last_row]
-    last_element = matrix[-1, -1]
-    for index, element in enumerate(mat):
-        element += [syn_obj.cdots, last_col[index][0]]
-    mat.append([syn_obj.vdots] * (cols - 2) + [syn_obj.ddots, syn_obj.vdots])
-    mat.append(last_row[0] + [syn_obj.cdots, last_element])
+    mat_new = []
+    for row in matrix[:rows - 2]:
+        mat_new.append([*row[:cols - 2], syn_obj.cdots, row[-1]])
+    mat_new.append([*([syn_obj.vdots] * (cols - 2)), syn_obj.ddots, matrix[-2][-1]])
+    mat_new.append(matrix[-1][:rows - 1] + [matrix[-1][-1]])
 
-    return mat
+    return mat_new
 
 
 def _fit_wide_matrix(matrix, syn_obj, max_cols):
@@ -85,12 +73,11 @@ def _fit_wide_matrix(matrix, syn_obj, max_cols):
     make the wide matrix narrower by substituting horizontal ... in the rows
     '''
 
-    mat = matrix[:, :max_cols - 2].tolist()
-    last_col = matrix[:, -1].tolist()
-    for index, element in enumerate(mat):
-        element += [syn_obj.cdots, last_col[index][0]]
+    mat_new = []
+    for row in matrix:
+        mat_new.append([*row[:max_cols - 2], syn_obj.cdots, row[-1]])
 
-    return mat
+    return mat_new
 
 
 def _fit_long_matrix(matrix, syn_obj, max_rows):
@@ -98,11 +85,11 @@ def _fit_long_matrix(matrix, syn_obj, max_rows):
     shorten the matrix by substituting vertical ... in the columns
     '''
 
-    mat = matrix[:max_rows - 2, :].tolist()
-    mat += [[syn_obj.vdots] * matrix.shape[1]]
-    mat += matrix[-1, :].tolist()
+    mat_new = matrix[:max_rows - 2]
+    mat_new.append([syn_obj.vdots] * len(mat_new[0]))
+    mat_new.append(matrix[-1])
 
-    return mat
+    return mat_new
 
 
 def _fit_matrix(matrix, syn_obj, max_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
@@ -110,23 +97,28 @@ def _fit_matrix(matrix, syn_obj, max_size=(DEFAULT_MAT_SIZE, DEFAULT_MAT_SIZE)):
     if there is a need, make the given matrix smaller
     '''
 
-    shape = (len(matrix),) if isinstance(matrix, list) else matrix.shape
-    # array -> short
-    if len(shape) == 1 and shape[0] > max_size[0] or isinstance(matrix, list):
-        mat_ls = _fit_array(matrix, syn_obj, max_size[0])
-    # too big -> small
-    elif matrix.shape[0] > max_size[0] and matrix.shape[1] > max_size[1]:
-        mat_ls = _fit_big_matrix(matrix, syn_obj, max_size)
-    # too long -> small
-    elif matrix.shape[0] > max_size[0] and matrix.shape[1] < max_size[1]:
-        mat_ls = _fit_long_matrix(matrix, syn_obj, max_size[0])
-    # too wide -> small
-    elif matrix.shape[0] < max_size[0] and matrix.shape[1] > max_size[1]:
-        mat_ls = _fit_wide_matrix(matrix, syn_obj, max_size[1])
-    # already small so :)
+    shape = [len(matrix)]
+    cols = 1
+    if len(matrix) > 0:
+        mat_ls = []
+        for row in matrix:
+            if isinstance(row, Iterable):
+                row = list(row)
+                if cols == 1:
+                    cols = len(row)
+            mat_ls.append(row)
     else:
-        mat_ls = matrix.tolist()
-
+        mat_ls = []
+    shape.append(cols)
+    # too big -> small
+    if shape[0] > max_size[0] and shape[1] > max_size[1]:
+        mat_ls = _fit_big_matrix(mat_ls, syn_obj, max_size)
+    # too long -> small
+    elif shape[0] > max_size[0]:
+        mat_ls = _fit_long_matrix(mat_ls, syn_obj, max_size[0])
+    # too wide -> small
+    elif shape[1] > max_size[1]:
+        mat_ls = _fit_wide_matrix(mat_ls, syn_obj, max_size[1])
     return mat_ls
 
 

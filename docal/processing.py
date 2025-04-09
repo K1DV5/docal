@@ -14,7 +14,7 @@ import re
 import logging
 from typing import Iterable
 from .calculation import cal, _process_options
-from .parsing import UNIT_PF, eqn, to_math, build_eqn, _get_parts, Comment
+from .parsing import UNIT_PF, eqn, mat_to_list, to_math, build_eqn, _get_parts, Comment
 from .document import Tag
 
 # default working area
@@ -78,7 +78,12 @@ class processor:
         self.current_tag = None
         if tags:
             self.tags = tags
+            tag_props = {}
             for tag in tags:
+                prop = (tag.block, tag.table)
+                if tag_props.get(tag.name, prop) != prop:
+                    raise ValueError(f'The same tag #{tag.name} cannot be used for different purposes.')
+                tag_props[tag.name] = prop
                 if tag.block and not tag.table:
                     self.current_tag = tag.name
                     break
@@ -106,13 +111,19 @@ class processor:
 
     def process(self, parts): # exported
         processed = []
-        tag_names_visited = {tag.name: {'inline': False, 'table': False} for tag in self.tags}
+        tag_names = set()
+        variable_tags: dict[str, Tag] = {}
+        for tag in self.tags:
+            if tag.table or not tag.block:
+                variable_tags[tag.name] = tag
+            else:
+                tag_names.add(tag.name)
         for part in _get_parts(parts):
             if isinstance(part, Comment):
                 if part.kind == 'tag':
                     self.current_tag = part.content
                     logger.info('[Change tag] #%s', tag)
-                    if self.tags and self.current_tag not in tag_names_visited:
+                    if self.tags and self.current_tag not in tag_names:
                         logger.warning('#' + self.current_tag + ' is not in the tags')
                 elif part.kind == 'text':
                     for line in self._process_text(part.content):
@@ -126,35 +137,6 @@ class processor:
             elif isinstance(part, (ast.Assign, ast.Expr)):
                 for proced in self._process_assignment(part):
                     processed.append((self.current_tag, proced))
-                if not isinstance(part, ast.Assign):
-                    continue
-                for target in part.targets:
-                    for name in find_name_targets(target):
-                        if name not in tag_names_visited:
-                            continue
-                        visited = tag_names_visited[name]
-                        for tag in self.tags:
-                            if not tag.table:
-                                if visited['inline']:
-                                    continue
-                                processed.append((name, ('inline', self._format_value(name))))
-                                visited['inline'] = True
-                                continue
-                            if visited['table']:
-                                continue
-                            visited['table'] = True
-                            value = self.working_dict[name] # sure because this is after exec
-                            if not isinstance(value, Iterable):
-                                continue
-                            tbl_value = []
-                            for row in value:
-                                if not isinstance(row, Iterable):
-                                    continue
-                                row_val = []
-                                for col in row:
-                                    row_val.append(self._format_value(name, value=col))
-                                tbl_value.append(row_val)
-                            processed.append((name, ('table', tbl_value)))
             else:
                 # if it does not appear like an equation or a comment,
                 # just execute it
@@ -167,6 +149,24 @@ class processor:
                         unit_var = t.id + UNIT_PF
                         if unit_var in self.working_dict:
                             del self.working_dict[unit_var]
+        for tag in variable_tags.values():
+            if not tag.table:
+                processed.append((tag.name, ('inline', self._format_value(tag.name))))
+                continue
+            if tag.name not in self.working_dict:
+                raise KeyError(f"'{tag.name}' is an undefined variable.")
+            value = self.working_dict[tag.name]
+            if not isinstance(value, Iterable):
+                continue
+            tbl_value = []
+            for row in mat_to_list(value):
+                if not isinstance(row, Iterable):
+                    continue
+                row_val = []
+                for col in row:
+                    row_val.append(self._format_value(tag.name, value=col))
+                tbl_value.append(row_val)
+            processed.append((tag.name, ('table', tbl_value)))
 
         return processed
 
