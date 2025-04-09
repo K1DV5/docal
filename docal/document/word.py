@@ -341,35 +341,43 @@ class document:
                 for position, value in values[tag.name]:
                     if position != 'table':
                         continue
-                    row = tag.tbl_row
                     i_row_init = None
                     j_col_init = None
-                    n_init_rows = len(tag.tbl)
-                    n_init_cols = 0
-                    for i, cr in enumerate(tag.tbl):
-                        if cr == row:
-                            i_row_init = i
-                            n_init_cols = len(cr)
-                            for j, cc in enumerate(cr):
-                                if cc == loc_parent:
-                                    j_col_init = j
-                                    break
-                            break
+                    n_init_rows = None
+                    n_init_cols = None
                     pref_w = f'{{{self.namespaces["w"]}}}'
-                    for i, row_val in enumerate(value, start=i_row_init):
+                    for i, cr in enumerate(tag.tbl):
+                        if cr.tag != pref_w + 'tr':
+                            continue
+                        if n_init_rows is not None:
+                            n_init_rows += 1
+                        if cr != tag.tbl_row:
+                            continue
+                        n_init_rows = 1
+                        i_row_init = i
+                        for j, cc in enumerate(cr):
+                            if cc.tag != pref_w + 'tc':
+                                continue
+                            if n_init_cols is not None:
+                                n_init_cols += 1
+                            if cc == loc_parent:
+                                n_init_cols = 1
+                                j_col_init = j
+                    for i, row_val in enumerate(value):
                         if n_init_rows < i + 1:
                             row_val_element = ET.Element(pref_w + 'tr')
                             for j in range(n_init_cols):
                                 row_val_element.append(ET.Element(pref_w + 'tc'))
+                                j_col_init = 0 # because this is a new row
                             tag.tbl.append(row_val_element)
                         else:
-                            row_val_element = tag.tbl[i]
-                        for j, val in enumerate(row_val, start=j_col_init):
+                            row_val_element = tag.tbl[i + i_row_init]
+                        for j, val in enumerate(row_val):
                             if n_init_cols < j + 1:
                                 col_val_element = ET.Element(pref_w + 'tc')
                                 row_val_element.append(col_val_element)
                             else:
-                                col_val_element = row_val_element[j]
+                                col_val_element = row_val_element[j + j_col_init]
                                 for elm in col_val_element:
                                     if elm.tag == pref_w + 'p':
                                         col_val_element.remove(elm)
