@@ -21,7 +21,7 @@ reports.
 
 A basic understanding of Python in general is necessary to have a smooth
 experience here (although you will do fine even if you don\'t).If you want to
-work with a little more advanvced stuff, like arrays and matrices, more
+work with a little more advanced stuff, like arrays and matrices, more
 knowledge about python is necessary.
 
 It must be obvious by now but you should have Python installed on your
@@ -60,8 +60,8 @@ pip install docal[lsp]
 The typical workflow is as follows:
 
 - The user writes the static parts of the document as usual (Word or
-  Latex) but leaving sort of unique hashtags (\#tagname) for the
-  calculation parts (double hash signs for Wrod).
+  LaTeX) but leaving sort of unique hashtags (\#tagname) for the
+  calculation parts.
 
 - The calculations are written on a separate text file with any text
   editor (Notepad included) and saved next to the document file. For
@@ -155,7 +155,7 @@ Multiple options can be separated by commas.
     - If the option is a single dollar sign `$`, the equation will be inline and if it has more than a single step, the steps appear next to each other.
     - If it is double dollar signs `$$`, the equation(s) will be displayed as block (centered) equations (default).
 - **Step overrides**: If it is a sequence of digits like `12`, then only the steps corresponding to that number will be displayed (for this case steps 1 and 2).
-- **Matrix and array cut-off size**: Matrices are cut off and displayed with dots in them if their sizes are grester than this and arrays are cut off if they have more than this number. To override this number, the option is the letter m followed by a number like `m6`. Default: `m10`
+- **Matrix and array cut-off size**: Matrices are cut off and displayed with dots in them if their sizes are greater than this and arrays are cut off if they have more than this number. To override this number, the option is the letter m followed by a number like `m6`. Default: `m10`
 - **Note**: If the option starts with a hash sign like `#this is a note`, what follows will be a little note that will be displayed next to the last step.
 - **Omit**: If the option is `;` then it means omit this line in the document.
 - **Override result**: If the option starts with an equal sign like `=34` then the value after the equal sign will be written in the document as the final answer.
@@ -181,13 +181,65 @@ be evaluated and substituted at that place.
 
 ### Comments that begin with double hash signs
 
-If you begin a comment line witn double hash signs, like `## comment` it
+If you begin a comment line with double hash signs, like `## comment` it
 is taken as a real comment. It will not do anything.
 
 ### Other code
 
 Other code elements like import statements, loops, function definitions, etc.
 are just executed and will not be included in the document.
+
+### Variable names
+
+The names of variables are transformed into a sensible mathematical notation in the following ways:
+
+The variable can be made of parts joined by underscores (or a single part
+without any) and the parts decide how the variable will be rendered in the
+document.
+
+- For any part of the variable,
+    - If it is a greek letter name, like `alpha`, it is rendered as the actual greek letter. To write capital Greek letters, start the variable name with a capital like `Alpha`.
+    - If the name is a single letter like `x` then it is rendered as an italic single letter.
+    - If is more than one character, it is rendered as text, with upright characters.
+- If the variable contains two parts with a single underscore, like `x_y`:
+    - If the second part is the name of an accent or a prime listed in the following, like `x_hat`, it modifies the first part.
+        - `hat`
+        - `check`
+        - `breve`
+        - `acute`
+        - `grave`
+        - `tilde`
+        - `bar`
+        - `vec`
+        - `dot`
+        - `ddot`
+        - `dddot`
+        - `prime`
+        - `2prime`
+        - `3prime`
+- If it contains two parts with double underscore, like `x__y`, the second part `y` becomes a superscript.
+
+It is possible to combine the above into a name like `alpha_bar_foo__x`.
+
+### Transformations
+
+The following things are transformed into their mathematical notations:
+
+- `sqrt()`: into the square root symbol as shown in the example
+- `degC` and `degF`: into the degree Celsius or degree Fahrenheit symbols
+- `deg`: the degree symbol for angles for example
+- `integral()`: the integral sign from calculus
+- Instances of `numpy.matrix` and 2D lists: into the matrix notation
+- Instances of `numpy.array` and 1D lists: into the vector notation
+
+### Fill tables from variables (Word only)
+
+Tables can be filled from 2D variables (lists of lists or numpy matrices). To
+do that, all that's required is to create a template table and place the name
+of the variable as a \#hashtag inside the cell where we want the table to be
+filled from. Then it starts filling the table from that cell to the right and
+down. If there are no columns or rows left, new ones will be added, so that we
+don't have to know the size of the final table beforehand.
 
 ## LSP support
 
