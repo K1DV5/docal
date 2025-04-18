@@ -11,34 +11,21 @@ python to Word or LaTeX documents. It evaluates equations in a separate python
 script from the document and replaces hashtags in the document that indicate
 where the calculations should be with the results of the evaluation. It comes
 with a powerful python expression to document equations converter built-in, so
-it converts the calculations and their results to their appropriate equation
-forms before sending them, which makes it ideal to make academic and scientific
-reports.
+it converts the calculations and their results into their native equation forms
+of the document before sending them, which makes it ideal to make academic and
+scientific reports.
 
 ## Installation
 
 ### Requirements
 
-A basic understanding of Python in general is necessary to have a smooth
-experience here (although you will do fine even if you don\'t).If you want to
-work with a little more advanced stuff, like arrays and matrices, more
-knowledge about python is necessary.
-
-It must be obvious by now but you should have Python installed on your
-system. You can check that by opening your shell (see above) and typing
-the command `python` and hitting Enter. If it writes the version number
-and other info about your python installation, you already have it
-installed. If the version number starts with 2, you should probably
-install python 3 (the latest). If you have python 3 or above, you\'re
-good to go. If either you don\'t have Python 3 or you don\'t have Python
-at all, you should go to [Python\'s homepage](https://www.python.org)
-and install it, making sure to check the box \"add python to path\"
-during installation.
+The only requirement is Python with [this
+version](https://github.com/K1DV5/docal/blob/e00bde00b67ef672816abc381ad1c36325137159/pyproject.toml#L14),
+and with `pip`.
 
 ### Install
 
-To install this package, (after making sure that you have a working
-internet connection) type the following command and hit Enter.
+To install this package, type the following command and hit Enter.
 
 ```shell
 pip install docal
@@ -59,14 +46,13 @@ pip install docal[lsp]
 
 The typical workflow is as follows:
 
-- The user writes the static parts of the document as usual (Word or
+- The static parts of the document are written as usual (Word or
   LaTeX) but leaving sort of unique hashtags (\#tagname) for the
   calculation parts.
 
 - The calculations are written on a separate text file with any text
-  editor (Notepad included) and saved next to the document file. For
-  the syntax of the calculation file, see below. But it\'s just a
-  python script with comments.
+  editor and saved next to the document file. For the syntax of the calculation
+  file, see below. But it\'s just a python script with comments.
 
 - The tool is invoked with the following command:
 
@@ -243,11 +229,15 @@ don't have to know the size of the final table beforehand.
 
 ## LSP support
 
-There is support for LSP for basic assistance which evaluates and stores the
+There is LSP mode for basic assistance which evaluates and shows the
 values of the variables as inlay hints which can be used to get immediate
 feedback on our calculations. On Neovim, it looks like this:
 
 ![LSP Info](https://raw.githubusercontent.com/K1DV5/docal/master/images/lsp.png)
+
+To not clutter the screen, it doesn't show values for simple assignments of
+constants, and it doesn't repeat the name of the variable when there is only
+one.
 
 It can be started as
 
@@ -255,9 +245,9 @@ It can be started as
 docal --lsp
 ```
 
-Right now it has only been tested with the built-in config of Neovim v0.11 and
-only when the file name matches the pattern `*.docal.py`. The following is an
-example Neovim config to use it:
+Right now it has only been tested with the built-in config of Neovim v0.11. It
+only watches files whose name matches the pattern `*.docal.py`. The following
+is an example Neovim config to use it:
 
 ```lua
 vim.lsp.config.docal = {
@@ -272,11 +262,11 @@ vim.lsp.inlay_hint.enable()
 
 ## Notes
 
-**Security**: `eval()` is used to evaluate the actual values. In most cases
-this should not be a problem as you are writing your own calculation scripts
-which you want to run anyway. But still, I'm not an expert on the possible
-security implications though you should make sure that imported code is from a
-trusted source.
+**Security**: `eval() and exec()` are used to get the actual values. In most
+cases this should not be a problem as you are writing your own calculation
+scripts which you want to run anyway. But still, I'm not an expert on the
+possible security implications though you should make sure that imported code
+is from a trusted source.
 
 Python's AST changes almost every release. And since this package depends on
 that, supporting every new version of python will be like a moving target. This
@@ -285,4 +275,4 @@ writing. There was the option of using
 [ast-compat](https://pypi.org/project/ast-compat/) to not be affected by the
 changing AST, but I'm not sure if introducing a dependency is worth the
 benefits. Therefore, my current approach is to update the code and release
-major versions.
+major versions when there are changes to the AST that affect this package.
