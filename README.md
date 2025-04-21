@@ -245,9 +245,13 @@ It can be started as
 docal --lsp
 ```
 
-Right now it has only been tested with the built-in config of Neovim v0.11. It
-only watches files whose name matches the pattern `*.docal.py`. The following
-is an example Neovim config to use it:
+It only watches files whose name matches the pattern `*.docal.py` Right now, it
+has been tested with the following editors.
+
+### Neovim
+
+Using the built-in config of Neovim v0.11, it is very easy to configure. The
+following is an example config to use it:
 
 ```lua
 vim.lsp.config.docal = {
@@ -259,6 +263,21 @@ vim.lsp.enable({'docal'})
 -- inlay hints have to be enabled as well
 vim.lsp.inlay_hint.enable()
 ```
+
+### VSCode
+
+There is no custom made extension for this, but it is faily easy to use a
+generic LSP client extension like [this](https://github.com/zsol/vscode-glspc)
+and make it work with it. For example, for the mentioned extension, the only
+necessary settings are:
+
+- `glspc.server.command`: `docal`
+- `glspc.server.commandArguments`: Add one: `--lsp`
+- `glspc.server.languageId`: `python`
+
+Note that when the editor is started, `docal` has to be already instealled and
+available in `$PATH`. [Read
+more](https://github.com/zsol/vscode-glspc#failed-to-start-server-spawn-command-enoent)
 
 ## Notes
 
