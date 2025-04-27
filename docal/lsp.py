@@ -1,14 +1,14 @@
 from ast import Assign, Constant, Name, parse, unparse
 from lsprotocol import types
 from pygls.server import LanguageServer
+from importlib.metadata import version
 
 from docal import processing
 
 class DocalLSP(LanguageServer):
     pass
 
-servername = 'docal'
-server = DocalLSP(servername, '4.0.0')
+server = DocalLSP(__package__, version(__package__))
 max_value_len = 50
 cutoff_len = max_value_len // 2
 
