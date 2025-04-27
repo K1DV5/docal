@@ -113,16 +113,17 @@ class processor:
         processed = []
         tag_names = set()
         variable_tags: dict[str, Tag] = {}
-        for tag in self.tags:
-            if tag.table or not tag.block:
-                variable_tags[tag.name] = tag
-            else:
-                tag_names.add(tag.name)
+        if self.tags is not None:
+            for tag in self.tags:
+                if tag.table or not tag.block:
+                    variable_tags[tag.name] = tag
+                else:
+                    tag_names.add(tag.name)
         for part in _get_parts(parts):
             if isinstance(part, Comment):
                 if part.kind == 'tag':
                     self.current_tag = part.content
-                    logger.info('[Change tag] #%s', tag)
+                    logger.info('[Change tag] #%s', self.current_tag)
                     if self.tags and self.current_tag not in tag_names:
                         logger.warning('#' + self.current_tag + ' is not in the tags')
                 elif part.kind == 'text':
